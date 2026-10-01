@@ -45,10 +45,11 @@ namespace Gym.Runtime
         public SymbolEntry[] symbols;
     }
 
-    /// <summary>Which segment an environment runs on. Batch 02 only knows train.</summary>
+    /// <summary>Train: random 720-step episodes on the training segment. Eval: one full pass over validation or test.</summary>
     public enum GymMode
     {
         Train,
+        Eval,
     }
 
     public class GymConfigException : Exception
@@ -77,6 +78,12 @@ namespace Gym.Runtime
         public DateTime PlayStart;
         public int PlayStartIndex;
         public GymMode Mode;
+        /// <summary>The segment -gymSegment picks for evaluation (validation or test; test by default).</summary>
+        public SegmentSpec EvalSegment;
+        /// <summary>Costs from -gymFeeRate / -gymFixedFee / -gymSlippage; null when not given.</summary>
+        public double? FeeRateArg;
+        public double? FixedFeeArg;
+        public double? SlippageArg;
         public IReadOnlyList<string> Warnings;
     }
 
@@ -89,6 +96,9 @@ namespace Gym.Runtime
         public const string ConfigArg = "-gymConfig";
         public const string ModeArg = "-gymMode";
         public const string SegmentArg = "-gymSegment";
+        public const string FeeRateArg = "-gymFeeRate";
+        public const string FixedFeeArg = "-gymFixedFee";
+        public const string SlippageArg = "-gymSlippage";
 
         static readonly object Gate = new object();
         static GymSettings runtimeSettings;
@@ -107,7 +117,7 @@ namespace Gym.Runtime
         {
             string[] args = Environment.GetCommandLineArgs();
             string configPath = GetArg(args, ConfigArg) ?? DefaultConfigPath;
-            string key = configPath + "|" + GetArg(args, ModeArg) + "|" + GetArg(args, SegmentArg);
+            string key = string.Join("\u0001", args);
             lock (Gate)
             {
                 if (runtimeSettings != null && runtimeKey == key) return runtimeSettings;
@@ -145,7 +155,11 @@ namespace Gym.Runtime
             if (config == null || table == null) throw new GymConfigException(errors);
             settings.Config = config;
 
-            settings.Mode = ReadMode(args ?? Array.Empty<string>(), errors);
+            args = args ?? Array.Empty<string>();
+            settings.Mode = ReadMode(args, errors, out string evalSegmentName);
+            settings.FeeRateArg = ReadNumberArg(args, FeeRateArg, errors);
+            settings.FixedFeeArg = ReadNumberArg(args, FixedFeeArg, errors);
+            settings.SlippageArg = ReadNumberArg(args, SlippageArg, errors);
             settings.Rules = FindSymbol(config.symbol, table, settings.SymbolsPath, errors);
 
             if (!(config.initialCash > 0)) errors.Add($"initialCash must be > 0 (got {config.initialCash})");
@@ -186,6 +200,7 @@ namespace Gym.Runtime
                     settings.Series, Math.Max(config.episodeLength, 0));
                 errors.AddRange(report.Errors);
                 warnings.AddRange(report.Warnings);
+                settings.EvalSegment = evalSegmentName == "validation" ? settings.Validation : settings.Test;
 
                 int trainLast = settings.Train.LastIndex(settings.Series);
                 settings.PlayStartIndex = settings.Series.FirstIndexOnOrAfter(settings.PlayStart);
@@ -208,15 +223,40 @@ namespace Gym.Runtime
             return null;
         }
 
-        static GymMode ReadMode(string[] args, List<string> errors)
+        /// <summary>
+        /// -gymMode train (default) takes no segment other than train. -gymMode eval takes
+        /// -gymSegment validation or test (default test).
+        /// </summary>
+        static GymMode ReadMode(string[] args, List<string> errors, out string evalSegment)
         {
-            string mode = GetArg(args, ModeArg);
-            string segment = GetArg(args, SegmentArg);
-            if (mode != null && !string.Equals(mode, "train", StringComparison.OrdinalIgnoreCase))
-                errors.Add($"{ModeArg} {mode} is not supported yet; only 'train' is (evaluation arrives in batch 04)");
-            if (segment != null && !string.Equals(segment, "train", StringComparison.OrdinalIgnoreCase))
-                errors.Add($"{SegmentArg} {segment} is not supported yet; only 'train' is (evaluation arrives in batch 04)");
+            string mode = GetArg(args, ModeArg)?.ToLowerInvariant();
+            string segment = GetArg(args, SegmentArg)?.ToLowerInvariant();
+            evalSegment = "test";
+            if (mode == null || mode == "train")
+            {
+                if (segment != null && segment != "train")
+                    errors.Add($"{SegmentArg} {segment} needs {ModeArg} eval; training always uses the train segment");
+                return GymMode.Train;
+            }
+            if (mode == "eval")
+            {
+                if (segment == null || segment == "test" || segment == "validation") evalSegment = segment ?? "test";
+                else errors.Add($"{SegmentArg} {segment} is not an evaluation segment; use validation or test");
+                return GymMode.Eval;
+            }
+            errors.Add($"{ModeArg} {mode} is not a mode; use train or eval");
             return GymMode.Train;
+        }
+
+        static double? ReadNumberArg(string[] args, string name, List<string> errors)
+        {
+            string text = GetArg(args, name);
+            if (text == null) return null;
+            if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double value) &&
+                !double.IsNaN(value) && !double.IsInfinity(value))
+                return value;
+            errors.Add($"{name} '{text}' is not a number");
+            return null;
         }
 
         static T ReadJson<T>(string path, string what, List<string> errors) where T : class

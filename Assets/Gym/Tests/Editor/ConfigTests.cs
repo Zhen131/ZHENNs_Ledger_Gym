@@ -121,13 +121,33 @@ namespace Gym.Tests.Editor
         }
 
         [Test]
-        public void E01_OnlyTrainModeIsAcceptedForNow()
+        public void E01_ModeAndSegmentArguments()
         {
-            Assert.DoesNotThrow(() => GymConfigLoader.Load(GymConfigLoader.DefaultConfigPath,
-                GymConfigLoader.DefaultSymbolsPath, new[] { "x", "-gymMode", "train", "-gymSegment", "train" }));
+            GymSettings train = GymConfigLoader.Load(GymConfigLoader.DefaultConfigPath,
+                GymConfigLoader.DefaultSymbolsPath, new[] { "x", "-gymMode", "train", "-gymSegment", "train" });
+            Assert.AreEqual(GymMode.Train, train.Mode);
+
+            GymSettings test = GymConfigLoader.Load(GymConfigLoader.DefaultConfigPath,
+                GymConfigLoader.DefaultSymbolsPath, new[] { "x", "-gymMode", "eval" });
+            Assert.AreEqual(GymMode.Eval, test.Mode);
+            Assert.AreEqual("test", test.EvalSegment.Name);
+
+            GymSettings validation = GymConfigLoader.Load(GymConfigLoader.DefaultConfigPath,
+                GymConfigLoader.DefaultSymbolsPath, new[] { "x", "-gymMode", "eval", "-gymSegment", "validation",
+                    "-gymFeeRate", "0.003", "-gymFixedFee", "1", "-gymSlippage", "0.0005" });
+            Assert.AreEqual("validation", validation.EvalSegment.Name);
+            Assert.AreEqual(0.003, validation.FeeRateArg);
+            Assert.AreEqual(1.0, validation.FixedFeeArg);
+            Assert.AreEqual(0.0005, validation.SlippageArg);
+            Assert.IsNull(test.FeeRateArg);
+
             var e = Assert.Throws<GymConfigException>(() => GymConfigLoader.Load(GymConfigLoader.DefaultConfigPath,
-                GymConfigLoader.DefaultSymbolsPath, new[] { "x", "-gymMode", "eval", "-gymSegment", "test" }));
-            Assert.AreEqual(2, e.Errors.Count);
+                GymConfigLoader.DefaultSymbolsPath, new[] { "x", "-gymMode", "play", "-gymSegment", "test", "-gymFeeRate", "abc" }));
+            Assert.AreEqual(2, e.Errors.Count, string.Join("; ", e.Errors)); // unknown mode, bad number
+            var f = Assert.Throws<GymConfigException>(() => GymConfigLoader.Load(GymConfigLoader.DefaultConfigPath,
+                GymConfigLoader.DefaultSymbolsPath, new[] { "x", "-gymMode", "eval", "-gymSegment", "train" }));
+            StringAssert.Contains("not an evaluation segment", f.Message);
+
             Assert.AreEqual("cfg.json", GymConfigLoader.GetArg(new[] { "app", "-gymConfig", "cfg.json" }, "-gymConfig"));
             Assert.IsNull(GymConfigLoader.GetArg(new[] { "app", "-gymConfig" }, "-gymConfig"));
         }
