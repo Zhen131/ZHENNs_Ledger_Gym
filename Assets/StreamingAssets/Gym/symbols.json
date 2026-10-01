@@ -1,0 +1,7 @@
+{
+  "symbols": [
+    { "symbol": "BTCUSDT", "minNotional": 5, "stepSize": "0.00001" },
+    { "symbol": "ETHUSDT", "minNotional": 5, "stepSize": "0.0001" },
+    { "symbol": "ADAUSDT", "minNotional": 5, "stepSize": "0.1" }
+  ]
+}

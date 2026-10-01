@@ -1,0 +1,11 @@
+{
+  "symbol": "BTCUSDT",
+  "dataFile": "data/BTCUSDT-1h.csv",
+  "initialCash": 10000,
+  "episodeLength": 720,
+  "randomInitialPositionShare": 0.5,
+  "train":      { "start": "2017-08-17", "end": "2024-08-31" },
+  "validation": { "start": "2024-09-01", "end": "2025-08-31" },
+  "test":       { "start": "2025-09-01", "end": "2026-08-31" },
+  "playStart": "2024-01-01"
+}

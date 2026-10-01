@@ -1,0 +1,17 @@
+{
+    "name": "Gym.Runtime",
+    "rootNamespace": "Gym.Runtime",
+    "references": [
+        "Gym.Core",
+        "Unity.ML-Agents"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

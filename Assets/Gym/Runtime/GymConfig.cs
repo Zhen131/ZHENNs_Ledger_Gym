@@ -1,0 +1,306 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using Gym.Core;
+using UnityEngine;
+
+namespace Gym.Runtime
+{
+    [Serializable]
+    public class DateRange
+    {
+        public string start;
+        public string end;
+    }
+
+    /// <summary>The shape of gym-config.json.</summary>
+    [Serializable]
+    public class GymConfig
+    {
+        public string symbol;
+        public string dataFile;
+        public double initialCash;
+        public int episodeLength;
+        public double randomInitialPositionShare;
+        public DateRange train;
+        public DateRange validation;
+        public DateRange test;
+        public string playStart;
+    }
+
+    [Serializable]
+    public class SymbolEntry
+    {
+        public string symbol;
+        public double minNotional;
+        /// <summary>A string so that the step keeps its exact decimal value.</summary>
+        public string stepSize;
+    }
+
+    /// <summary>The shape of symbols.json.</summary>
+    [Serializable]
+    public class SymbolTable
+    {
+        public SymbolEntry[] symbols;
+    }
+
+    /// <summary>Which segment an environment runs on. Batch 02 only knows train.</summary>
+    public enum GymMode
+    {
+        Train,
+    }
+
+    public class GymConfigException : Exception
+    {
+        public GymConfigException(IReadOnlyList<string> errors)
+            : base("Gym configuration is invalid:\n- " + string.Join("\n- ", errors))
+        {
+            Errors = errors;
+        }
+
+        public IReadOnlyList<string> Errors { get; }
+    }
+
+    /// <summary>A loaded and validated configuration, with its data.</summary>
+    public sealed class GymSettings
+    {
+        public GymConfig Config;
+        public string ConfigPath;
+        public string SymbolsPath;
+        public string DataPath;
+        public SymbolRules Rules;
+        public CandleSeries Series;
+        public SegmentSpec Train;
+        public SegmentSpec Validation;
+        public SegmentSpec Test;
+        public DateTime PlayStart;
+        public int PlayStartIndex;
+        public GymMode Mode;
+        public IReadOnlyList<string> Warnings;
+    }
+
+    /// <summary>
+    /// Reads gym-config.json and symbols.json from StreamingAssets/Gym (or the file
+    /// given by -gymConfig), loads the data and validates the split.
+    /// </summary>
+    public static class GymConfigLoader
+    {
+        public const string ConfigArg = "-gymConfig";
+        public const string ModeArg = "-gymMode";
+        public const string SegmentArg = "-gymSegment";
+
+        static readonly object Gate = new object();
+        static GymSettings runtimeSettings;
+        static string runtimeKey;
+
+        public static string DefaultDirectory => Path.Combine(Application.streamingAssetsPath, "Gym");
+        public static string DefaultConfigPath => Path.Combine(DefaultDirectory, "gym-config.json");
+        public static string DefaultSymbolsPath => Path.Combine(DefaultDirectory, "symbols.json");
+
+        /// <summary>
+        /// Settings for this process, loaded once from the command line and shared by
+        /// every agent. On error: in a player build the error is logged and the
+        /// application quits with code 1; in the editor the exception is thrown.
+        /// </summary>
+        public static GymSettings LoadForRuntime()
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            string configPath = GetArg(args, ConfigArg) ?? DefaultConfigPath;
+            string key = configPath + "|" + GetArg(args, ModeArg) + "|" + GetArg(args, SegmentArg);
+            lock (Gate)
+            {
+                if (runtimeSettings != null && runtimeKey == key) return runtimeSettings;
+                try
+                {
+                    GymSettings settings = Load(configPath, DefaultSymbolsPath, args);
+                    foreach (string warning in settings.Warnings) Debug.LogWarning("[Gym] " + warning);
+                    Debug.Log($"[Gym] config {settings.ConfigPath}, data {settings.DataPath} ({settings.Series.Count} candles), mode {settings.Mode}");
+                    runtimeSettings = settings;
+                    runtimeKey = key;
+                    return settings;
+                }
+                catch (GymConfigException e)
+                {
+                    Debug.LogError("[Gym] " + e.Message);
+                    if (!Application.isEditor) Application.Quit(1);
+                    throw;
+                }
+            }
+        }
+
+        /// <summary>Load and validate. Throws <see cref="GymConfigException"/> listing every problem found.</summary>
+        public static GymSettings Load(string configPath, string symbolsPath, string[] args = null)
+        {
+            var errors = new List<string>();
+            var warnings = new List<string>();
+            var settings = new GymSettings
+            {
+                ConfigPath = Path.GetFullPath(configPath),
+                SymbolsPath = Path.GetFullPath(symbolsPath),
+            };
+
+            GymConfig config = ReadJson<GymConfig>(settings.ConfigPath, "config", errors);
+            SymbolTable table = ReadJson<SymbolTable>(settings.SymbolsPath, "symbols", errors);
+            if (config == null || table == null) throw new GymConfigException(errors);
+            settings.Config = config;
+
+            settings.Mode = ReadMode(args ?? Array.Empty<string>(), errors);
+            settings.Rules = FindSymbol(config.symbol, table, settings.SymbolsPath, errors);
+
+            if (!(config.initialCash > 0)) errors.Add($"initialCash must be > 0 (got {config.initialCash})");
+            if (config.episodeLength < 0) errors.Add($"episodeLength must be >= 0 (got {config.episodeLength})");
+            if (!(config.randomInitialPositionShare >= 0 && config.randomInitialPositionShare <= 1))
+                errors.Add($"randomInitialPositionShare must be in [0, 1] (got {config.randomInitialPositionShare})");
+
+            bool datesOk = TryRange("train", config.train, errors, out settings.Train)
+                & TryRange("validation", config.validation, errors, out settings.Validation)
+                & TryRange("test", config.test, errors, out settings.Test)
+                & TryDate("playStart", config.playStart, errors, out settings.PlayStart);
+
+            if (string.IsNullOrEmpty(config.dataFile))
+            {
+                errors.Add("dataFile is missing");
+            }
+            else
+            {
+                settings.DataPath = ResolveDataPath(config.dataFile, Path.GetDirectoryName(settings.ConfigPath));
+                if (!File.Exists(settings.DataPath))
+                    errors.Add($"data file not found: {settings.DataPath}");
+                else
+                {
+                    try
+                    {
+                        settings.Series = GymDataCache.Get(settings.DataPath);
+                    }
+                    catch (FormatException e)
+                    {
+                        errors.Add($"data file {settings.DataPath} is malformed: {e.Message}");
+                    }
+                }
+            }
+
+            if (settings.Series != null && datesOk)
+            {
+                SplitReport report = SplitValidator.Validate(settings.Train, settings.Validation, settings.Test,
+                    settings.Series, Math.Max(config.episodeLength, 0));
+                errors.AddRange(report.Errors);
+                warnings.AddRange(report.Warnings);
+
+                int trainLast = settings.Train.LastIndex(settings.Series);
+                settings.PlayStartIndex = settings.Series.FirstIndexOnOrAfter(settings.PlayStart);
+                int playMin = Math.Max(settings.Train.FirstIndex(settings.Series), ObservationBuilder.Lookback);
+                if (settings.PlayStart < settings.Train.StartDate || settings.PlayStart > settings.Train.EndDate ||
+                    settings.PlayStartIndex < playMin || settings.PlayStartIndex >= trainLast)
+                    errors.Add($"playStart {config.playStart} must fall inside the training segment {settings.Train}");
+            }
+
+            if (errors.Count > 0) throw new GymConfigException(errors);
+            settings.Warnings = warnings;
+            return settings;
+        }
+
+        public static string GetArg(string[] args, string name)
+        {
+            for (int i = 0; i < args.Length - 1; i++)
+                if (string.Equals(args[i], name, StringComparison.OrdinalIgnoreCase))
+                    return args[i + 1];
+            return null;
+        }
+
+        static GymMode ReadMode(string[] args, List<string> errors)
+        {
+            string mode = GetArg(args, ModeArg);
+            string segment = GetArg(args, SegmentArg);
+            if (mode != null && !string.Equals(mode, "train", StringComparison.OrdinalIgnoreCase))
+                errors.Add($"{ModeArg} {mode} is not supported yet; only 'train' is (evaluation arrives in batch 04)");
+            if (segment != null && !string.Equals(segment, "train", StringComparison.OrdinalIgnoreCase))
+                errors.Add($"{SegmentArg} {segment} is not supported yet; only 'train' is (evaluation arrives in batch 04)");
+            return GymMode.Train;
+        }
+
+        static T ReadJson<T>(string path, string what, List<string> errors) where T : class
+        {
+            if (!File.Exists(path))
+            {
+                errors.Add($"{what} file not found: {path}");
+                return null;
+            }
+            try
+            {
+                T value = JsonUtility.FromJson<T>(File.ReadAllText(path));
+                if (value == null) errors.Add($"{what} file is empty: {path}");
+                return value;
+            }
+            catch (ArgumentException e)
+            {
+                errors.Add($"{what} file is not valid JSON: {path} ({e.Message})");
+                return null;
+            }
+        }
+
+        static SymbolRules FindSymbol(string symbol, SymbolTable table, string symbolsPath, List<string> errors)
+        {
+            if (string.IsNullOrEmpty(symbol))
+            {
+                errors.Add("symbol is missing");
+                return null;
+            }
+            foreach (SymbolEntry entry in table.symbols ?? Array.Empty<SymbolEntry>())
+            {
+                if (entry == null || entry.symbol != symbol) continue;
+                if (!decimal.TryParse(entry.stepSize, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal step) || step <= 0)
+                {
+                    errors.Add($"symbol {symbol}: stepSize '{entry.stepSize}' is not a positive number");
+                    return null;
+                }
+                if (!(entry.minNotional >= 0))
+                {
+                    errors.Add($"symbol {symbol}: minNotional must be >= 0");
+                    return null;
+                }
+                return new SymbolRules(entry.symbol, entry.minNotional, step);
+            }
+            errors.Add($"symbol {symbol} is not listed in {symbolsPath}");
+            return null;
+        }
+
+        static bool TryRange(string name, DateRange range, List<string> errors, out SegmentSpec segment)
+        {
+            segment = default;
+            if (range == null || string.IsNullOrEmpty(range.start) || string.IsNullOrEmpty(range.end))
+            {
+                errors.Add($"{name} needs start and end dates (yyyy-MM-dd)");
+                return false;
+            }
+            try
+            {
+                segment = SegmentSpec.Parse(name, range.start, range.end);
+                return true;
+            }
+            catch (Exception e) when (e is FormatException || e is ArgumentException)
+            {
+                errors.Add($"{name}: {e.Message}");
+                return false;
+            }
+        }
+
+        static bool TryDate(string name, string text, List<string> errors, out DateTime date)
+        {
+            if (DateTime.TryParseExact(text, "yyyy-MM-dd", CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out date))
+                return true;
+            errors.Add($"{name} '{text}' is not a yyyy-MM-dd date");
+            return false;
+        }
+
+        /// <summary>Absolute paths as given; relative ones next to the config file, else in StreamingAssets/Gym.</summary>
+        static string ResolveDataPath(string dataFile, string configDir)
+        {
+            if (Path.IsPathRooted(dataFile)) return Path.GetFullPath(dataFile);
+            string nextToConfig = Path.GetFullPath(Path.Combine(configDir, dataFile));
+            if (File.Exists(nextToConfig)) return nextToConfig;
+            return Path.GetFullPath(Path.Combine(DefaultDirectory, dataFile));
+        }
+    }
+}
