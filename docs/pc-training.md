@@ -117,7 +117,7 @@ Then the real series, for example the fee comparison with three seeds:
 | --- | --- | --- |
 | `-Env` | the training build | required |
 | `-Configs` | config files, comma-separated | required |
-| `-Seeds` | seeds, comma-separated | `1,2,3,4,5` |
+| `-Seeds` | seeds, comma-separated (passed as seed × 1000) | `1,2,3,4,5` |
 | `-NumEnvs` | parallel players per run; one value for the whole series | `1` |
 | `-Prefix` | extra word at the front of every run id | none |
 | `-Smoke` / `-SmokeSteps` | shortened copies in `results\_tmp\` (5,000 steps) | off |
@@ -125,7 +125,7 @@ Then the real series, for example the fee comparison with three seeds:
 
 Run ids are `<config>-s<seed>-<yyyyMMdd>` (UTC date). A run whose `results\<run-id>` already exists is skipped, never overwritten. Each run leaves `results\<run-id>\` (with the model and `config-used.yaml`) and `results\<run-id>.log`. `config\README.md` explains what each variant changes; `python tools\train\check_configs.py` checks them.
 
-The seed only fixes the trainer's randomness; the environment seeds its random start positions from the clock, so two runs with the same seed are not identical.
+The script passes `--seed <seed × 1000>` to mlagents-learn and writes it to `results\<run-id>\seed-used.txt`. ML-Agents gives environment k the seed + k, so plain seeds 1, 2, 3 would collide with `-NumEnvs` above 1; multiplying by 1000 keeps them apart. Every agent derives its random episode starts from that seed, so the same config, seed and `-NumEnvs` replay the same episodes. The trainer's own numbers are seeded as well, but PyTorch does not promise bit-identical results, so curves may still differ slightly.
 
 ## 9. TensorBoard
 

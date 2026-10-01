@@ -8,6 +8,9 @@ Run ids:  [smoke-][Prefix-]<config file name>-s<seed>-<yyyyMMdd, UTC>
 Results:  results\<run-id>\         (ML-Agents output, plus config-used.yaml)
           results\<run-id>.log      (everything mlagents-learn printed)
 A run whose results\<run-id> already exists is skipped; --force is never used.
+Seeds: mlagents-learn gets --seed <seed x 1000>, because ML-Agents gives environment k
+the seed + k and seeds 1, 2, 3 ... would collide when -NumEnvs > 1. The run id keeps
+the plain seed (-s3); results\<run-id>\seed-used.txt records what was passed.
 One series uses one -NumEnvs value for every run, so the runs stay comparable.
 -Smoke copies each config to results\_tmp\ with max_steps 5000 (or -SmokeSteps),
 summary_freq 1000 and checkpoint_interval = max_steps; it only proves the script works.
@@ -99,7 +102,8 @@ foreach ($cfg in $absConfigs) {
         }
 
         Write-Host "run   $runId"
-        $arguments = @($used, '--env', $EnvPath, '--run-id', $runId, '--seed', "$seed", '--num-envs', "$NumEnvs", '--no-graphics')
+        $learnSeed = [long]$seed * 1000
+        $arguments = @($used, '--env', $EnvPath, '--run-id', $runId, '--seed', "$learnSeed", '--num-envs', "$NumEnvs", '--no-graphics')
         if ($DryRun) {
             Write-Host "      $learn $($arguments -join ' ')"
             continue
@@ -120,6 +124,8 @@ foreach ($cfg in $absConfigs) {
 
         if (Test-Path -LiteralPath "results\$runId" -PathType Container) {
             Copy-Item -LiteralPath $used -Destination "results\$runId\config-used.yaml"
+            $seedNote = "seed (run id): $seed`n--seed passed to mlagents-learn: $learnSeed`n--num-envs: $NumEnvs (environment k gets $learnSeed + k)`n"
+            [IO.File]::WriteAllText((Join-Path $repo "results\$runId\seed-used.txt"), $seedNote)
         }
         if ($rc -eq 0) {
             $ran++

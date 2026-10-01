@@ -119,7 +119,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 | --- | --- | --- |
 | `-Env` | 训练包 | 必须写 |
 | `-Configs` | 配置文件，逗号隔开 | 必须写 |
-| `-Seeds` | 种子，逗号隔开 | `1,2,3,4,5` |
+| `-Seeds` | 种子，逗号隔开（实际传的是种子 × 1000） | `1,2,3,4,5` |
 | `-NumEnvs` | 每次训练同时开几个游戏；一个系列只能用一个值 | `1` |
 | `-Prefix` | 加在每个 run-id 前面的词 | 不加 |
 | `-Smoke` / `-SmokeSteps` | 在 `results\_tmp\` 里复制一份缩短版（5,000 步）再跑 | 关 |
@@ -127,7 +127,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 run-id 的格式是 `<配置名>-s<种子>-<年月日>`（UTC 日期）。`results\<run-id>` 已经存在的就跳过，绝不覆盖。每次训练留下 `results\<run-id>\`（里面有模型和 `config-used.yaml`）和 `results\<run-id>.log`。每份对比配置改了什么，见 `config\README.md`；改过配置后用 `python tools\train\check_configs.py` 检查。
 
-种子只管住训练器那一侧的随机性；环境里随机起点的种子是按时钟取的，所以同一个种子跑两次，结果不会完全一样。
+脚本传给 mlagents-learn 的是 `--seed <种子 × 1000>`，并写进 `results\<run-id>\seed-used.txt`。原因：ML-Agents 给第 k 个环境的种子是「种子 + k」，种子 1、2、3 直接用的话，`-NumEnvs` 大于 1 时会撞号；乘 1000 就拉开了。每个智能体的随机起点都由这个种子推出来，所以配置、种子、`-NumEnvs` 都一样时，环境给的局完全一样。训练器那一侧也用了这个种子，但 PyTorch 不保证逐位相同，曲线可能还会有一点点差别。
 
 ## 9. 用 TensorBoard 看曲线
 

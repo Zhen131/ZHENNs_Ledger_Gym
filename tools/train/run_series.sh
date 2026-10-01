@@ -11,6 +11,9 @@
 # Results:   results/<run-id>/                (ML-Agents output, plus config-used.yaml)
 #            results/<run-id>.log             (everything mlagents-learn printed)
 # A run whose results/<run-id> already exists is skipped; --force is never used.
+# Seeds: mlagents-learn gets --seed <seed x 1000>, because ML-Agents gives environment k
+# the seed + k and seeds 1, 2, 3 ... would collide when --num-envs > 1 (Q03). The run id
+# keeps the plain seed (-s3); results/<run-id>/seed-used.txt records what was passed.
 # One series uses one --num-envs value for every run, so the runs stay comparable.
 # --smoke copies each config to results/_tmp/ with max_steps 5000 (or --smoke-steps),
 # summary_freq 1000 and checkpoint_interval = max_steps; it only proves the script works.
@@ -19,7 +22,7 @@
 
 set -u
 
-usage() { sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'; }
 
 ENV_PATH=""
 SEEDS="1 2 3 4 5"
@@ -100,7 +103,8 @@ for cfg in "${ABS_CONFIGS[@]}"; do
         fi
 
         echo "run   $run_id"
-        cmd=("$LEARN" "$used" --env "$ENV_PATH" --run-id "$run_id" --seed "$seed" --num-envs "$NUM_ENVS" --no-graphics)
+        learn_seed=$((seed * 1000))
+        cmd=("$LEARN" "$used" --env "$ENV_PATH" --run-id "$run_id" --seed "$learn_seed" --num-envs "$NUM_ENVS" --no-graphics)
         if [ "$DRY_RUN" -eq 1 ]; then
             echo "      ${cmd[*]}"
             continue
@@ -110,6 +114,11 @@ for cfg in "${ABS_CONFIGS[@]}"; do
         rc=${PIPESTATUS[0]}
         if [ -d "results/$run_id" ]; then
             cp "$used" "results/$run_id/config-used.yaml"
+            {
+                echo "seed (run id): $seed"
+                echo "--seed passed to mlagents-learn: $learn_seed"
+                echo "--num-envs: $NUM_ENVS (environment k gets $learn_seed + k)"
+            } > "results/$run_id/seed-used.txt"
         fi
         if [ "$rc" -eq 0 ]; then
             ran=$((ran + 1))
