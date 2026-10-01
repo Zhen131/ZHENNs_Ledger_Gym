@@ -23,6 +23,7 @@ namespace Gym.EditorTools
         public const string PrefabPath = "Assets/Gym/Prefabs/TradingAgent.prefab";
         public const string TrainingScenePath = "Assets/Gym/Scenes/Training.unity";
         public const string PlayScenePath = "Assets/Gym/Scenes/Play.unity";
+        public const string EvalScenePath = "Assets/Gym/Scenes/Eval.unity";
         public const string ChartMaterialPath = "Assets/Gym/Materials/CandleChart.mat";
         public const int TrainingAgentCount = 16;
 
@@ -32,9 +33,42 @@ namespace Gym.EditorTools
             GameObject prefab = BuildAgentPrefab();
             BuildTrainingScene(prefab);
             BuildPlayScene(prefab, BuildChartMaterial());
+            BuildEvalScene(prefab);
             SetBuildScenes();
             AssetDatabase.SaveAssets();
             Debug.Log("[Gym] prefab and scenes rebuilt");
+        }
+
+        /// <summary>Only the Eval scene and the build list; leaves the prefab and the other scenes alone.</summary>
+        public static void BuildEvalOnly()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+            if (prefab == null) prefab = BuildAgentPrefab();
+            BuildEvalScene(prefab);
+            SetBuildScenes();
+            AssetDatabase.SaveAssets();
+            Debug.Log("[Gym] Eval scene rebuilt");
+        }
+
+        /// <summary>
+        /// One agent that runs a single evaluation episode, and the EvalRunner that steps it
+        /// and writes the log. Behavior Type stays Default here (no model, so it holds);
+        /// BuildScript.BuildMacEval makes a copy with the model and Inference Only.
+        /// </summary>
+        public static void BuildEvalScene(GameObject prefab)
+        {
+            Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var agentObject = (GameObject)PrefabUtility.InstantiatePrefab(prefab, scene);
+            agentObject.name = "TradingAgent (Eval)";
+            var agent = agentObject.GetComponent<TradingAgent>();
+            agent.StartMode = AgentStartMode.Evaluation;
+            PrefabUtility.RecordPrefabInstancePropertyModifications(agent);
+
+            var runner = new GameObject("EvalRunner").AddComponent<EvalRunner>();
+            runner.Agent = agent;
+
+            EnsureFolder(Path.GetDirectoryName(EvalScenePath));
+            EditorSceneManager.SaveScene(scene, EvalScenePath);
         }
 
         public static GameObject BuildAgentPrefab()
@@ -143,6 +177,7 @@ namespace Gym.EditorTools
             {
                 new EditorBuildSettingsScene(TrainingScenePath, true),
                 new EditorBuildSettingsScene(PlayScenePath, true),
+                new EditorBuildSettingsScene(EvalScenePath, true),
             };
             EditorBuildSettings.scenes = scenes.ToArray();
         }

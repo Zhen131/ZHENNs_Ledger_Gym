@@ -19,6 +19,8 @@ namespace Gym.Runtime
         Training,
         /// <summary>Start in cash at the config's playStart and run to the end of the training segment.</summary>
         PlayFromConfig,
+        /// <summary>One full pass over the evaluation segment (-gymSegment, test by default), in cash, no randomness.</summary>
+        Evaluation,
     }
 
     /// <summary>
@@ -73,19 +75,29 @@ namespace Gym.Runtime
         public float LastContinuous { get; private set; }
         public StepResult LastResult { get; private set; }
 
+        public EpisodeMetrics LastEpisodeMetrics { get; private set; }
+
+        /// <summary>How this agent actually starts episodes: Evaluation when -gymMode eval was given.</summary>
+        public AgentStartMode EffectiveMode =>
+            Settings != null && Settings.Mode == GymMode.Eval ? AgentStartMode.Evaluation : startMode;
+
         public event Action<TradingAgent> EpisodeStarted;
         public event Action<TradingAgent> Stepped;
+        /// <summary>Raised when an episode ends, before the next one is reset.</summary>
+        public event Action<TradingAgent, EpisodeMetrics> EpisodeFinished;
 
         public override void Initialize()
         {
             Settings = GymConfigLoader.LoadForRuntime();
             GymConfig c = Settings.Config;
-            Env = TradingEnv.ForSegment(Settings.Series, Settings.Rules, Settings.Train,
+            AgentStartMode mode = EffectiveMode;
+            SegmentSpec segment = mode == AgentStartMode.Evaluation ? Settings.EvalSegment : Settings.Train;
+            Env = TradingEnv.ForSegment(Settings.Series, Settings.Rules, segment,
                 c.initialCash, c.episodeLength, c.randomInitialPositionShare);
             MasterSeed = unchecked((int)DateTime.UtcNow.Ticks + 7919 * (agentIndex + 1));
             seedSource = new System.Random(MasterSeed);
-            Debug.Log($"[Gym] {name}: index {agentIndex}, mode {startMode}, master seed {MasterSeed}");
-            if (startMode == AgentStartMode.PlayFromConfig) ResetEnv(); // views can draw before the first step
+            Debug.Log($"[Gym] {name}: index {agentIndex}, mode {mode}, segment {segment}, master seed {MasterSeed}");
+            if (mode != AgentStartMode.Training) ResetEnv(); // views and runners can read the start before the first step
         }
 
         public override void OnEpisodeBegin() => ResetEnv();
@@ -118,7 +130,9 @@ namespace Gym.Runtime
             if (result.Done)
             {
                 RecordEpisodeStats();
+                LastEpisodeMetrics = Metrics.From(Env);
                 FinishedEpisodes++;
+                EpisodeFinished?.Invoke(this, LastEpisodeMetrics);
                 EpisodeInterrupted(); // a time limit, not a terminal state
             }
         }
@@ -139,10 +153,16 @@ namespace Gym.Runtime
         void ResetEnv()
         {
             CostModel cost = ReadCost();
-            if (startMode == AgentStartMode.PlayFromConfig)
+            AgentStartMode mode = EffectiveMode;
+            if (mode == AgentStartMode.PlayFromConfig)
             {
                 EpisodeSeed = 0;
                 Env.Reset(cost, Settings.PlayStartIndex);
+            }
+            else if (mode == AgentStartMode.Evaluation)
+            {
+                EpisodeSeed = 0;
+                Env.Reset(0, true, cost);
             }
             else
             {
@@ -156,13 +176,17 @@ namespace Gym.Runtime
             EpisodeStarted?.Invoke(this);
         }
 
+        /// <summary>
+        /// Trainer's environment parameter if set, else -gymFeeRate / -gymFixedFee /
+        /// -gymSlippage from the command line, else the Inspector default.
+        /// </summary>
         CostModel ReadCost()
         {
             EnvironmentParameters parameters = Academy.Instance.EnvironmentParameters;
             return new CostModel(
-                ReadParameter(parameters, FeeRateKey, defaultFeeRate),
-                ReadParameter(parameters, FixedFeeKey, defaultFixedFee),
-                ReadParameter(parameters, SlippageKey, defaultSlippage));
+                ReadParameter(parameters, FeeRateKey, Settings.FeeRateArg ?? defaultFeeRate),
+                ReadParameter(parameters, FixedFeeKey, Settings.FixedFeeArg ?? defaultFixedFee),
+                ReadParameter(parameters, SlippageKey, Settings.SlippageArg ?? defaultSlippage));
         }
 
         /// <summary>

@@ -1,9 +1,17 @@
 using System;
 using System.IO;
+using System.Linq;
+using System.Security.Cryptography;
+using Gym.EditorTools;
+using Gym.Runtime;
+using Unity.InferenceEngine;
+using Unity.MLAgents.Policies;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Gym.Editor
 {
@@ -14,12 +22,21 @@ namespace Gym.Editor
     ///   Unity -batchmode -nographics -projectPath . -executeMethod Gym.Editor.BuildScript.BuildWindowsTraining -quit -logFile Logs/build-win.log
     ///
     /// A failed build exits the batch-mode editor with code 1.
+    ///
+    /// Evaluation player with a trained model baked in (04B §4.2):
+    ///
+    ///   Unity -batchmode -nographics -projectPath . -executeMethod Gym.Editor.BuildScript.BuildMacEval
+    ///         -gymModel results/&lt;run-id&gt;/TradingAgent.onnx -quit -logFile Logs/build-eval.log
     /// </summary>
     public static class BuildScript
     {
         public const string TrainingScenePath = "Assets/Gym/Scenes/Training.unity";
         public const string MacOutput = "Builds/mac/Gym.app";
         public const string WindowsOutput = "Builds/win/Gym.exe";
+        public const string MacEvalOutput = "Builds/mac/GymEval.app";
+        public const string ImportedModelsFolder = "Assets/Gym/Models/Imported";
+        public const string ModelArg = "-gymModel";
+        public const string RunIdArg = "-gymRunId";
         public const int WindowWidth = 640;
         public const int WindowHeight = 360;
 
@@ -28,6 +45,88 @@ namespace Gym.Editor
 
         [MenuItem("Gym/Build/Windows Training Player")]
         public static void BuildWindowsTraining() => Build(BuildTarget.StandaloneWindows64, WindowsOutput);
+
+        /// <summary>
+        /// Copies the ONNX given by -gymModel into Assets/Gym/Models/Imported/&lt;run-id&gt;.onnx,
+        /// makes a copy of the Eval scene there with the model on the agent (Inference Only,
+        /// deterministic, CPU/Burst), builds Builds/mac/GymEval.app from that copy and writes
+        /// the run id and the model's SHA-256 into the build's StreamingAssets/Gym/build-info.json.
+        /// The run id is -gymRunId, or the name of the folder above the ONNX (results/&lt;run-id&gt;/).
+        /// </summary>
+        [MenuItem("Gym/Build/Mac Evaluation Player (needs -gymModel)")]
+        public static void BuildMacEval()
+        {
+            try
+            {
+                string[] args = Environment.GetCommandLineArgs();
+                string modelPath = GymConfigLoader.GetArg(args, ModelArg)
+                    ?? throw new ArgumentException($"{ModelArg} <path to .onnx> is required");
+                modelPath = Path.GetFullPath(modelPath);
+                if (!File.Exists(modelPath)) throw new FileNotFoundException($"model not found: {modelPath}");
+                string runId = GymConfigLoader.GetArg(args, RunIdArg) ?? Path.GetFileName(Path.GetDirectoryName(modelPath));
+                if (string.IsNullOrEmpty(runId) || runId.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+                    throw new ArgumentException($"cannot use '{runId}' as a run id; pass {RunIdArg}");
+                string sha = Sha256(modelPath);
+
+                EnsureFolder(ImportedModelsFolder);
+                string modelAssetPath = $"{ImportedModelsFolder}/{runId}.onnx";
+                File.Copy(modelPath, modelAssetPath, true);
+                AssetDatabase.ImportAsset(modelAssetPath, ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.ForceUpdate);
+                var model = AssetDatabase.LoadAssetAtPath<ModelAsset>(modelAssetPath)
+                    ?? throw new InvalidOperationException($"{modelAssetPath} did not import as a ModelAsset");
+
+                string scenePath = $"{ImportedModelsFolder}/Eval-{runId}.unity";
+                AssetDatabase.DeleteAsset(scenePath);
+                if (!AssetDatabase.CopyAsset(GymSceneBuilder.EvalScenePath, scenePath))
+                    throw new InvalidOperationException($"could not copy {GymSceneBuilder.EvalScenePath} to {scenePath}");
+                Scene scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+                TradingAgent[] agents = scene.GetRootGameObjects().SelectMany(g => g.GetComponentsInChildren<TradingAgent>(true)).ToArray();
+                if (agents.Length != 1) throw new InvalidOperationException($"{scenePath} has {agents.Length} agents, expected 1");
+                var behavior = agents[0].GetComponent<BehaviorParameters>();
+                behavior.Model = model;
+                behavior.BehaviorType = BehaviorType.InferenceOnly;
+                behavior.DeterministicInference = true;
+                behavior.InferenceDevice = InferenceDevice.Burst;
+                PrefabUtility.RecordPrefabInstancePropertyModifications(behavior);
+                EditorSceneManager.MarkSceneDirty(scene);
+                if (!EditorSceneManager.SaveScene(scene)) throw new InvalidOperationException($"could not save {scenePath}");
+
+                BuildSummary summary = BuildPlayer(BuildTarget.StandaloneOSX, MacEvalOutput, scenePath);
+
+                var info = new EvalBuildInfo
+                {
+                    run_id = runId,
+                    model_sha256 = sha,
+                    model_file = modelPath,
+                    built_at_utc = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'"),
+                    unity_version = Application.unityVersion,
+                };
+                string infoPath = Path.Combine(MacEvalOutput, "Contents", "Resources", "Data", "StreamingAssets", "Gym", EvalRunner.BuildInfoFile);
+                File.WriteAllText(infoPath, JsonUtility.ToJson(info, true));
+                Debug.Log($"[Gym] eval build: run id {runId}, model sha256 {sha}, {summary.totalSize / 1048576.0:F1} MB -> {MacEvalOutput}; wrote {infoPath}");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[Gym] eval build failed: {e.Message}\n{e}");
+                if (Application.isBatchMode) EditorApplication.Exit(1);
+                else throw;
+            }
+        }
+
+        static string Sha256(string path)
+        {
+            using (SHA256 sha = SHA256.Create())
+            using (FileStream stream = File.OpenRead(path))
+                return BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "").ToLowerInvariant();
+        }
+
+        static void EnsureFolder(string path)
+        {
+            if (AssetDatabase.IsValidFolder(path)) return;
+            string parent = Path.GetDirectoryName(path).Replace('\\', '/');
+            EnsureFolder(parent);
+            AssetDatabase.CreateFolder(parent, Path.GetFileName(path));
+        }
 
         /// <summary>Player settings every training build relies on. Saved into ProjectSettings.asset.</summary>
         public static void ApplyPlayerSettings()
@@ -44,32 +143,7 @@ namespace Gym.Editor
         {
             try
             {
-                if (!BuildPipeline.IsBuildTargetSupported(BuildTargetGroup.Standalone, target))
-                    throw new InvalidOperationException(
-                        $"Build support for {target} is not installed in Unity {Application.unityVersion}. " +
-                        $"Add the module \"{ModuleName(target)}\" in Unity Hub (Installs → {Application.unityVersion} → Add modules) and run again.");
-
-                ApplyPlayerSettings();
-#if UNITY_EDITOR_OSX
-                if (target == BuildTarget.StandaloneOSX)
-                    UnityEditor.OSXStandalone.UserBuildSettings.architecture = OSArchitecture.ARM64;
-#endif
-                Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output)));
-                var options = new BuildPlayerOptions
-                {
-                    scenes = new[] { TrainingScenePath },
-                    target = target,
-                    targetGroup = BuildTargetGroup.Standalone,
-                    locationPathName = output,
-                    options = BuildOptions.None,
-                };
-                BuildReport report = BuildPipeline.BuildPlayer(options);
-                BuildSummary summary = report.summary;
-                Debug.Log($"[Gym] build {summary.result}: {target} -> {output}, " +
-                          $"{summary.totalSize / 1048576.0:F1} MB, {summary.totalTime.TotalSeconds:F0} s, " +
-                          $"{summary.totalErrors} errors, {summary.totalWarnings} warnings");
-                if (summary.result != BuildResult.Succeeded)
-                    throw new InvalidOperationException($"Build {summary.result} with {summary.totalErrors} errors; see the log above.");
+                BuildPlayer(target, output, TrainingScenePath);
             }
             catch (Exception e)
             {
@@ -77,6 +151,38 @@ namespace Gym.Editor
                 if (Application.isBatchMode) EditorApplication.Exit(1);
                 else throw;
             }
+        }
+
+        /// <summary>Build one scene for a target; throws when the module is missing or the build fails.</summary>
+        static BuildSummary BuildPlayer(BuildTarget target, string output, string scenePath)
+        {
+            if (!BuildPipeline.IsBuildTargetSupported(BuildTargetGroup.Standalone, target))
+                throw new InvalidOperationException(
+                    $"Build support for {target} is not installed in Unity {Application.unityVersion}. " +
+                    $"Add the module \"{ModuleName(target)}\" in Unity Hub (Installs → {Application.unityVersion} → Add modules) and run again.");
+
+            ApplyPlayerSettings();
+#if UNITY_EDITOR_OSX
+            if (target == BuildTarget.StandaloneOSX)
+                UnityEditor.OSXStandalone.UserBuildSettings.architecture = OSArchitecture.ARM64;
+#endif
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output)));
+            var options = new BuildPlayerOptions
+            {
+                scenes = new[] { scenePath },
+                target = target,
+                targetGroup = BuildTargetGroup.Standalone,
+                locationPathName = output,
+                options = BuildOptions.None,
+            };
+            BuildReport report = BuildPipeline.BuildPlayer(options);
+            BuildSummary summary = report.summary;
+            Debug.Log($"[Gym] build {summary.result}: {target} -> {output} ({scenePath}), " +
+                      $"{summary.totalSize / 1048576.0:F1} MB, {summary.totalTime.TotalSeconds:F0} s, " +
+                      $"{summary.totalErrors} errors, {summary.totalWarnings} warnings");
+            if (summary.result != BuildResult.Succeeded)
+                throw new InvalidOperationException($"Build {summary.result} with {summary.totalErrors} errors; see the log above.");
+            return summary;
         }
 
         static string ModuleName(BuildTarget target) =>

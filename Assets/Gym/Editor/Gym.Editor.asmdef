@@ -4,7 +4,8 @@
     "references": [
         "Gym.Core",
         "Gym.Runtime",
-        "Unity.ML-Agents"
+        "Unity.ML-Agents",
+        "Unity.InferenceEngine"
     ],
     "includePlatforms": [
         "Editor"

@@ -47,6 +47,11 @@ crashlytics-build.properties
 # --- Data: raw Binance archives stay local; processed CSVs are committed ---
 /data/raw/
 
+# --- Evaluation: imported models and smoke evaluations stay local ---
+/Assets/Gym/Models/Imported/
+/Assets/Gym/Models/Imported.meta
+/evaluations/smoke/
+
 # --- Python ---
 __pycache__/
 *.pyc

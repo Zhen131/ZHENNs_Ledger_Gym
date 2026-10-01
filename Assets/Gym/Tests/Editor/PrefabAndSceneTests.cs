@@ -16,6 +16,7 @@ namespace Gym.Tests.Editor
         const string PrefabPath = "Assets/Gym/Prefabs/TradingAgent.prefab";
         const string TrainingScenePath = "Assets/Gym/Scenes/Training.unity";
         const string PlayScenePath = "Assets/Gym/Scenes/Play.unity";
+        const string EvalScenePath = "Assets/Gym/Scenes/Eval.unity";
 
         static List<T> ComponentsIn<T>(Scene scene) where T : Component =>
             scene.GetRootGameObjects().SelectMany(g => g.GetComponentsInChildren<T>(true)).ToList();
@@ -110,14 +111,37 @@ namespace Gym.Tests.Editor
         }
 
         [Test]
-        public void E03_BothScenesAreInBuildSettingsInOrder()
+        public void E03_EvalSceneHasOneEvaluationAgentAndItsRunner()
+        {
+            Scene scene = EditorSceneManager.OpenScene(EvalScenePath, OpenSceneMode.Additive);
+            try
+            {
+                List<TradingAgent> agents = ComponentsIn<TradingAgent>(scene);
+                Assert.AreEqual(1, agents.Count);
+                Assert.AreEqual(AgentStartMode.Evaluation, agents[0].StartMode);
+                Assert.AreEqual(BehaviorType.Default, agents[0].GetComponent<BehaviorParameters>().BehaviorType,
+                    "the committed scene has no model; BuildMacEval switches its copy to Inference Only");
+                List<EvalRunner> runners = ComponentsIn<EvalRunner>(scene);
+                Assert.AreEqual(1, runners.Count);
+                Assert.AreSame(agents[0], runners[0].Agent);
+                Assert.IsTrue(runners[0].QuitWhenDone);
+                Assert.AreEqual(0, ComponentsIn<Camera>(scene).Count);
+            }
+            finally
+            {
+                EditorSceneManager.CloseScene(scene, true);
+            }
+        }
+
+        [Test]
+        public void E03_ScenesAreInBuildSettingsInOrder()
         {
             EditorBuildSettingsScene[] scenes = EditorBuildSettings.scenes;
-            Assert.AreEqual(2, scenes.Length);
+            Assert.AreEqual(3, scenes.Length);
             Assert.AreEqual(TrainingScenePath, scenes[0].path);
             Assert.AreEqual(PlayScenePath, scenes[1].path);
-            Assert.IsTrue(scenes[0].enabled);
-            Assert.IsTrue(scenes[1].enabled);
+            Assert.AreEqual(EvalScenePath, scenes[2].path);
+            Assert.IsTrue(scenes.All(x => x.enabled));
         }
     }
 }

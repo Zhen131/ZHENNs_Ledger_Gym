@@ -11,5 +11,8 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Gym/Scenes/Play.unity
     guid: dcec6120dcaa64e89948f2a80df94250
+  - enabled: 1
+    path: Assets/Gym/Scenes/Eval.unity
+    guid: 42940a83b5f1949d5920e43731ebf528
   m_configObjects: {}
   m_UseUCBPForAssetBundles: 0
