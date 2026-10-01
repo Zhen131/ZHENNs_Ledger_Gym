@@ -63,9 +63,11 @@ namespace Gym.Runtime
             GetComponent<MeshFilter>().sharedMesh = mesh;
         }
 
-        public void Redraw(TradingAgent source)
+        public void Redraw(TradingAgent source) => Draw(source != null ? source.Env : null);
+
+        /// <summary>Draw straight from an environment (also used by the editor snapshot tool).</summary>
+        public void Draw(TradingEnv env)
         {
-            TradingEnv env = source != null ? source.Env : null;
             if (env == null || env.Account == null) return;
             EnsureMesh();
             CandleSeries series = env.Series;
