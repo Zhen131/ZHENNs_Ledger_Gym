@@ -78,7 +78,7 @@ python tools/eval/summarize.py evaluations/log.csv
 
 Windows equivalents are in `docs/pc-training.md`. `GymSceneBuilder.BuildAll` rewrites all scenes; the Training scene usually comes back with the same content in a different order, which can be reverted with `git checkout`.
 
-After any Unity run, check `git status`: Unity may flip the `SENTIS_ANALYTICS_ENABLED` define in `ProjectSettings/ProjectSettings.asset` and create `ProjectSettings/SceneTemplateSettings.json` or `Assets/ML-Agents/Timers/`. None of these belong in a commit.
+After any Unity run, check `git status`. Unity writes `Assets/ML-Agents/` (ML-Agents timers) and `ProjectSettings/SceneTemplateSettings.json` by itself; Git ignores both. It may also flip the `SENTIS_ANALYTICS_ENABLED` define in `ProjectSettings/ProjectSettings.asset`; see rule 10.
 
 ## Rules
 
@@ -91,3 +91,4 @@ After any Unity run, check `git status`: Unity may flip the `SENTIS_ANALYTICS_EN
 7. **Not committed:** `results/`, `Builds/`, `Library/`, `Logs/`, `data/raw/`, `evaluations/smoke/`, `Assets/Gym/Models/Imported/`.
 8. **Training runs:** run ids for experiments are new every time; never use `--force`; never stop a run with Ctrl+C.
 9. Unity creates `.meta` files for new assets; commit them together with the asset.
+10. **After a command-line Unity run**, if the only change in `ProjectSettings/ProjectSettings.asset` is the `SENTIS_ANALYTICS_ENABLED` scripting define (the inference package drops it in batch test runs and adds it back in the editor), restore the file with `git checkout -- ProjectSettings/ProjectSettings.asset`. If the file has any other change, look at it before deciding; never commit the define flip by itself.

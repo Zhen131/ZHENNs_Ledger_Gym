@@ -52,6 +52,11 @@ crashlytics-build.properties
 /Assets/Gym/Models/Imported.meta
 /evaluations/smoke/
 
+# --- Files Unity writes by itself during command-line runs (Q05) ---
+/Assets/ML-Agents/
+/Assets/ML-Agents.meta
+/ProjectSettings/SceneTemplateSettings.json
+
 # --- Python ---
 __pycache__/
 *.pyc
