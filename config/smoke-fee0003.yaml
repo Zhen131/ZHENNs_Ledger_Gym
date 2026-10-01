@@ -1,4 +1,4 @@
-# Fee smoke test. Differs from ppo_base.yaml in fee_rate 0.003, max_steps 10000, summary_freq 5000, checkpoint_interval 30000 (smoke.yaml with fee 0.003 and 10k steps).
+# Fee smoke test. Differs from ppo_base.yaml in fee_rate 0.003, max_steps 15000, summary_freq 5000, checkpoint_interval 30000 (smoke.yaml with fee 0.003 and 15k steps; 16 agents x 720 steps = 11,520 steps before the first episodes end and Trading/* appears, Q06).
 behaviors:
   TradingAgent:
     trainer_type: ppo
@@ -21,7 +21,7 @@ behaviors:
         strength: 1.0
     keep_checkpoints: 5
     checkpoint_interval: 30000
-    max_steps: 10000
+    max_steps: 15000
     time_horizon: 64
     summary_freq: 5000
 environment_parameters:

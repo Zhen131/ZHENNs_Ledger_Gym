@@ -101,7 +101,7 @@ PowerShell may refuse to run scripts the first time; allow them for this window 
 Set-ExecutionPolicy -Scope Process Bypass
 ```
 
-First a quick check that the script works (5,000 steps each, run ids start with `smoke-`):
+First a quick check that the script works (15,000 steps each, just enough for the `Trading/*` tags to appear; run ids start with `smoke-`):
 
 ```powershell
 .\tools\train\run_series.ps1 -Env Builds\win\Gym.exe -Seeds 1 -Smoke -Configs config\ppo_base.yaml,config\variants\fee-0.003.yaml
@@ -120,7 +120,7 @@ Then the real series, for example the fee comparison with three seeds:
 | `-Seeds` | seeds, comma-separated (passed as seed × 1000) | `1,2,3,4,5` |
 | `-NumEnvs` | parallel players per run; one value for the whole series | `1` |
 | `-Prefix` | extra word at the front of every run id | none |
-| `-Smoke` / `-SmokeSteps` | shortened copies in `results\_tmp\` (5,000 steps) | off |
+| `-Smoke` / `-SmokeSteps` | shortened copies in `results\_tmp\` (15,000 steps) | off |
 | `-DryRun` | print the commands without running them | off |
 
 Run ids are `<config>-s<seed>-<yyyyMMdd>` (UTC date). A run whose `results\<run-id>` already exists is skipped, never overwritten. Each run leaves `results\<run-id>\` (with the model and `config-used.yaml`) and `results\<run-id>.log`. `config\README.md` explains what each variant changes; `python tools\train\check_configs.py` checks them.

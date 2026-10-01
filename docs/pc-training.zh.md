@@ -103,7 +103,7 @@ python tools\train\read_scalars.py results\smoke-pc-100k
 Set-ExecutionPolicy -Scope Process Bypass
 ```
 
-先快速试一下脚本能不能用（每个只跑 5,000 步，run-id 前面带 `smoke-`）：
+先快速试一下脚本能不能用（每个只跑 15,000 步，刚好够第一批局结束、看到 `Trading/…`；run-id 前面带 `smoke-`）：
 
 ```powershell
 .\tools\train\run_series.ps1 -Env Builds\win\Gym.exe -Seeds 1 -Smoke -Configs config\ppo_base.yaml,config\variants\fee-0.003.yaml
@@ -122,7 +122,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 | `-Seeds` | 种子，逗号隔开（实际传的是种子 × 1000） | `1,2,3,4,5` |
 | `-NumEnvs` | 每次训练同时开几个游戏；一个系列只能用一个值 | `1` |
 | `-Prefix` | 加在每个 run-id 前面的词 | 不加 |
-| `-Smoke` / `-SmokeSteps` | 在 `results\_tmp\` 里复制一份缩短版（5,000 步）再跑 | 关 |
+| `-Smoke` / `-SmokeSteps` | 在 `results\_tmp\` 里复制一份缩短版（15,000 步）再跑 | 关 |
 | `-DryRun` | 只打印要跑的命令，不真跑 | 关 |
 
 run-id 的格式是 `<配置名>-s<种子>-<年月日>`（UTC 日期）。`results\<run-id>` 已经存在的就跳过，绝不覆盖。每次训练留下 `results\<run-id>\`（里面有模型和 `config-used.yaml`）和 `results\<run-id>.log`。每份对比配置改了什么，见 `config\README.md`；改过配置后用 `python tools\train\check_configs.py` 检查。

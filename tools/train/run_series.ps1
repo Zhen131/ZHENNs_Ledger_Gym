@@ -12,10 +12,10 @@ Seeds: mlagents-learn gets --seed <seed x 1000>, because ML-Agents gives environ
 the seed + k and seeds 1, 2, 3 ... would collide when -NumEnvs > 1. The run id keeps
 the plain seed (-s3); results\<run-id>\seed-used.txt records what was passed.
 One series uses one -NumEnvs value for every run, so the runs stay comparable.
--Smoke copies each config to results\_tmp\ with max_steps 5000 (or -SmokeSteps),
+-Smoke copies each config to results\_tmp\ with max_steps 15000 (or -SmokeSteps),
 summary_freq 1000 and checkpoint_interval = max_steps; it only proves the script works.
-Trading/* statistics appear only after the first episodes end (16 agents x 720 steps =
-11,520 steps), so a 5000-step smoke run has none.
+15000 steps is just past the end of the first episodes (16 agents x 720 steps =
+11,520 steps); Trading/* statistics only appear from then on.
 
 Option names map one to one onto run_series.sh:
   -Env <path>          --env <path>
@@ -23,7 +23,7 @@ Option names map one to one onto run_series.sh:
   -NumEnvs 1           --num-envs 1
   -Prefix NAME         --prefix NAME
   -Smoke               --smoke
-  -SmokeSteps 5000     --smoke-steps 5000
+  -SmokeSteps 15000    --smoke-steps 15000
   -DryRun              --dry-run
   -Configs a,b         a b   (positional in the .sh)
 
@@ -39,7 +39,7 @@ param(
     [int]$NumEnvs = 1,
     [string]$Prefix = '',
     [switch]$Smoke,
-    [int]$SmokeSteps = 5000,
+    [int]$SmokeSteps = 15000,
     [switch]$DryRun
 )
 

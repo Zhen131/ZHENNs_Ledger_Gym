@@ -5,7 +5,7 @@
 # Usage, with the mlagents environment active (or MLAGENTS_LEARN pointing at mlagents-learn):
 #
 #   tools/train/run_series.sh --env Builds/mac/Gym.app [--seeds "1 2 3 4 5"] [--num-envs 1]
-#       [--prefix NAME] [--smoke] [--smoke-steps 5000] [--dry-run] CONFIG.yaml [CONFIG.yaml ...]
+#       [--prefix NAME] [--smoke] [--smoke-steps 15000] [--dry-run] CONFIG.yaml [CONFIG.yaml ...]
 #
 # Run ids:   [smoke-][NAME-]<config file name>-s<seed>-<yyyyMMdd, UTC>
 # Results:   results/<run-id>/                (ML-Agents output, plus config-used.yaml)
@@ -15,10 +15,10 @@
 # the seed + k and seeds 1, 2, 3 ... would collide when --num-envs > 1 (Q03). The run id
 # keeps the plain seed (-s3); results/<run-id>/seed-used.txt records what was passed.
 # One series uses one --num-envs value for every run, so the runs stay comparable.
-# --smoke copies each config to results/_tmp/ with max_steps 5000 (or --smoke-steps),
+# --smoke copies each config to results/_tmp/ with max_steps 15000 (or --smoke-steps),
 # summary_freq 1000 and checkpoint_interval = max_steps; it only proves the script works.
-# Note: Trading/* statistics appear only after the first episodes end
-# (16 agents x 720 steps = 11,520 steps), so a 5000-step smoke run has none.
+# 15000 steps is just past the end of the first episodes (16 agents x 720 steps =
+# 11,520 steps); Trading/* statistics only appear from then on (Q06).
 
 set -u
 
@@ -29,7 +29,7 @@ SEEDS="1 2 3 4 5"
 NUM_ENVS=1
 PREFIX=""
 SMOKE=0
-SMOKE_STEPS=5000
+SMOKE_STEPS=15000
 DRY_RUN=0
 CONFIGS=()
 
