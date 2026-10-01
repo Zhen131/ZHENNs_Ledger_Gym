@@ -1,0 +1,27 @@
+* text=auto
+
+# Code and config: always LF so Mac and Windows produce identical diffs
+*.cs     text eol=lf diff=csharp
+*.py     text eol=lf diff=python
+*.yaml   text eol=lf
+*.yml    text eol=lf
+*.json   text eol=lf
+*.md     text eol=lf
+*.csv    text eol=lf
+*.txt    text eol=lf
+
+# Unity YAML assets
+*.unity    text eol=lf
+*.prefab   text eol=lf
+*.asset    text eol=lf
+*.meta     text eol=lf
+*.mat      text eol=lf
+*.anim     text eol=lf
+*.controller text eol=lf
+
+# Binary
+*.png    binary
+*.jpg    binary
+*.onnx   binary
+*.zip    binary
+*.ttf    binary
