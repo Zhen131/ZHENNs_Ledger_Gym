@@ -27,6 +27,8 @@ namespace Gym.Editor
     ///
     ///   Unity -batchmode -nographics -projectPath . -executeMethod Gym.Editor.BuildScript.BuildMacEval
     ///         -gymModel results/&lt;run-id&gt;/TradingAgent.onnx -quit -logFile Logs/build-eval.log
+    ///
+    /// BuildWindowsEval does the same for Windows x64 (Builds/win/GymEval.exe).
     /// </summary>
     public static class BuildScript
     {
@@ -34,6 +36,7 @@ namespace Gym.Editor
         public const string MacOutput = "Builds/mac/Gym.app";
         public const string WindowsOutput = "Builds/win/Gym.exe";
         public const string MacEvalOutput = "Builds/mac/GymEval.app";
+        public const string WindowsEvalOutput = "Builds/win/GymEval.exe";
         public const string ImportedModelsFolder = "Assets/Gym/Models/Imported";
         public const string ModelArg = "-gymModel";
         public const string RunIdArg = "-gymRunId";
@@ -54,10 +57,17 @@ namespace Gym.Editor
         /// The run id is -gymRunId, or the name of the folder above the ONNX (results/&lt;run-id&gt;/).
         /// </summary>
         [MenuItem("Gym/Build/Mac Evaluation Player (needs -gymModel)")]
-        public static void BuildMacEval()
+        public static void BuildMacEval() => BuildEval(BuildTarget.StandaloneOSX, MacEvalOutput);
+
+        /// <summary>Same as <see cref="BuildMacEval"/> for Windows x64: Builds/win/GymEval.exe.</summary>
+        [MenuItem("Gym/Build/Windows Evaluation Player (needs -gymModel)")]
+        public static void BuildWindowsEval() => BuildEval(BuildTarget.StandaloneWindows64, WindowsEvalOutput);
+
+        static void BuildEval(BuildTarget target, string output)
         {
             try
             {
+                RequireModule(target);
                 string[] args = Environment.GetCommandLineArgs();
                 string modelPath = GymConfigLoader.GetArg(args, ModelArg)
                     ?? throw new ArgumentException($"{ModelArg} <path to .onnx> is required");
@@ -91,7 +101,7 @@ namespace Gym.Editor
                 EditorSceneManager.MarkSceneDirty(scene);
                 if (!EditorSceneManager.SaveScene(scene)) throw new InvalidOperationException($"could not save {scenePath}");
 
-                BuildSummary summary = BuildPlayer(BuildTarget.StandaloneOSX, MacEvalOutput, scenePath);
+                BuildSummary summary = BuildPlayer(target, output, scenePath);
 
                 var info = new EvalBuildInfo
                 {
@@ -101,9 +111,9 @@ namespace Gym.Editor
                     built_at_utc = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'"),
                     unity_version = Application.unityVersion,
                 };
-                string infoPath = Path.Combine(MacEvalOutput, "Contents", "Resources", "Data", "StreamingAssets", "Gym", EvalRunner.BuildInfoFile);
+                string infoPath = Path.Combine(StreamingGymFolder(target, output), EvalRunner.BuildInfoFile);
                 File.WriteAllText(infoPath, JsonUtility.ToJson(info, true));
-                Debug.Log($"[Gym] eval build: run id {runId}, model sha256 {sha}, {summary.totalSize / 1048576.0:F1} MB -> {MacEvalOutput}; wrote {infoPath}");
+                Debug.Log($"[Gym] eval build: run id {runId}, model sha256 {sha}, {summary.totalSize / 1048576.0:F1} MB -> {output}; wrote {infoPath}");
             }
             catch (Exception e)
             {
@@ -112,6 +122,12 @@ namespace Gym.Editor
                 else throw;
             }
         }
+
+        /// <summary>Where a player build keeps StreamingAssets/Gym.</summary>
+        static string StreamingGymFolder(BuildTarget target, string output) =>
+            target == BuildTarget.StandaloneOSX
+                ? Path.Combine(output, "Contents", "Resources", "Data", "StreamingAssets", "Gym")
+                : Path.Combine(Path.GetDirectoryName(output) ?? "", Path.GetFileNameWithoutExtension(output) + "_Data", "StreamingAssets", "Gym");
 
         static string Sha256(string path)
         {
@@ -156,10 +172,7 @@ namespace Gym.Editor
         /// <summary>Build one scene for a target; throws when the module is missing or the build fails.</summary>
         static BuildSummary BuildPlayer(BuildTarget target, string output, string scenePath)
         {
-            if (!BuildPipeline.IsBuildTargetSupported(BuildTargetGroup.Standalone, target))
-                throw new InvalidOperationException(
-                    $"Build support for {target} is not installed in Unity {Application.unityVersion}. " +
-                    $"Add the module \"{ModuleName(target)}\" in Unity Hub (Installs → {Application.unityVersion} → Add modules) and run again.");
+            RequireModule(target);
 
             ApplyPlayerSettings();
 #if UNITY_EDITOR_OSX
@@ -183,6 +196,14 @@ namespace Gym.Editor
             if (summary.result != BuildResult.Succeeded)
                 throw new InvalidOperationException($"Build {summary.result} with {summary.totalErrors} errors; see the log above.");
             return summary;
+        }
+
+        static void RequireModule(BuildTarget target)
+        {
+            if (!BuildPipeline.IsBuildTargetSupported(BuildTargetGroup.Standalone, target))
+                throw new InvalidOperationException(
+                    $"Build support for {target} is not installed in Unity {Application.unityVersion}. " +
+                    $"Add the module \"{ModuleName(target)}\" in Unity Hub (Installs → {Application.unityVersion} → Add modules) and run again.");
         }
 
         static string ModuleName(BuildTarget target) =>
