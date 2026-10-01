@@ -16,6 +16,11 @@ What it does:
    Timestamps from 2025-01-01 on are in microseconds; they are converted to
    milliseconds so the whole file uses one unit.
 3. Checks that open times are strictly ascending, unique and on the hour.
+   Real archives contain a few candles that are not on the hour (BTCUSDT
+   2018-02-09 .. 2018-02-11, after an exchange outage the candles started at
+   hh:28:14). --off-hour decides what happens to them: "error" (default)
+   stops, "drop" discards them so the hours are forward-filled like any other
+   gap, "floor" moves them back to the start of their hour.
 4. Fills every missing hour with a flat candle at the previous close
    (open = high = low = close = previous close, volume = 0). Only earlier
    values are ever used, so the filler never looks into the future.
@@ -47,6 +52,7 @@ CSV_HEADER = "open_time_ms,open,high,low,close,volume"
 TERMS = "Binance Vision Terms and Conditions v1.0 (2026-08-26)"
 LICENSE = "CC BY-NC-SA 4.0"
 SUPPORTED_INTERVALS = ("1h",)
+OFF_HOUR_POLICIES = ("error", "drop", "floor")
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_RAW_DIR = REPO_ROOT / "data" / "raw"
@@ -230,12 +236,27 @@ def fill_gaps(rows: list[tuple]) -> tuple[list[tuple], list[tuple[int, int]]]:
     return filled, gaps
 
 
-def build_rows(archives: list[tuple[str, bytes]]) -> tuple[list[tuple], list[tuple[int, int]]]:
+def apply_off_hour_policy(rows: list[tuple], policy: str) -> tuple[list[tuple], list[int]]:
+    """Return (rows, original open times of the off-hour rows that were handled)."""
+    off_hour = [r[0] for r in rows if r[0] % HOUR_MS != 0]
+    if not off_hour or policy == "error":
+        return rows, []  # check_rows reports the first one
+    if policy == "drop":
+        return [r for r in rows if r[0] % HOUR_MS == 0], off_hour
+    if policy == "floor":
+        return [(r[0] - r[0] % HOUR_MS,) + tuple(r[1:]) for r in rows], off_hour
+    raise ValueError(policy)
+
+
+def build_rows(archives: list[tuple[str, bytes]], off_hour: str = "error"):
+    """Return (rows, gaps, off-hour open times that were dropped or floored)."""
     rows = []
     for label, data in archives:
         rows.extend(parse_archive(data, label))
+    rows, handled = apply_off_hour_policy(rows, off_hour)
     check_rows(rows)
-    return fill_gaps(rows)
+    filled, gaps = fill_gaps(rows)
+    return filled, gaps, handled
 
 
 def render_csv(rows: list[tuple]) -> bytes:
@@ -258,7 +279,17 @@ def gap_summary(gaps: list[tuple[int, int]]) -> dict:
     }
 
 
-def build_manifest(symbol, interval, months, rows, gaps, csv_bytes, downloaded_at) -> dict:
+def off_hour_summary(policy: str, handled: list[int]) -> dict:
+    return {
+        "policy": policy,
+        "count": len(handled),
+        "first_original_utc": utc_text(handled[0]) if handled else None,
+        "last_original_utc": utc_text(handled[-1]) if handled else None,
+    }
+
+
+def build_manifest(symbol, interval, months, rows, gaps, csv_bytes, downloaded_at,
+                   off_hour="error", handled=()) -> dict:
     return {
         "symbol": symbol,
         "interval": interval,
@@ -270,6 +301,7 @@ def build_manifest(symbol, interval, months, rows, gaps, csv_bytes, downloaded_a
         "first_open_time_utc": utc_text(rows[0][0]),
         "last_open_time_utc": utc_text(rows[-1][0]),
         "filled_gaps": gap_summary(gaps),
+        "off_hour_rows": off_hour_summary(off_hour, list(handled)),
         "csv_sha256": sha256_hex(csv_bytes),
         "downloaded_at_utc": downloaded_at,
         "terms": TERMS,
@@ -312,11 +344,12 @@ def run(args) -> int:
     if not archives:
         raise DataError(f"no data for {symbol} {interval} between {format_month(start)} and {format_month(end)}")
 
-    rows, gaps = build_rows(archives)
+    rows, gaps, handled = build_rows(archives, args.off_hour)
     csv_bytes = render_csv(rows)
     newest = max((raw_dir / name).stat().st_mtime for name, _ in months)
     downloaded_at = dt.datetime.fromtimestamp(newest, tz=dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    manifest = build_manifest(symbol, interval, months, rows, gaps, csv_bytes, downloaded_at)
+    manifest = build_manifest(symbol, interval, months, rows, gaps, csv_bytes, downloaded_at,
+                              args.off_hour, handled)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     csv_path = out_dir / f"{symbol}-{interval}.csv"
@@ -329,6 +362,8 @@ def run(args) -> int:
           f"{manifest['first_open_time_utc']} .. {manifest['last_open_time_utc']}")
     print(f"filled gaps: {summary['count']} segments, {summary['total_hours']} hours, "
           f"longest {summary['longest']}")
+    if handled:
+        print(f"off-hour rows ({args.off_hour}): {manifest['off_hour_rows']}")
     print(f"wrote {csv_path}")
     print(f"wrote {manifest_path}")
     return 0
@@ -383,9 +418,10 @@ def self_test() -> int:
     expect([r[0] for r in rows_us] == [t_b, t_b + HOUR_MS], "microseconds converted to milliseconds")
     expect(rows_ms[1][4] == "101.25000000", "number strings are kept verbatim")
 
-    rows, gaps = build_rows([("ms", zip_ms), ("us", zip_us)])
+    rows, gaps, handled = build_rows([("ms", zip_ms), ("us", zip_us)])
     expect(len(rows) == 8, f"expected 8 rows after filling, got {len(rows)}")
     expect(gaps == [(t0 + 3 * HOUR_MS, 3)], f"gap list {gaps}")
+    expect(handled == [], "no off-hour rows")
     for k in range(3):
         filler = rows[3 + k]
         expect(filler == (t0 + (3 + k) * HOUR_MS, "101.00000000", "101.00000000",
@@ -418,6 +454,27 @@ def self_test() -> int:
     expect_error(lambda: build_rows([("back", back)]), "backwards")
     odd = _make_zip("o.csv", [_kline_line(t0 + 60_000, "1", "1", "1", "1", "1")])
     expect_error(lambda: build_rows([("odd", odd)]), "not on the hour")
+
+    # Off-hour rows, shaped like BTCUSDT 2018-02: a candle at 00:00, a block
+    # starting at hh:28, then the grid resumes on the hour.
+    shifted = 28 * 60_000 + 14_789
+    off = _make_zip("f.csv", [
+        _kline_line(t0, "10", "11", "9", "10.5", "1"),
+        _kline_line(t0 + 2 * HOUR_MS + shifted, "10.6", "12", "10", "11", "2"),
+        _kline_line(t0 + 3 * HOUR_MS + shifted, "11", "13", "11", "12", "3"),
+        _kline_line(t0 + 5 * HOUR_MS, "12", "12", "12", "12.5", "4"),
+    ])
+    expect_error(lambda: build_rows([("off", off)]), "not on the hour")
+    dropped, dropped_gaps, dropped_times = build_rows([("off", off)], "drop")
+    expect([r[0] for r in dropped] == [t0 + k * HOUR_MS for k in range(6)], "drop keeps the hourly grid")
+    expect(all(r[1:] == ("10.5", "10.5", "10.5", "10.5", "0") for r in dropped[1:5]), "dropped hours are flat")
+    expect(dropped_gaps == [(t0 + HOUR_MS, 4)], f"drop gaps {dropped_gaps}")
+    expect(dropped_times == [t0 + 2 * HOUR_MS + shifted, t0 + 3 * HOUR_MS + shifted], "dropped times")
+    floored, floored_gaps, _ = build_rows([("off", off)], "floor")
+    expect([r[0] for r in floored] == [t0 + k * HOUR_MS for k in range(6)], "floor keeps the hourly grid")
+    expect(floored[2][1:] == ("10.6", "12", "10", "11", "2"), "floored row keeps its numbers")
+    expect(floored_gaps == [(t0 + HOUR_MS, 1), (t0 + 4 * HOUR_MS, 1)], f"floor gaps {floored_gaps}")
+    expect(off_hour_summary("drop", dropped_times)["count"] == 2, "off-hour summary")
     header = _make_zip("h.csv", ["open_time,open,high,low,close,volume,close_time,q,n,tb,tq,ignore"])
     expect_error(lambda: parse_archive(header, "header"), "not an integer")
     short = _make_zip("s.csv", [f"{t0},1,1,1,1,1"])
@@ -443,6 +500,8 @@ def main(argv=None) -> int:
     parser.add_argument("--end", type=parse_month, help="last month YYYY-MM (default: the previous full month)")
     parser.add_argument("--raw-dir", default=str(DEFAULT_RAW_DIR), help="where the zip archives are cached")
     parser.add_argument("--out-dir", default=str(DEFAULT_OUT_DIR), help="where the CSV and manifest go")
+    parser.add_argument("--off-hour", default="error", choices=OFF_HOUR_POLICIES,
+                        help="candles not on the hour: stop (default), drop them, or floor them to the hour")
     parser.add_argument("--self-test", action="store_true", help="offline test of parsing and gap filling")
     args = parser.parse_args(argv)
 
