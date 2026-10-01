@@ -32,11 +32,13 @@ namespace Gym.Core
 
         /// <summary>
         /// Every step: pick uniformly among the choices the mask allows right now, and a
-        /// fraction uniformly in [0, 1], from <c>System.Random(seed)</c>.
+        /// fraction uniformly in [0, 1], from <c>System.Random(SeedMixer.Mix(seed))</c>.
+        /// Each step draws exactly two numbers: the choice, then the fraction.
         /// </summary>
         public static EpisodeMetrics RunRandom(TradingEnv env, CostModel cost, int seed)
         {
-            var random = new Random(seed);
+            // Mixed first: System.Random with seeds 0, 1, 2 … gives shifted copies of one sequence (Q03).
+            var random = new Random(SeedMixer.Mix(seed));
             var choices = new List<int>(ActionCodec.BranchSize);
             env.Reset(seed, true, cost);
             while (!env.Done)

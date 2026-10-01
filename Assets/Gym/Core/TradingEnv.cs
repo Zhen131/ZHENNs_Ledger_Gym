@@ -179,7 +179,8 @@ namespace Gym.Core
                 if (hi < lo)
                     throw new InvalidOperationException(
                         $"Segment [{First}, {Last}] is too short for a {EpisodeLength}-step episode.");
-                var random = new Random(seed);
+                // Mixed first: System.Random with nearby seeds gives shifted copies of one sequence (Q03).
+                var random = new Random(SeedMixer.Mix(seed));
                 start = random.Next(lo, hi + 1);
                 bool holdCoin = random.NextDouble() < RandomInitialPositionShare;
                 double share = random.NextDouble();
