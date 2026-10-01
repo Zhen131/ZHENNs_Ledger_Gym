@@ -71,10 +71,10 @@ python tools/eval/summarize.py evaluations/smoke/log.csv
 
 ```bash
 python tools/data/fetch_binance_klines.py --self-test
-python tools/data/fetch_binance_klines.py --symbol BTCUSDT --end 2026-08 --off-hour drop
+python tools/data/fetch_binance_klines.py --symbol BTCUSDT
 ```
 
-要加 `--off-hour drop`，因为 2018 年 2 月有 43 根 K 线开在 hh:28 而不是整点；不加的话脚本会报错停下。生成的清单里 `csv_sha256` 应该是 `4739c139dc501e38498589359db093394dcee86cabde5a6e37c12d726d084242`。
+脚本默认只取到 2026-08（测试段的最后一个月；要加新月份就传 `--end YYYY-MM`），并且把 2018 年 2 月那 43 根开在 hh:28、不在整点的 K 线扔掉，那几个小时按前一根收盘价补平（`--off-hour error` 改成报错停下，`--off-hour floor` 改成挪到整点）。所以不带别的参数，生成的就是仓库里这一份：清单里的 `csv_sha256` 是 `4739c139dc501e38498589359db093394dcee86cabde5a6e37c12d726d084242`。
 
 三段（在 `gym-config.json` 里）：训练 2017-08-17～2024-08-31，验证 2024-09-01～2025-08-31，测试 2025-09-01～2026-08-31。测试段里 BTC 跌了 27.4 %，所以在那一段「一直拿现金」赢了「买入持有」。
 

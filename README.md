@@ -71,10 +71,10 @@ To regenerate the data (standard library only; raw archives are cached in `data/
 
 ```bash
 python tools/data/fetch_binance_klines.py --self-test
-python tools/data/fetch_binance_klines.py --symbol BTCUSDT --end 2026-08 --off-hour drop
+python tools/data/fetch_binance_klines.py --symbol BTCUSDT
 ```
 
-`--off-hour drop` is needed because 43 candles in February 2018 start at hh:28 instead of on the hour; without it the script stops with an error. The resulting `csv_sha256` in the manifest should be `4739c139dc501e38498589359db093394dcee86cabde5a6e37c12d726d084242`.
+By default the script stops at 2026-08, the end of the test segment (pass `--end YYYY-MM` to add newer months), and drops the 43 candles of February 2018 that start at hh:28 instead of on the hour, forward-filling those hours (`--off-hour error` stops instead, `--off-hour floor` moves them to the hour). So the default command rebuilds exactly the committed file: the `csv_sha256` in the manifest is `4739c139dc501e38498589359db093394dcee86cabde5a6e37c12d726d084242`.
 
 Segments (in `gym-config.json`): train 2017-08-17 to 2024-08-31, validation 2024-09-01 to 2025-08-31, test 2025-09-01 to 2026-08-31. In the test segment BTC fell 27.4 %, so holding cash beats buy-and-hold there.
 

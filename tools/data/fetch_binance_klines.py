@@ -3,8 +3,12 @@
 
 Standard library only. Typical use, from the repository root:
 
-    python tools/data/fetch_binance_klines.py --symbol BTCUSDT --end 2026-08
+    python tools/data/fetch_binance_klines.py --symbol BTCUSDT
     python tools/data/fetch_binance_klines.py --self-test
+
+With no other options the first command rebuilds exactly the committed
+BTCUSDT-1h.csv: it stops at 2026-08 (the end of the test segment) and drops
+off-hour candles. Pass --end YYYY-MM to add newer months.
 
 What it does:
 
@@ -18,9 +22,9 @@ What it does:
 3. Checks that open times are strictly ascending, unique and on the hour.
    Real archives contain a few candles that are not on the hour (BTCUSDT
    2018-02-09 .. 2018-02-11, after an exchange outage the candles started at
-   hh:28:14). --off-hour decides what happens to them: "error" (default)
-   stops, "drop" discards them so the hours are forward-filled like any other
-   gap, "floor" moves them back to the start of their hour.
+   hh:28:14). --off-hour decides what happens to them: "drop" (default)
+   discards them so the hours are forward-filled like any other gap, "error"
+   stops, "floor" moves them back to the start of their hour.
 4. Fills every missing hour with a flat candle at the previous close
    (open = high = low = close = previous close, volume = 0). Only earlier
    values are ever used, so the filler never looks into the future.
@@ -53,6 +57,10 @@ TERMS = "Binance Vision Terms and Conditions v1.0 (2026-08-26)"
 LICENSE = "CC BY-NC-SA 4.0"
 SUPPORTED_INTERVALS = ("1h",)
 OFF_HOUR_POLICIES = ("error", "drop", "floor")
+DEFAULT_OFF_HOUR = "drop"  # the committed data drops the 43 off-hour candles of 2018-02 (Q02)
+# Last month fetched by default: the end of the test segment (2026-08-31), so the
+# default command always rebuilds the same file. Pass --end to add newer months (Q01).
+DEFAULT_END_MONTH = (2026, 8)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_RAW_DIR = REPO_ROOT / "data" / "raw"
@@ -91,10 +99,6 @@ def months_between(start: tuple[int, int], end: tuple[int, int]):
     while ym <= end:
         yield ym
         ym = next_month(ym)
-
-
-def previous_full_month(today: dt.date) -> tuple[int, int]:
-    return (today.year - 1, 12) if today.month == 1 else (today.year, today.month - 1)
 
 
 def archive_name(symbol: str, interval: str, ym: tuple[int, int]) -> str:
@@ -315,7 +319,7 @@ def build_manifest(symbol, interval, months, rows, gaps, csv_bytes, downloaded_a
 def run(args) -> int:
     symbol = args.symbol.upper()
     interval = args.interval
-    end = args.end or previous_full_month(dt.datetime.now(dt.timezone.utc).date())
+    end = args.end or DEFAULT_END_MONTH
     probing = args.start is None
     start = args.start or FIRST_MONTH
     if start > end:
@@ -332,7 +336,7 @@ def run(args) -> int:
                 print(f"  {name}: not on Binance Vision, still looking for the first month")
                 continue
             hint = ""
-            if ym == end and args.end is None:
+            if ym == end:
                 hint = (" (monthly archives appear on the first Monday of the next month;"
                         " pass --end to stop at an earlier month)")
             raise DataError(f"{name}: 404 on Binance Vision{hint}")
@@ -484,25 +488,32 @@ def self_test() -> int:
     expect(parse_checksum("A" * 64 + "  X.zip\n", "X.zip") == "a" * 64, "checksum parse")
 
     expect(list(months_between((2017, 11), (2018, 2))) == [(2017, 11), (2017, 12), (2018, 1), (2018, 2)], "months")
-    expect(previous_full_month(dt.date(2026, 1, 15)) == (2025, 12), "previous month in January")
-    expect(previous_full_month(dt.date(2026, 10, 1)) == (2026, 9), "previous month")
+    defaults = main_parser().parse_args(["--symbol", "BTCUSDT"])
+    expect(defaults.end is None and defaults.off_hour == "drop", "CLI defaults")
+    expect(DEFAULT_END_MONTH == (2026, 8), "default end month")
 
     print("self-test OK")
     return 0
 
 
-def main(argv=None) -> int:
+def main_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--symbol", help="spot symbol, e.g. BTCUSDT (required unless --self-test)")
     parser.add_argument("--interval", default="1h", choices=SUPPORTED_INTERVALS)
     parser.add_argument("--start", type=parse_month,
                         help="first month YYYY-MM (default: probe from 2017-08 for the first month with data)")
-    parser.add_argument("--end", type=parse_month, help="last month YYYY-MM (default: the previous full month)")
+    parser.add_argument("--end", type=parse_month,
+                        help=f"last month YYYY-MM (default: {format_month(DEFAULT_END_MONTH)}, the end of the test segment)")
     parser.add_argument("--raw-dir", default=str(DEFAULT_RAW_DIR), help="where the zip archives are cached")
     parser.add_argument("--out-dir", default=str(DEFAULT_OUT_DIR), help="where the CSV and manifest go")
-    parser.add_argument("--off-hour", default="error", choices=OFF_HOUR_POLICIES,
-                        help="candles not on the hour: stop (default), drop them, or floor them to the hour")
+    parser.add_argument("--off-hour", default=DEFAULT_OFF_HOUR, choices=OFF_HOUR_POLICIES,
+                        help="candles not on the hour: drop them (default), stop with an error, or floor them to the hour")
     parser.add_argument("--self-test", action="store_true", help="offline test of parsing and gap filling")
+    return parser
+
+
+def main(argv=None) -> int:
+    parser = main_parser()
     args = parser.parse_args(argv)
 
     if args.self_test:
