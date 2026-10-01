@@ -4,6 +4,7 @@
     "references": [
         "Gym.Core",
         "Gym.Runtime",
+        "Gym.Editor",
         "Unity.ML-Agents",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"

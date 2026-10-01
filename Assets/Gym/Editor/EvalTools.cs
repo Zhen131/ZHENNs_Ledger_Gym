@@ -14,17 +14,21 @@ namespace Gym.Editor
     /// Baseline evaluation from the command line (04B §4.1):
     ///
     ///   Unity -batchmode -nographics -projectPath . -executeMethod Gym.Editor.EvalTools.RunBaselines
-    ///         -gymSegment test -gymFeeRates 0,0.001,0.003 -gymRandomSeeds 100 -gymOut evaluations -quit
+    ///         -gymSegment test -gymFeeRates 0,0.001,0.003 -gymRandomSeeds 100 -gymOut evaluations
+    ///         [-gymPolicies buyhold,cash,random] -quit
     ///
-    /// For every fee rate it runs buy-and-hold, cash and the random policy (seeds 0 … n−1)
-    /// through TradingEnv in evaluation mode, appends one row per policy to log.csv and
-    /// writes a detail JSON per policy under runs/.
+    /// For every fee rate it runs the chosen policies (default all three: buy-and-hold, cash
+    /// and the random policy over seeds 0 … n−1, mixed by SeedMixer) through TradingEnv in
+    /// evaluation mode, appends one row per policy to log.csv and writes a detail JSON per
+    /// policy under runs/.
     /// </summary>
     public static class EvalTools
     {
         public const string FeeRatesArg = "-gymFeeRates";
         public const string RandomSeedsArg = "-gymRandomSeeds";
         public const string OutArg = "-gymOut";
+        public const string PoliciesArg = "-gymPolicies";
+        public static readonly string[] PolicyNames = { "buyhold", "cash", "random" };
 
         static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
@@ -41,6 +45,7 @@ namespace Gym.Editor
                 string outDir = Path.GetFullPath(GymConfigLoader.GetArg(args, OutArg) ?? "evaluations");
                 string configPath = GymConfigLoader.GetArg(args, GymConfigLoader.ConfigArg) ?? GymConfigLoader.DefaultConfigPath;
                 if (seeds < 1) throw new ArgumentOutOfRangeException(RandomSeedsArg, seeds, "Need at least one seed.");
+                HashSet<string> policies = ParsePolicies(GymConfigLoader.GetArg(args, PoliciesArg));
 
                 GymSettings s = GymConfigLoader.Load(configPath, GymConfigLoader.DefaultSymbolsPath,
                     new[] { GymConfigLoader.ModeArg, "eval", GymConfigLoader.SegmentArg, segmentName });
@@ -53,22 +58,32 @@ namespace Gym.Editor
                 {
                     var cost = new CostModel(fee, 0, 0);
 
-                    EpisodeMetrics hold = Baselines.RunBuyAndHold(env, cost);
-                    Write(outDir, s, segment, cost, market, Baselines.BuyAndHoldName, hold, 1, "", null);
+                    if (policies.Contains("buyhold"))
+                    {
+                        EpisodeMetrics hold = Baselines.RunBuyAndHold(env, cost);
+                        Write(outDir, s, segment, cost, market, Baselines.BuyAndHoldName, hold, 1, "", null);
+                        Debug.Log($"[Gym] fee {fee}: buy_and_hold {hold.TotalReturn:P2}");
+                    }
 
-                    EpisodeMetrics cash = Baselines.RunCash(env, cost);
-                    Write(outDir, s, segment, cost, market, Baselines.CashName, cash, 1, "", null);
+                    if (policies.Contains("cash"))
+                    {
+                        EpisodeMetrics cash = Baselines.RunCash(env, cost);
+                        Write(outDir, s, segment, cost, market, Baselines.CashName, cash, 1, "", null);
+                        Debug.Log($"[Gym] fee {fee}: cash {cash.TotalReturn:P2}");
+                    }
 
-                    var runs = new List<(int seed, EpisodeMetrics metrics)>();
-                    for (int seed = 0; seed < seeds; seed++) runs.Add((seed, Baselines.RunRandom(env, cost, seed)));
-                    EpisodeMetrics median = MedianOf(runs.Select(r => r.metrics).ToList());
-                    double p5 = Metrics.Percentile(runs.Select(r => r.metrics.TotalReturn), 5);
-                    double p95 = Metrics.Percentile(runs.Select(r => r.metrics.TotalReturn), 95);
-                    string notes = $"medians over seeds 0-{seeds - 1}; total_return p5={EvaluationLog.Number(p5)} p95={EvaluationLog.Number(p95)}";
-                    Write(outDir, s, segment, cost, market, Baselines.RandomName, median, seeds, notes, runs);
-
-                    Debug.Log($"[Gym] fee {fee}: buy_and_hold {hold.TotalReturn:P2}, cash {cash.TotalReturn:P2}, " +
-                              $"random median {median.TotalReturn:P2} (p5 {p5:P2}, p95 {p95:P2})");
+                    if (policies.Contains("random"))
+                    {
+                        var runs = new List<(int seed, EpisodeMetrics metrics)>();
+                        for (int seed = 0; seed < seeds; seed++) runs.Add((seed, Baselines.RunRandom(env, cost, seed)));
+                        EpisodeMetrics median = MedianOf(runs.Select(r => r.metrics).ToList());
+                        double p5 = Metrics.Percentile(runs.Select(r => r.metrics.TotalReturn), 5);
+                        double p95 = Metrics.Percentile(runs.Select(r => r.metrics.TotalReturn), 95);
+                        string notes = $"seeds mixed (Q03); medians over seeds 0-{seeds - 1}; " +
+                                       $"total_return p5={EvaluationLog.Number(p5)} p95={EvaluationLog.Number(p95)}";
+                        Write(outDir, s, segment, cost, market, Baselines.RandomName, median, seeds, notes, runs);
+                        Debug.Log($"[Gym] fee {fee}: random median {median.TotalReturn:P2} (p5 {p5:P2}, p95 {p95:P2})");
+                    }
                 }
 
                 Debug.Log($"[Gym] baselines written to {Path.Combine(outDir, EvaluationLog.FileName)}");
@@ -151,6 +166,22 @@ namespace Gym.Editor
 
             EvaluationLog.Append(outDir, record);
             EvaluationLog.WriteRunDetails(outDir, now, policy, segment.Name, details);
+        }
+
+        /// <summary>-gymPolicies: a comma-separated subset of buyhold, cash, random; all three when absent.</summary>
+        public static HashSet<string> ParsePolicies(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return new HashSet<string>(PolicyNames);
+            var chosen = new HashSet<string>();
+            foreach (string part in text.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                string name = part.Trim().ToLowerInvariant();
+                if (!PolicyNames.Contains(name))
+                    throw new ArgumentException($"{PoliciesArg}: unknown policy '{part.Trim()}'; use {string.Join(", ", PolicyNames)}");
+                chosen.Add(name);
+            }
+            if (chosen.Count == 0) throw new ArgumentException($"{PoliciesArg} names no policy");
+            return chosen;
         }
 
         /// <summary>Median of every metric; counts are rounded medians (exact halves go in the log row).</summary>
