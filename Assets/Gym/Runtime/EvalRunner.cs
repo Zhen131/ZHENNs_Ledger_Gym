@@ -158,8 +158,8 @@ namespace Gym.Runtime
                 { "segment", new JsonObject
                     {
                         { "name", segment.Name },
-                        { "start_date", segment.StartDate },
-                        { "end_date", segment.EndDate },
+                        { "start_date", segment.StartDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture) },
+                        { "end_date", segment.EndDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture) },
                         { "first_candle_utc", env.Series.OpenTimeUtc(env.StartIndex) },
                         { "last_candle_utc", env.Series.OpenTimeUtc(env.T) },
                         { "steps", env.StepCount },
