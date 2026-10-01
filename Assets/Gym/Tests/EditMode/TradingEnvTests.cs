@@ -175,6 +175,48 @@ namespace Gym.Tests.EditMode
         }
 
         [Test]
+        public void T10_ResetAtAGivenCandleStartsInCashAndRunsToTheEnd()
+        {
+            CandleSeries s = TestData.RandomWalk(300, 21, 0.01);
+            var env = new TradingEnv(s, Btc, 10, 250);
+            env.Reset(new CostModel(), 100);
+            Assert.AreEqual(100, env.StartIndex);
+            Assert.AreEqual(100, env.T);
+            Assert.IsTrue(env.Evaluation);
+            Assert.IsFalse(env.StartedWithCoin);
+            Assert.AreEqual(env.InitialCash, env.Account.Cash);
+            Assert.AreEqual(1, env.EquityCurve.Count);
+            int steps = 0;
+            while (!env.Done)
+            {
+                env.Step(ActionCodec.Hold, 0f);
+                steps++;
+            }
+            Assert.AreEqual(150, steps);
+            Assert.AreEqual(EndReason.SegmentEnd, env.EndReason);
+
+            // Same start and actions as an evaluation episode that happens to start there.
+            var a = new TradingEnv(s, Btc, 100, 250);
+            var b = new TradingEnv(s, Btc, 10, 250);
+            a.Reset(0, true, new CostModel());
+            b.Reset(new CostModel(), 100);
+            var random = new System.Random(4);
+            while (!a.Done)
+            {
+                int branch = random.Next(3);
+                float x = (float)(random.NextDouble() * 2 - 1);
+                a.Step(branch, x);
+                b.Step(branch, x);
+                Assert.IsTrue(TestData.SameBits(a.CurrentEquity, b.CurrentEquity));
+            }
+            Assert.IsTrue(b.Done);
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => env.Reset(new CostModel(), 31));
+            Assert.Throws<ArgumentOutOfRangeException>(() => env.Reset(new CostModel(), 250));
+            Assert.Throws<ArgumentNullException>(() => env.Reset(null, 100));
+        }
+
+        [Test]
         public void T10_ConstructorAndResetGuardRails()
         {
             CandleSeries s = TestData.Synthetic(100, k => 100);

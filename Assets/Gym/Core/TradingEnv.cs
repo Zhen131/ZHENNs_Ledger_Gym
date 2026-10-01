@@ -212,6 +212,35 @@ namespace Gym.Core
             equityCurve.Add(CurrentEquity);
         }
 
+        /// <summary>
+        /// Evaluation-style start at a chosen candle: all cash, no randomness, runs to
+        /// <see cref="Last"/>. Used by the Play scene (02B §2.3); added alongside the
+        /// original <see cref="Reset(int, bool, CostModel)"/>, which is unchanged.
+        /// </summary>
+        public void Reset(CostModel cost, int startIndex)
+        {
+            int lo = Math.Max(First, ObservationBuilder.Lookback);
+            if (startIndex < lo || startIndex >= Last)
+                throw new ArgumentOutOfRangeException(nameof(startIndex), startIndex, $"Must be in [{lo}, {Last - 1}].");
+            Cost = cost ?? throw new ArgumentNullException(nameof(cost));
+            Seed = 0;
+            Evaluation = true;
+            Account = new Account(Rules, cost, InitialCash);
+            StartIndex = startIndex;
+            T = startIndex;
+            StepCount = 0;
+            StepsSinceTrade = 0;
+            StartedWithCoin = false;
+            Done = false;
+            EndReason = EndReason.None;
+            HoldingSteps = 0;
+            ClippedRewards = 0;
+            RewardSum = 0;
+            trades.Clear();
+            equityCurve.Clear();
+            equityCurve.Add(CurrentEquity);
+        }
+
         public void WriteObservation(float[] dst, int offset = 0) =>
             ObservationBuilder.Write(Series, T, RequireAccount(), StepsSinceTrade, dst, offset);
 
