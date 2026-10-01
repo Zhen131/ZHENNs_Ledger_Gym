@@ -4,7 +4,7 @@ A 2D Unity ML-Agents environment where a reinforcement-learning agent walks thro
 
 This is a university course project (Introduction to Reinforcement Learning, University of Debrecen, Fall 2026). It is **not** a trading strategy and **not** financial advice. The question it asks is how fees change what an agent learns to do — not whether it can make money.
 
-> Status: project scaffolding. The environment, agent and training configs are not written yet.
+> Status: the environment, the keyboard Play scene, the macOS training build and a 30k-step smoke training run work. Evaluation and the full training runs on the PC come next.
 
 ## Versions (pinned on every machine)
 
@@ -66,6 +66,43 @@ python tools/data/fetch_binance_klines.py --symbol BTCUSDT --end 2026-08 --off-h
 ```
 
 `--off-hour drop` is needed because 43 candles in February 2018 start at hh:28 instead of on the hour; without it the script stops with an error. The resulting `csv_sha256` in the manifest should be `4739c139dc501e38498589359db093394dcee86cabde5a6e37c12d726d084242`.
+
+## Build
+
+The training player contains only `Assets/Gym/Scenes/Training.unity` (16 agents, no camera), built with Mono as a non-development build. The build script also sets the player settings it relies on: Run In Background on, windowed, 640×360.
+
+```bash
+UNITY=/Applications/Unity/Hub/Editor/6000.0.84f1/Unity.app/Contents/MacOS/Unity
+"$UNITY" -batchmode -nographics -projectPath "$PWD" -executeMethod Gym.Editor.BuildScript.BuildMacTraining -quit -logFile "$PWD/Logs/build-mac.log"
+```
+
+This writes `Builds/mac/Gym.app` (Apple silicon, about 94 MB). `Gym.Editor.BuildScript.BuildWindowsTraining` writes `Builds/win/Gym.exe` and needs the *Windows Build Support (Mono)* module; without it the editor exits with code 1 and says which module to add. On Windows the editor is `C:\Program Files\Unity\Hub\Editor\6000.0.84f1\Editor\Unity.exe`. The Windows build has not been verified yet.
+
+The CSV, the manifest and both JSON configs travel inside the build under `StreamingAssets/Gym/` (on macOS: `Gym.app/Contents/Resources/Data/StreamingAssets/Gym/`), so they can be edited there without rebuilding. `-gymConfig <path>` points the player at another config file.
+
+## Smoke training
+
+Training configs live in `config/`:
+
+| File | What it is |
+| --- | --- |
+| `ppo_base.yaml` | PPO with the hyperparameters of ML-Agents' hybrid-action example FoodCollector (Release 23); 2M steps; `fee_rate` 0.001 |
+| `smoke.yaml` | Same, 30k steps (`summary_freq` 5000, `checkpoint_interval` 30000) |
+| `smoke-fee0003.yaml` | `smoke.yaml` with `fee_rate` 0.003 and 10k steps |
+
+Fees reach the environment as ML-Agents environment parameters (`fee_rate`, `fixed_fee`, `slippage`), read at the start of every episode. Run IDs for smoke runs start with `smoke-`.
+
+```bash
+conda activate mlagents
+mlagents-learn config/smoke.yaml --env Builds/mac/Gym.app --run-id smoke-mac-01 --no-graphics
+python tools/train/read_scalars.py results/smoke-mac-01
+```
+
+`read_scalars.py` prints every TensorBoard scalar of a run: the number of points, the last step and the last value. Besides ML-Agents' own `Environment/*`, `Losses/*` and `Policy/*` tags, the agent records `Trading/Return`, `Trading/Trades`, `Trading/Rejected`, `Trading/FeesPaidPct`, `Trading/Exposure`, `Trading/Turnover`, `Trading/RewardClips`, `Trading/FeeRate` and `Trading/FixedFee` at the end of each episode.
+
+The `Trading/*` tags only appear once an episode has finished: with 16 agents and 720-step episodes that takes 11,520 steps, so a 10k-step run (such as `smoke-fee0003.yaml`) has none.
+
+Measured on an Apple M5 MacBook (10 cores, 16 GB), CPU training: the 30k-step smoke run took 14.6 s from launch to exit, about 2,050 steps/s overall and 2,900 steps/s between the first and last summaries. That puts 2M steps at roughly 12 to 16 minutes on this machine.
 
 ## Reading the code
 
