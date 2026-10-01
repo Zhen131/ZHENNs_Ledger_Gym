@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using Gym.Core;
 using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
@@ -43,6 +44,7 @@ namespace Gym.Runtime
 
         readonly float[] observation = new float[ObservationBuilder.Size];
         System.Random seedSource;
+        bool firstEpisodeLogged;
 
         public AgentStartMode StartMode
         {
@@ -66,6 +68,8 @@ namespace Gym.Runtime
         public GymSettings Settings { get; private set; }
         public TradingEnv Env { get; private set; }
         public int MasterSeed { get; private set; }
+        /// <summary>"trainer" when the seed came from mlagents-learn (--seed), "clock" otherwise.</summary>
+        public string MasterSeedSource { get; private set; }
         public int EpisodeSeed { get; private set; }
         public int FinishedEpisodes { get; private set; }
         public EpisodeStats LastEpisodeStats { get; private set; }
@@ -94,13 +98,46 @@ namespace Gym.Runtime
             SegmentSpec segment = mode == AgentStartMode.Evaluation ? Settings.EvalSegment : Settings.Train;
             Env = TradingEnv.ForSegment(Settings.Series, Settings.Rules, segment,
                 c.initialCash, c.episodeLength, c.randomInitialPositionShare);
-            MasterSeed = unchecked((int)DateTime.UtcNow.Ticks + 7919 * (agentIndex + 1));
+            Academy academy = Academy.Instance; // connects to the trainer first, which sends the seed
+            int trainerSeed = 0;
+            bool fromTrainer = academy.IsCommunicatorOn && TryReadTrainerSeed(academy, out trainerSeed);
+            if (academy.IsCommunicatorOn && !fromTrainer)
+                Debug.LogWarning("[Gym] trainer attached but its seed could not be read; seeding from the clock (Q08)");
+            (MasterSeed, MasterSeedSource) = ChooseMasterSeed(fromTrainer, trainerSeed, DateTime.UtcNow.Ticks, agentIndex);
             seedSource = new System.Random(MasterSeed);
-            Debug.Log($"[Gym] {name}: index {agentIndex}, mode {mode}, segment {segment}, master seed {MasterSeed}");
+            Debug.Log($"[Gym] {name}: index {agentIndex}, mode {mode}, segment {segment}, master seed {MasterSeed} ({MasterSeedSource})");
             if (mode != AgentStartMode.Training) ResetEnv(); // views and runners can read the start before the first step
         }
 
         public override void OnEpisodeBegin() => ResetEnv();
+
+        /// <summary>
+        /// The agent's master seed (Q07). With a trainer attached it derives from the seed
+        /// mlagents-learn sends (--seed, plus the environment's worker index), mixed with the
+        /// agent index, so a run can be repeated; without one it comes from the clock as before.
+        /// Both pass through <see cref="SeedMixer"/> (Q03).
+        /// </summary>
+        // Academy.InferenceSeed is set-only in ML-Agents 4.0.3, so the seed the trainer sent
+        // (stored in m_InferenceSeed during the handshake) is read by reflection (Q08).
+        static readonly FieldInfo InferenceSeedField =
+            typeof(Academy).GetField("m_InferenceSeed", BindingFlags.Instance | BindingFlags.NonPublic);
+
+        /// <summary>The seed mlagents-learn sent to this player, if it can be read.</summary>
+        public static bool TryReadTrainerSeed(Academy academy, out int seed)
+        {
+            seed = 0;
+            if (academy == null || InferenceSeedField == null || InferenceSeedField.FieldType != typeof(int)) return false;
+            seed = (int)InferenceSeedField.GetValue(academy);
+            return true;
+        }
+
+        public static bool CanReadTrainerSeed => InferenceSeedField != null && InferenceSeedField.FieldType == typeof(int);
+
+        public static (int seed, string source) ChooseMasterSeed(bool trainerConnected, int trainerSeed, long clockTicks, int agentIndex)
+        {
+            if (trainerConnected) return (SeedMixer.Mix(trainerSeed, agentIndex), "trainer");
+            return (SeedMixer.Mix(unchecked((int)clockTicks + 7919 * (agentIndex + 1))), "clock");
+        }
 
         public override void CollectObservations(VectorSensor sensor)
         {
@@ -167,6 +204,11 @@ namespace Gym.Runtime
             else
             {
                 EpisodeSeed = seedSource.Next();
+                if (!firstEpisodeLogged)
+                {
+                    firstEpisodeLogged = true;
+                    Debug.Log($"[Gym] {name}: first episode seed {EpisodeSeed}");
+                }
                 Env.Reset(EpisodeSeed, false, cost);
             }
             HasStepped = false;
