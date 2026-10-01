@@ -22,6 +22,8 @@ namespace Gym.EditorTools
     {
         public const string PrefabPath = "Assets/Gym/Prefabs/TradingAgent.prefab";
         public const string TrainingScenePath = "Assets/Gym/Scenes/Training.unity";
+        public const string PlayScenePath = "Assets/Gym/Scenes/Play.unity";
+        public const string ChartMaterialPath = "Assets/Gym/Materials/CandleChart.mat";
         public const int TrainingAgentCount = 16;
 
         [MenuItem("Gym/Rebuild Prefab and Scenes")]
@@ -29,6 +31,7 @@ namespace Gym.EditorTools
         {
             GameObject prefab = BuildAgentPrefab();
             BuildTrainingScene(prefab);
+            BuildPlayScene(prefab, BuildChartMaterial());
             SetBuildScenes();
             AssetDatabase.SaveAssets();
             Debug.Log("[Gym] prefab and scenes rebuilt");
@@ -78,11 +81,68 @@ namespace Gym.EditorTools
             EditorSceneManager.SaveScene(scene, TrainingScenePath);
         }
 
+        public static Material BuildChartMaterial()
+        {
+            var material = AssetDatabase.LoadAssetAtPath<Material>(ChartMaterialPath);
+            Shader shader = Shader.Find("Sprites/Default");
+            if (material == null)
+            {
+                EnsureFolder(Path.GetDirectoryName(ChartMaterialPath));
+                material = new Material(shader) { name = "CandleChart" };
+                AssetDatabase.CreateAsset(material, ChartMaterialPath);
+            }
+            else
+            {
+                material.shader = shader;
+                EditorUtility.SetDirty(material);
+            }
+            return material;
+        }
+
+        public static void BuildPlayScene(GameObject prefab, Material chartMaterial)
+        {
+            Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            var cameraObject = new GameObject("Main Camera") { tag = "MainCamera" };
+            var camera = cameraObject.AddComponent<Camera>();
+            camera.orthographic = true;
+            camera.orthographicSize = 5;
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = new Color(0.07f, 0.08f, 0.10f);
+            camera.transform.position = new Vector3(0, 0, -10);
+
+            var agentObject = (GameObject)PrefabUtility.InstantiatePrefab(prefab, scene);
+            agentObject.name = "TradingAgent (Play)";
+            var agent = agentObject.GetComponent<TradingAgent>();
+            agent.StartMode = AgentStartMode.PlayFromConfig;
+            PrefabUtility.RecordPrefabInstancePropertyModifications(agent);
+            var behavior = agentObject.GetComponent<BehaviorParameters>();
+            behavior.BehaviorType = BehaviorType.HeuristicOnly;
+            PrefabUtility.RecordPrefabInstancePropertyModifications(behavior);
+
+            var controller = new GameObject("PlayController").AddComponent<PlayController>();
+            controller.Agent = agent;
+
+            var hud = new GameObject("HUD").AddComponent<HudView>();
+            hud.Agent = agent;
+            hud.Controller = controller;
+
+            var chartObject = new GameObject("CandleChart");
+            chartObject.transform.position = new Vector3(0, -1.4f, 0);
+            chartObject.AddComponent<MeshFilter>();
+            chartObject.AddComponent<MeshRenderer>().sharedMaterial = chartMaterial;
+            chartObject.AddComponent<CandleChartView>().Agent = agent;
+
+            EnsureFolder(Path.GetDirectoryName(PlayScenePath));
+            EditorSceneManager.SaveScene(scene, PlayScenePath);
+        }
+
         public static void SetBuildScenes()
         {
             var scenes = new List<EditorBuildSettingsScene>
             {
                 new EditorBuildSettingsScene(TrainingScenePath, true),
+                new EditorBuildSettingsScene(PlayScenePath, true),
             };
             EditorBuildSettings.scenes = scenes.ToArray();
         }

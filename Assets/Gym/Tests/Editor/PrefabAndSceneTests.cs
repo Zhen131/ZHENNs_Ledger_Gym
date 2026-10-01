@@ -15,6 +15,7 @@ namespace Gym.Tests.Editor
     {
         const string PrefabPath = "Assets/Gym/Prefabs/TradingAgent.prefab";
         const string TrainingScenePath = "Assets/Gym/Scenes/Training.unity";
+        const string PlayScenePath = "Assets/Gym/Scenes/Play.unity";
 
         static List<T> ComponentsIn<T>(Scene scene) where T : Component =>
             scene.GetRootGameObjects().SelectMany(g => g.GetComponentsInChildren<T>(true)).ToList();
@@ -73,12 +74,50 @@ namespace Gym.Tests.Editor
         }
 
         [Test]
-        public void E03_TrainingSceneIsFirstInBuildSettings()
+        public void E03_PlaySceneHasOneHeuristicAgentWithItsViews()
+        {
+            Scene scene = EditorSceneManager.OpenScene(PlayScenePath, OpenSceneMode.Additive);
+            try
+            {
+                List<TradingAgent> agents = ComponentsIn<TradingAgent>(scene);
+                Assert.AreEqual(1, agents.Count);
+                TradingAgent agent = agents[0];
+                Assert.AreEqual(BehaviorType.HeuristicOnly, agent.GetComponent<BehaviorParameters>().BehaviorType);
+                Assert.AreEqual(AgentStartMode.PlayFromConfig, agent.StartMode);
+
+                List<PlayController> controllers = ComponentsIn<PlayController>(scene);
+                Assert.AreEqual(1, controllers.Count);
+                Assert.AreSame(agent, controllers[0].Agent);
+
+                List<HudView> huds = ComponentsIn<HudView>(scene);
+                Assert.AreEqual(1, huds.Count);
+                Assert.AreSame(agent, huds[0].Agent);
+                Assert.AreSame(controllers[0], huds[0].Controller);
+
+                List<CandleChartView> charts = ComponentsIn<CandleChartView>(scene);
+                Assert.AreEqual(1, charts.Count);
+                Assert.AreSame(agent, charts[0].Agent);
+                Assert.IsNotNull(charts[0].GetComponent<MeshRenderer>().sharedMaterial);
+
+                List<Camera> cameras = ComponentsIn<Camera>(scene);
+                Assert.AreEqual(1, cameras.Count);
+                Assert.IsTrue(cameras[0].orthographic);
+            }
+            finally
+            {
+                EditorSceneManager.CloseScene(scene, true);
+            }
+        }
+
+        [Test]
+        public void E03_BothScenesAreInBuildSettingsInOrder()
         {
             EditorBuildSettingsScene[] scenes = EditorBuildSettings.scenes;
-            Assert.GreaterOrEqual(scenes.Length, 1);
+            Assert.AreEqual(2, scenes.Length);
             Assert.AreEqual(TrainingScenePath, scenes[0].path);
+            Assert.AreEqual(PlayScenePath, scenes[1].path);
             Assert.IsTrue(scenes[0].enabled);
+            Assert.IsTrue(scenes[1].enabled);
         }
     }
 }
