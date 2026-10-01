@@ -1,0 +1,150 @@
+#!/usr/bin/env python3
+"""Check the comparison configs in config/variants/ against config/ppo_base.yaml.
+
+Usage, from the repository root, inside the mlagents environment:
+
+    python tools/train/check_configs.py
+
+Rules (exit code 1 if any fails):
+- every variant differs from the base in exactly one setting, except the two
+  marked "MULTIPLE CHANGES" in their first line (sac-base, teacher-style);
+- every file starts with a comment line saying how it differs and why;
+- every file has the single behavior TradingAgent, the environment parameters
+  fee_rate, fixed_fee and slippage, and torch_settings.device cpu.
+
+If the mlagents package is importable, each file is also parsed with ML-Agents'
+own RunOptions, which catches misspelt or misplaced settings.
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+import yaml
+
+MULTIPLE_MARK = "MULTIPLE CHANGES"
+EXPECTED_MULTIPLE = {"sac-base.yaml", "teacher-style.yaml"}
+ENV_PARAMS = ("fee_rate", "fixed_fee", "slippage")
+
+
+def flatten(value, prefix=""):
+    """{'a': {'b': 1}} -> {'a.b': 1}"""
+    if isinstance(value, dict):
+        out = {}
+        for key, item in value.items():
+            out.update(flatten(item, f"{prefix}.{key}" if prefix else str(key)))
+        return out
+    return {prefix: value}
+
+
+def differences(base: dict, other: dict) -> list[str]:
+    a, b = flatten(base), flatten(other)
+    diffs = []
+    for key in sorted(set(a) | set(b)):
+        if key not in b:
+            diffs.append(f"{key}: {a[key]!r} -> (removed)")
+        elif key not in a:
+            diffs.append(f"{key}: (added) -> {b[key]!r}")
+        elif a[key] != b[key]:
+            diffs.append(f"{key}: {a[key]!r} -> {b[key]!r}")
+    return diffs
+
+
+def common_problems(path: Path, data: dict, first_line: str) -> list[str]:
+    problems = []
+    if not first_line.startswith("#"):
+        problems.append("first line is not a comment explaining the difference")
+    behaviors = (data or {}).get("behaviors") or {}
+    if list(behaviors) != ["TradingAgent"]:
+        problems.append(f"behaviors should be exactly ['TradingAgent'], got {list(behaviors)}")
+    params = (data or {}).get("environment_parameters") or {}
+    missing = [p for p in ENV_PARAMS if p not in params]
+    if missing:
+        problems.append(f"environment_parameters is missing {missing}")
+    device = ((data or {}).get("torch_settings") or {}).get("device")
+    if device != "cpu":
+        problems.append(f"torch_settings.device should be 'cpu', got {device!r}")
+    return problems
+
+
+def mlagents_parse(path: Path):
+    """None if ML-Agents accepts the file, an error message if not, 'skipped' without mlagents."""
+    try:
+        from mlagents.plugins.trainer_type import register_trainer_plugins
+        from mlagents.trainers.settings import RunOptions
+    except Exception:
+        return "skipped"
+    try:
+        register_trainer_plugins()  # mlagents-learn registers ppo/sac/poca this way before parsing
+        RunOptions.from_dict(yaml.safe_load(path.read_text()))
+        return None
+    except Exception as error:  # noqa: BLE001 - report whatever ML-Agents rejects
+        return f"{type(error).__name__}: {error}"
+
+
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("--base", default="config/ppo_base.yaml")
+    parser.add_argument("--variants", default="config/variants")
+    args = parser.parse_args(argv)
+
+    base_path = Path(args.base)
+    base_text = base_path.read_text()
+    base = yaml.safe_load(base_text)
+    failed = False
+
+    print(f"base: {base_path}")
+    for problem in common_problems(base_path, base, base_text.split("\n", 1)[0]):
+        print(f"  FAIL {problem}")
+        failed = True
+    parsed = mlagents_parse(base_path)
+    print(f"  mlagents RunOptions: {'ok' if parsed is None else parsed}")
+    failed |= parsed not in (None, "skipped")
+
+    variants = sorted(Path(args.variants).glob("*.yaml"))
+    if not variants:
+        print(f"FAIL no variants in {args.variants}")
+        return 1
+    seen_multiple = set()
+    for path in variants:
+        text = path.read_text()
+        first_line = text.split("\n", 1)[0]
+        data = yaml.safe_load(text)
+        diffs = differences(base, data)
+        multiple = MULTIPLE_MARK in first_line
+        if multiple:
+            seen_multiple.add(path.name)
+        problems = common_problems(path, data, first_line)
+        if multiple and path.name not in EXPECTED_MULTIPLE:
+            problems.append(f"marked {MULTIPLE_MARK!r} but only {sorted(EXPECTED_MULTIPLE)} may be")
+        if not multiple and len(diffs) != 1:
+            problems.append(f"must differ from the base in exactly one setting, found {len(diffs)}")
+        if multiple and len(diffs) < 2:
+            problems.append(f"marked {MULTIPLE_MARK!r} but differs in {len(diffs)} setting(s)")
+        parsed = mlagents_parse(path)
+        if parsed not in (None, "skipped"):
+            problems.append(f"ML-Agents rejects it: {parsed}")
+
+        status = "FAIL" if problems else "ok"
+        kind = "multiple" if multiple else "single"
+        print(f"{status:4} {path.name} ({kind}, {len(diffs)} difference{'s' if len(diffs) != 1 else ''}; "
+              f"mlagents {'ok' if parsed is None else parsed})")
+        for diff in diffs:
+            print(f"       {diff}")
+        for problem in problems:
+            print(f"     ! {problem}")
+        failed |= bool(problems)
+
+    missing_multiple = EXPECTED_MULTIPLE - seen_multiple
+    if missing_multiple:
+        print(f"FAIL expected multi-change variants not found or not marked: {sorted(missing_multiple)}")
+        failed = True
+
+    print("FAILED" if failed else f"all {len(variants)} variants ok")
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
