@@ -104,6 +104,37 @@ The `Trading/*` tags only appear once an episode has finished: with 16 agents an
 
 Measured on an Apple M5 MacBook (10 cores, 16 GB), CPU training: the 30k-step smoke run took 14.6 s from launch to exit, about 2,050 steps/s overall and 2,900 steps/s between the first and last summaries. That puts 2M steps at roughly 12 to 16 minutes on this machine.
 
+## Evaluation
+
+Every evaluation runs one full pass over a segment (validation or test) in evaluation mode: start at the first candle in cash, no random start or initial position, the same fills and fees as in training. The results go to an append-only log, `evaluations/log.csv`, plus one JSON file per evaluation under `evaluations/runs/` with all metrics and settings. The log is never rewritten; a log whose header differs from the current columns is refused.
+
+Metrics: total return, maximum drawdown, annualised Sharpe ratio (hourly log returns, √8760), trades, rejected orders, turnover (traded value ÷ average equity), fees (USDT and % of the starting equity) and exposure (share of steps that end holding coin).
+
+**Baselines** (buy-and-hold, always cash, and a random policy over 100 seeds, reported as medians with the 5th and 95th percentile of the return), for fee rates 0, 0.1 % and 0.3 %:
+
+```bash
+"$UNITY" -batchmode -nographics -projectPath "$PWD" -executeMethod Gym.Editor.EvalTools.RunBaselines -gymSegment test -gymOut evaluations -quit -logFile "$PWD/Logs/baselines.log"
+```
+
+Options: `-gymSegment validation|test`, `-gymFeeRates 0,0.001,0.003`, `-gymRandomSeeds 100`, `-gymOut <dir>`, `-gymConfig <file>`.
+
+**A trained model** is evaluated in its own player build with the model baked in, deterministic inference on the CPU:
+
+```bash
+"$UNITY" -batchmode -nographics -projectPath "$PWD" -executeMethod Gym.Editor.BuildScript.BuildMacEval -gymModel results/<run-id>/TradingAgent.onnx -quit -logFile "$PWD/Logs/build-eval.log"
+Builds/mac/GymEval.app/Contents/MacOS/ZHENN_Ledger_Gym -batchmode -nographics -gymMode eval -gymSegment test -gymFeeRate 0.001 -gymOut "$PWD/evaluations"
+```
+
+The build copies the model to `Assets/Gym/Models/Imported/` (git-ignored) and records the run id and the model's SHA-256 in the build; each log row carries both. `-gymFixedFee` and `-gymSlippage` set the other costs. Smoke evaluations go to `evaluations/smoke/`, which Git ignores.
+
+To read a log:
+
+```bash
+python tools/eval/summarize.py evaluations/log.csv
+```
+
+It prints one Markdown table per segment and fee rate. In the test segment (2025-09-01 to 2026-08-31) BTC fell 27.4 %, so holding cash beats buy-and-hold there.
+
 ## Reading the code
 
 Open this folder in VS Code (*File → Open Folder*). The C# scripts that make up the environment and the agent live under `Assets/`. Unity is configured to open scripts in VS Code; install the *Unity* extension (`visualstudiotoolsforunity.vstuc`) and a .NET SDK for IntelliSense.
