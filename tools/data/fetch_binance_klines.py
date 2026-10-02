@@ -517,7 +517,7 @@ def self_test() -> int:
     expect(len(new_gap) == 1 and "30 hours" in new_gap[0], f"new gap warning {new_gap}")
     expect(len(data_warnings("ETHUSDT", "1h", dropped_times, [known_gap])) == 2, "other symbols have no known list")
 
-    header =_make_zip("h.csv", ["open_time,open,high,low,close,volume,close_time,q,n,tb,tq,ignore"])
+    header = _make_zip("h.csv", ["open_time,open,high,low,close,volume,close_time,q,n,tb,tq,ignore"])
     expect_error(lambda: parse_archive(header, "header"), "not an integer")
     short = _make_zip("s.csv", [f"{t0},1,1,1,1,1"])
     expect_error(lambda: parse_archive(short, "short"), "12 columns")
