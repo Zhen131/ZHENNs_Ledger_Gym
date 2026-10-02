@@ -36,57 +36,7 @@ namespace Gym.Editor
         {
             try
             {
-                string[] args = Environment.GetCommandLineArgs();
-                string segmentName = GymConfigLoader.GetArg(args, GymConfigLoader.SegmentArg) ?? "test";
-                double[] feeRates = (GymConfigLoader.GetArg(args, FeeRatesArg) ?? "0,0.001,0.003")
-                    .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-                    .Select(x => double.Parse(x.Trim(), NumberStyles.Float, Inv)).ToArray();
-                int seeds = int.Parse(GymConfigLoader.GetArg(args, RandomSeedsArg) ?? "100", Inv);
-                string outDir = Path.GetFullPath(GymConfigLoader.GetArg(args, OutArg) ?? "evaluations");
-                string configPath = GymConfigLoader.GetArg(args, GymConfigLoader.ConfigArg) ?? GymConfigLoader.DefaultConfigPath;
-                if (seeds < 1) throw new ArgumentOutOfRangeException(RandomSeedsArg, seeds, "Need at least one seed.");
-                HashSet<string> policies = ParsePolicies(GymConfigLoader.GetArg(args, PoliciesArg));
-
-                GymSettings s = GymConfigLoader.Load(configPath, GymConfigLoader.DefaultSymbolsPath,
-                    new[] { GymConfigLoader.ModeArg, "eval", GymConfigLoader.SegmentArg, segmentName });
-                SegmentSpec segment = s.EvalSegment;
-                var env = TradingEnv.ForSegment(s.Series, s.Rules, segment, s.Config.initialCash, 0, 0);
-                JsonObject market = Market(env);
-                Debug.Log($"[Gym] baselines on {segment}: {Json(market)}");
-
-                foreach (double fee in feeRates)
-                {
-                    var cost = new CostModel(fee, 0, 0);
-
-                    if (policies.Contains("buyhold"))
-                    {
-                        EpisodeMetrics hold = Baselines.RunBuyAndHold(env, cost);
-                        Write(outDir, s, segment, cost, market, Baselines.BuyAndHoldName, hold, 1, "", null);
-                        Debug.Log($"[Gym] fee {fee}: buy_and_hold {hold.TotalReturn:P2}");
-                    }
-
-                    if (policies.Contains("cash"))
-                    {
-                        EpisodeMetrics cash = Baselines.RunCash(env, cost);
-                        Write(outDir, s, segment, cost, market, Baselines.CashName, cash, 1, "", null);
-                        Debug.Log($"[Gym] fee {fee}: cash {cash.TotalReturn:P2}");
-                    }
-
-                    if (policies.Contains("random"))
-                    {
-                        var runs = new List<(int seed, EpisodeMetrics metrics)>();
-                        for (int seed = 0; seed < seeds; seed++) runs.Add((seed, Baselines.RunRandom(env, cost, seed)));
-                        EpisodeMetrics median = MedianOf(runs.Select(r => r.metrics).ToList());
-                        double p5 = Metrics.Percentile(runs.Select(r => r.metrics.TotalReturn), 5);
-                        double p95 = Metrics.Percentile(runs.Select(r => r.metrics.TotalReturn), 95);
-                        string notes = $"seeds mixed (Q03); medians over seeds 0-{seeds - 1}; " +
-                                       $"total_return p5={EvaluationLog.Number(p5)} p95={EvaluationLog.Number(p95)}";
-                        Write(outDir, s, segment, cost, market, Baselines.RandomName, median, seeds, notes, runs);
-                        Debug.Log($"[Gym] fee {fee}: random median {median.TotalReturn:P2} (p5 {p5:P2}, p95 {p95:P2})");
-                    }
-                }
-
-                Debug.Log($"[Gym] baselines written to {Path.Combine(outDir, EvaluationLog.FileName)}");
+                Run(Environment.GetCommandLineArgs());
                 if (Application.isBatchMode) EditorApplication.Exit(0);
             }
             catch (Exception e)
@@ -95,6 +45,63 @@ namespace Gym.Editor
                 if (Application.isBatchMode) EditorApplication.Exit(1);
                 else throw;
             }
+        }
+
+        /// <summary>The work of <see cref="RunBaselines"/> for the given arguments; throws on any problem. Returns the log path.</summary>
+        public static string Run(string[] args)
+        {
+            string segmentName = GymConfigLoader.GetArg(args, GymConfigLoader.SegmentArg) ?? "test";
+            double[] feeRates = (GymConfigLoader.GetArg(args, FeeRatesArg) ?? "0,0.001,0.003")
+                .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(x => double.Parse(x.Trim(), NumberStyles.Float, Inv)).ToArray();
+            int seeds = int.Parse(GymConfigLoader.GetArg(args, RandomSeedsArg) ?? "100", Inv);
+            string outDir = Path.GetFullPath(GymConfigLoader.GetArg(args, OutArg) ?? "evaluations");
+            string configPath = GymConfigLoader.GetArg(args, GymConfigLoader.ConfigArg) ?? GymConfigLoader.DefaultConfigPath;
+            if (seeds < 1) throw new ArgumentOutOfRangeException(RandomSeedsArg, seeds, "Need at least one seed.");
+            HashSet<string> policies = ParsePolicies(GymConfigLoader.GetArg(args, PoliciesArg));
+
+            GymSettings s = GymConfigLoader.Load(configPath, GymConfigLoader.DefaultSymbolsPath,
+                new[] { GymConfigLoader.ModeArg, "eval", GymConfigLoader.SegmentArg, segmentName });
+            SegmentSpec segment = s.EvalSegment;
+            var env = TradingEnv.ForSegment(s.Series, s.Rules, segment, s.Config.initialCash, 0, 0);
+            JsonObject market = Market(env);
+            Debug.Log($"[Gym] baselines on {segment}: {Json(market)}");
+
+            foreach (double fee in feeRates)
+            {
+                var cost = new CostModel(fee, 0, 0);
+
+                if (policies.Contains("buyhold"))
+                {
+                    EpisodeMetrics hold = Baselines.RunBuyAndHold(env, cost);
+                    Write(outDir, s, segment, cost, market, Baselines.BuyAndHoldName, hold, 1, "", null);
+                    Debug.Log($"[Gym] fee {fee}: buy_and_hold {hold.TotalReturn:P2}");
+                }
+
+                if (policies.Contains("cash"))
+                {
+                    EpisodeMetrics cash = Baselines.RunCash(env, cost);
+                    Write(outDir, s, segment, cost, market, Baselines.CashName, cash, 1, "", null);
+                    Debug.Log($"[Gym] fee {fee}: cash {cash.TotalReturn:P2}");
+                }
+
+                if (policies.Contains("random"))
+                {
+                    var runs = new List<(int seed, EpisodeMetrics metrics)>();
+                    for (int seed = 0; seed < seeds; seed++) runs.Add((seed, Baselines.RunRandom(env, cost, seed)));
+                    EpisodeMetrics median = MedianOf(runs.Select(r => r.metrics).ToList());
+                    double p5 = Metrics.Percentile(runs.Select(r => r.metrics.TotalReturn), 5);
+                    double p95 = Metrics.Percentile(runs.Select(r => r.metrics.TotalReturn), 95);
+                    string notes = $"seeds mixed (Q03); medians over seeds 0-{seeds - 1}; " +
+                                   $"total_return p5={EvaluationLog.Number(p5)} p95={EvaluationLog.Number(p95)}";
+                    Write(outDir, s, segment, cost, market, Baselines.RandomName, median, seeds, notes, runs);
+                    Debug.Log($"[Gym] fee {fee}: random median {median.TotalReturn:P2} (p5 {p5:P2}, p95 {p95:P2})");
+                }
+            }
+
+            string logPath = Path.Combine(outDir, EvaluationLog.FileName);
+            Debug.Log($"[Gym] baselines written to {logPath}");
+            return logPath;
         }
 
         static void Write(string outDir, GymSettings s, SegmentSpec segment, CostModel cost, JsonObject market,
@@ -127,7 +134,7 @@ namespace Gym.Editor
                 { "policy", policy },
                 { "generated_by", "Gym.Editor.EvalTools.RunBaselines" },
                 { "symbol", s.Rules.Symbol },
-                { "data_file", s.DataPath },
+                { "data_file", GymConfigLoader.PathForRecords(s.Config.dataFile) },
                 { "segment", SegmentJson(segment, s.Series) },
                 { "market", market },
                 { "cost", new JsonObject { { "fee_rate", cost.FeeRate }, { "fixed_fee", cost.FixedFee }, { "slippage", cost.Slippage } } },

@@ -177,22 +177,37 @@ namespace Gym.Runtime
             record.SetCost(env.Cost);
             record.SetMetrics(metrics);
 
-            var details = new JsonObject
+            JsonObject details = Details(record, info, s, env, metrics, behavior.BehaviorType.ToString(),
+                behavior.DeterministicInference, behavior.InferenceDevice.ToString());
+            LogPath = EvaluationLog.Append(outDir, record);
+            DetailsPath = EvaluationLog.WriteRunDetails(outDir, now, record.Policy, segment.Name, details);
+        }
+
+        /// <summary>
+        /// The detail JSON of one agent evaluation. The data file is written as the config
+        /// names it and the model only by its file name (the SHA-256 identifies it), so the
+        /// committed file carries no machine's folders or user name (05D M-2).
+        /// </summary>
+        public static JsonObject Details(EvaluationRecord record, EvalBuildInfo info, GymSettings s, TradingEnv env,
+            EpisodeMetrics metrics, string behaviorType, bool deterministicInference, string inferenceDevice)
+        {
+            SegmentSpec segment = s.EvalSegment;
+            return new JsonObject
             {
-                { "timestamp_utc", now },
+                { "timestamp_utc", record.TimestampUtc },
                 { "kind", record.Kind },
                 { "policy", record.Policy },
                 { "generated_by", "Gym.Runtime.EvalRunner" },
                 { "model_run_id", record.ModelRunId },
                 { "model_sha256", record.ModelSha256 },
-                { "model_file", info?.model_file ?? "" },
+                { "model_file", GymConfigLoader.FileNameOnly(info?.model_file) },
                 { "build_built_at_utc", info?.built_at_utc ?? "" },
                 { "unity_version", Application.unityVersion },
-                { "behavior_type", behavior.BehaviorType.ToString() },
-                { "deterministic_inference", behavior.DeterministicInference },
-                { "inference_device", behavior.InferenceDevice.ToString() },
+                { "behavior_type", behaviorType },
+                { "deterministic_inference", deterministicInference },
+                { "inference_device", inferenceDevice },
                 { "symbol", s.Rules.Symbol },
-                { "data_file", s.DataPath },
+                { "data_file", GymConfigLoader.PathForRecords(s.Config.dataFile) },
                 { "segment", new JsonObject
                     {
                         { "name", segment.Name },
@@ -207,9 +222,6 @@ namespace Gym.Runtime
                 { "initial_cash", s.Config.initialCash },
                 { "metrics", EvaluationLog.MetricsJson(metrics) },
             };
-
-            LogPath = EvaluationLog.Append(outDir, record);
-            DetailsPath = EvaluationLog.WriteRunDetails(outDir, now, record.Policy, segment.Name, details);
         }
 
         public static EvalBuildInfo ReadBuildInfo()
