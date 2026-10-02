@@ -95,6 +95,8 @@ python tools/eval/summarize.py evaluations/log.csv
 
 可选参数：`-gymSegment validation|test`、`-gymFeeRates 0,0.001,0.003`、`-gymRandomSeeds 100`、`-gymOut <目录>`、`-gymConfig <文件>`。训练好的模型用单独的评估包评估（`BuildMacEval` / `BuildWindowsEval` 加 `-gymModel`），每一行都会记下 run-id 和模型的 SHA-256；`-gymFixedFee`、`-gymSlippage` 设定另外两项费用。评估包不带 `-gymMode eval` 和 `-gymOut <目录>` 就不跑：退出码 1，什么都不写。
 
+`BuildMacEval` 写完 `build-info.json` 后会给 `GymEval.app` 重新签名，刚打好的包能通过 `codesign --verify --deep`。但 ML-Agents 每跑一次都会往包里（`Contents/ML-Agents/Timers/`）写一个计时文件，签名又被破坏了。在本机照样能跑；要拷到别的 Mac，就在第一次运行之前拷，或者先重新签一次名：`codesign --force --deep -s - Builds/mac/GymEval.app`。
+
 ## 训练曲线（TensorBoard 里的 `Trading/*`）
 
 训练时每个智能体在每局结束时报 9 个数；TensorBoard 显示的是每个汇总区间里结束的那些局的平均值。它们说的是训练局（随机起点、720 步、开局可能持币），所以不是上面的评估指标，名字相同的也不是一回事。
