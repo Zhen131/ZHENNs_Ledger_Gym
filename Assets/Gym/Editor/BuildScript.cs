@@ -28,7 +28,7 @@ namespace Gym.Editor
     ///   Unity -batchmode -nographics -projectPath . -executeMethod Gym.Editor.BuildScript.BuildMacEval
     ///         -gymModel results/&lt;run-id&gt;/TradingAgent.onnx -quit -logFile Logs/build-eval.log
     ///
-    /// BuildWindowsEval does the same for Windows x64 (Builds/win/GymEval.exe).
+    /// BuildWindowsEval does the same for Windows x64 (Builds/win-eval/GymEval.exe).
     /// </summary>
     public static class BuildScript
     {
@@ -36,7 +36,9 @@ namespace Gym.Editor
         public const string MacOutput = "Builds/mac/Gym.app";
         public const string WindowsOutput = "Builds/win/Gym.exe";
         public const string MacEvalOutput = "Builds/mac/GymEval.app";
-        public const string WindowsEvalOutput = "Builds/win/GymEval.exe";
+        // Its own folder: a Windows player shares UnityPlayer.dll and MonoBleedingEdge\ with
+        // whatever else sits next to it, and those files are locked while Gym.exe trains (05D S-3).
+        public const string WindowsEvalOutput = "Builds/win-eval/GymEval.exe";
         public const string ImportedModelsFolder = "Assets/Gym/Models/Imported";
         public const string ModelArg = "-gymModel";
         public const string RunIdArg = "-gymRunId";
@@ -59,7 +61,7 @@ namespace Gym.Editor
         [MenuItem("Gym/Build/Mac Evaluation Player (needs -gymModel)")]
         public static void BuildMacEval() => BuildEval(BuildTarget.StandaloneOSX, MacEvalOutput);
 
-        /// <summary>Same as <see cref="BuildMacEval"/> for Windows x64: Builds/win/GymEval.exe.</summary>
+        /// <summary>Same as <see cref="BuildMacEval"/> for Windows x64: Builds/win-eval/GymEval.exe.</summary>
         [MenuItem("Gym/Build/Windows Evaluation Player (needs -gymModel)")]
         public static void BuildWindowsEval() => BuildEval(BuildTarget.StandaloneWindows64, WindowsEvalOutput);
 
@@ -113,6 +115,7 @@ namespace Gym.Editor
                 };
                 string infoPath = Path.Combine(StreamingGymFolder(target, output), EvalRunner.BuildInfoFile);
                 File.WriteAllText(infoPath, JsonUtility.ToJson(info, true));
+                if (target == BuildTarget.StandaloneOSX) ResignMacApp(output);
                 Debug.Log($"[Gym] eval build: run id {runId}, model sha256 {sha}, {summary.totalSize / 1048576.0:F1} MB -> {output}; wrote {infoPath}");
             }
             catch (Exception e)
@@ -121,6 +124,41 @@ namespace Gym.Editor
                 if (Application.isBatchMode) EditorApplication.Exit(1);
                 else throw;
             }
+        }
+
+        /// <summary>
+        /// build-info.json is written into the .app after Unity signed it, which breaks the seal:
+        /// it still runs here, but a copy on another Mac is refused. Sign it again, ad hoc (05D S-13).
+        /// </summary>
+        static void ResignMacApp(string app)
+        {
+            if (Application.platform != RuntimePlatform.OSXEditor)
+            {
+                Debug.LogWarning($"[Gym] {app} was not re-signed (codesign needs macOS); run: codesign --force --deep -s - {app}");
+                return;
+            }
+            foreach (string[] arguments in new[]
+                     {
+                         new[] { "--force", "--deep", "--sign", "-", app },
+                         new[] { "--verify", "--deep", "--strict", app },
+                     })
+            {
+                var start = new System.Diagnostics.ProcessStartInfo("/usr/bin/codesign",
+                    string.Join(" ", arguments.Select(a => "\"" + a.Replace("\"", "\\\"") + "\"")))
+                {
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                };
+                using (var process = System.Diagnostics.Process.Start(start))
+                {
+                    string output = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
+                    process.WaitForExit();
+                    if (process.ExitCode != 0)
+                        throw new InvalidOperationException($"codesign {string.Join(" ", arguments)} failed ({process.ExitCode}): {output}");
+                }
+            }
+            Debug.Log($"[Gym] re-signed {app} (ad hoc) and verified the signature");
         }
 
         /// <summary>Where a player build keeps StreamingAssets/Gym.</summary>

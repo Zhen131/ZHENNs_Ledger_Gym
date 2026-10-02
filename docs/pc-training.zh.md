@@ -139,7 +139,7 @@ tensorboard --logdir results
 
 ## 10. 评估
 
-先把训练好的模型打进一个评估包，再在验证段上跑：
+先把训练好的模型打进一个评估包，再在验证段上跑。评估包单独放在 `Builds\win-eval\`：训练包正在跑时会占着 `Builds\win\` 里的 `UnityPlayer.dll` 等文件，两个包放一起就打不出来。
 
 ```powershell
 $p = Start-Process -FilePath $unity -Wait -PassThru -ArgumentList @(
@@ -149,7 +149,7 @@ $p = Start-Process -FilePath $unity -Wait -PassThru -ArgumentList @(
   '-logFile', "`"$PWD\Logs\build-eval.log`"")
 $p.ExitCode
 
-$e = Start-Process -FilePath Builds\win\GymEval.exe -Wait -PassThru -ArgumentList @(
+$e = Start-Process -FilePath Builds\win-eval\GymEval.exe -Wait -PassThru -ArgumentList @(
   '-batchmode', '-nographics', '-gymMode', 'eval', '-gymSegment', 'validation',
   '-gymFeeRate', '0.001', '-gymOut', "`"$PWD\evaluations`"")
 $e.ExitCode
@@ -171,7 +171,7 @@ python tools\eval\summarize.py evaluations\log.csv
 | --- | --- | --- |
 | 训练产物、模型、TensorBoard 记录 | `results\<run-id>\` | 不进 |
 | 一次训练的终端输出 | `results\<run-id>.log` | 不进 |
-| 打出来的包 | `Builds\win\` | 不进 |
+| 打出来的包 | `Builds\win\`（训练包）、`Builds\win-eval\`（评估包） | 不进 |
 | 评估流水和明细 | `evaluations\log.csv`、`evaluations\runs\` | 进（只追加） |
 | 试验性的评估 | `evaluations\smoke\` | 不进 |
 

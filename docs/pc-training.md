@@ -137,7 +137,7 @@ Open <http://localhost:6006>. Compare `Environment/Cumulative Reward`, `Policy/E
 
 ## 10. Evaluation
 
-Build an evaluation player with a trained model baked in, then run it on the validation segment:
+Build an evaluation player with a trained model baked in, then run it on the validation segment. It goes to its own folder, `Builds\win-eval\`: while the training player runs, it holds `UnityPlayer.dll` and the other files in `Builds\win\`, so a second player could not be built next to it.
 
 ```powershell
 $p = Start-Process -FilePath $unity -Wait -PassThru -ArgumentList @(
@@ -147,7 +147,7 @@ $p = Start-Process -FilePath $unity -Wait -PassThru -ArgumentList @(
   '-logFile', "`"$PWD\Logs\build-eval.log`"")
 $p.ExitCode
 
-$e = Start-Process -FilePath Builds\win\GymEval.exe -Wait -PassThru -ArgumentList @(
+$e = Start-Process -FilePath Builds\win-eval\GymEval.exe -Wait -PassThru -ArgumentList @(
   '-batchmode', '-nographics', '-gymMode', 'eval', '-gymSegment', 'validation',
   '-gymFeeRate', '0.001', '-gymOut', "`"$PWD\evaluations`"")
 $e.ExitCode
@@ -169,7 +169,7 @@ python tools\eval\summarize.py evaluations\log.csv
 | --- | --- | --- |
 | Training output, models, TensorBoard events | `results\<run-id>\` | no |
 | Terminal output of a run | `results\<run-id>.log` | no |
-| Players | `Builds\win\` | no |
+| Players | `Builds\win\` (training), `Builds\win-eval\` (evaluation) | no |
 | Evaluation log and details | `evaluations\log.csv`, `evaluations\runs\` | yes (append only) |
 | Smoke evaluations | `evaluations\smoke\` | no |
 
