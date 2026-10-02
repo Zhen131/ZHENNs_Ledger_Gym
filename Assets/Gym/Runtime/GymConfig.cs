@@ -100,6 +100,13 @@ namespace Gym.Runtime
         public const string FixedFeeArg = "-gymFixedFee";
         public const string SlippageArg = "-gymSlippage";
 
+        /// <summary>
+        /// The largest initialCash accepted (08D N-2). From about 1e12 on, a double cannot tell
+        /// apart amounts 0.0001 USDT or more apart, far above the 1e-9 tolerance of an all-in buy,
+        /// so rounding its quantity can overshoot the cash and the buy throws. 1e9 leaves room.
+        /// </summary>
+        public const double MaxInitialCash = 1e9;
+
         static readonly object Gate = new object();
         static GymSettings runtimeSettings;
         static string runtimeKey;
@@ -163,6 +170,9 @@ namespace Gym.Runtime
             settings.Rules = FindSymbol(config.symbol, table, settings.SymbolsPath, errors);
 
             if (!(config.initialCash > 0)) errors.Add($"initialCash must be > 0 (got {config.initialCash})");
+            else if (config.initialCash > MaxInitialCash)
+                errors.Add($"initialCash must be <= {MaxInitialCash:0} (got {config.initialCash}): with more cash a double " +
+                           "is not precise enough to round the quantity of an all-in buy correctly");
             if (config.episodeLength < 0) errors.Add($"episodeLength must be >= 0 (got {config.episodeLength})");
             if (!(config.randomInitialPositionShare >= 0 && config.randomInitialPositionShare <= 1))
                 errors.Add($"randomInitialPositionShare must be in [0, 1] (got {config.randomInitialPositionShare})");

@@ -177,6 +177,23 @@ namespace Gym.Tests.Editor
         }
 
         [Test]
+        public void N2_InitialCashAboveTheLimitIsAConfigError()
+        {
+            // 08D N-2: from about 1e12 USDT on, an all-in buy could round past the cash and throw.
+            GymConfig config = DefaultConfig();
+            config.initialCash = 1e13;
+            var e = Assert.Throws<GymConfigException>(() =>
+                GymConfigLoader.Load(WriteConfig(config), GymConfigLoader.DefaultSymbolsPath));
+            Assert.AreEqual(1, e.Errors.Count, string.Join("; ", e.Errors));
+            StringAssert.StartsWith("initialCash must be <= 1000000000", e.Errors[0]);
+            StringAssert.Contains("double", e.Errors[0]);
+
+            config.initialCash = GymConfigLoader.MaxInitialCash;
+            Assert.AreEqual(1e9, GymConfigLoader.Load(WriteConfig(config), GymConfigLoader.DefaultSymbolsPath).Config.initialCash);
+            Assert.AreEqual(10_000, GymConfigLoader.Load(GymConfigLoader.DefaultConfigPath, GymConfigLoader.DefaultSymbolsPath).Config.initialCash);
+        }
+
+        [Test]
         public void E01_DataIsParsedOncePerPath()
         {
             CandleSeries a = GymDataCache.Get(Path.Combine(GymConfigLoader.DefaultDirectory, "data", "BTCUSDT-1h.csv"));
