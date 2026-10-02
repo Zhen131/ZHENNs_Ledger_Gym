@@ -9,8 +9,10 @@
 #
 # Run ids:   [smoke-][NAME-]<config file name>-s<seed>-<yyyyMMdd, UTC>
 # Results:   results/<run-id>/                (ML-Agents output, plus config-used.yaml)
-#            results/<run-id>.log             (everything mlagents-learn printed)
+#            results/<run-id>.log             (everything mlagents-learn printed; a log left
+#                                              by an attempt without results is overwritten)
 # A run whose results/<run-id> already exists is skipped; --force is never used.
+# Seeds are whole numbers >= 0. --dry-run prints the commands and writes nothing.
 # Seeds: mlagents-learn gets --seed <seed x 1000>, because ML-Agents gives environment k
 # the seed + k and seeds 1, 2, 3 ... would collide when --num-envs > 1 (Q03). The run id
 # keeps the plain seed (-s3); results/<run-id>/seed-used.txt records what was passed.
@@ -53,6 +55,11 @@ while [ $# -gt 0 ]; do
 done
 
 fail() { echo "error: $*" >&2; exit 2; }
+smoke_text() {
+    sed -E -e "s/^([[:space:]]*max_steps:).*/\1 $SMOKE_STEPS/" \
+           -e "s/^([[:space:]]*summary_freq:).*/\1 1000/" \
+           -e "s/^([[:space:]]*checkpoint_interval:).*/\1 $SMOKE_STEPS/" "$1"
+}
 is_int() { case "$1" in ''|*[!0-9]*) return 1 ;; *) return 0 ;; esac; }
 abs_path() { (cd "$(dirname "$1")" && printf '%s/%s\n' "$(pwd)" "$(basename "$1")"); }
 # True when any agent of the run logged its master seed as "(clock)" instead of "(trainer)" (Q08).
@@ -81,8 +88,8 @@ done
 
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$REPO" || exit 2
-mkdir -p results
-DATE="$(date -u +%Y%m%d)"
+[ "$DRY_RUN" -eq 1 ] || mkdir -p results
+DATE="$(LC_ALL=C date -u +%Y%m%d)"
 
 ran=0; skipped=0; failed=0; clocked=0
 echo "series: ${#ABS_CONFIGS[@]} config(s) x seeds [$SEEDS], --num-envs $NUM_ENVS, env $ENV_PATH$( [ "$SMOKE" -eq 1 ] && echo ", smoke $SMOKE_STEPS steps")"
@@ -100,12 +107,12 @@ for cfg in "${ABS_CONFIGS[@]}"; do
 
         used="$cfg"
         if [ "$SMOKE" -eq 1 ]; then
-            mkdir -p results/_tmp
             used="$REPO/results/_tmp/$run_id.yaml"
-            sed -E -e "s/^([[:space:]]*max_steps:).*/\1 $SMOKE_STEPS/" \
-                   -e "s/^([[:space:]]*summary_freq:).*/\1 1000/" \
-                   -e "s/^([[:space:]]*checkpoint_interval:).*/\1 $SMOKE_STEPS/" "$cfg" > "$used"
-            [ "$(grep -cE "^[[:space:]]*max_steps: $SMOKE_STEPS\$" "$used")" -eq 1 ] || fail "could not set max_steps in $used"
+            [ "$(smoke_text "$cfg" | grep -cE "^[[:space:]]*max_steps: $SMOKE_STEPS\$")" -eq 1 ] || fail "could not set max_steps for $cfg"
+            if [ "$DRY_RUN" -eq 0 ]; then
+                mkdir -p results/_tmp
+                smoke_text "$cfg" > "$used"
+            fi
         fi
 
         echo "run   $run_id"

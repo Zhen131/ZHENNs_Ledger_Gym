@@ -6,8 +6,10 @@ The macOS/Linux twin is run_series.sh with the same options.
 .DESCRIPTION
 Run ids:  [smoke-][Prefix-]<config file name>-s<seed>-<yyyyMMdd, UTC>
 Results:  results\<run-id>\         (ML-Agents output, plus config-used.yaml)
-          results\<run-id>.log      (everything mlagents-learn printed)
+          results\<run-id>.log      (everything mlagents-learn printed; a log left
+                                    by an attempt without results is overwritten)
 A run whose results\<run-id> already exists is skipped; --force is never used.
+Seeds are whole numbers >= 0. -DryRun prints the commands and writes nothing.
 Seeds: mlagents-learn gets --seed <seed x 1000>, because ML-Agents gives environment k
 the seed + k and seeds 1, 2, 3 ... would collide when -NumEnvs > 1. The run id keeps
 the plain seed (-s3); results\<run-id>\seed-used.txt records what was passed.
@@ -67,6 +69,8 @@ if (-not (Test-Path -LiteralPath $EnvPath)) { Fail "environment build not found:
 if ($NumEnvs -lt 1) { Fail "-NumEnvs must be one whole number >= 1 (got $NumEnvs)" }
 if ($SmokeSteps -lt 1) { Fail '-SmokeSteps must be a whole number >= 1' }
 if ($Seeds.Count -eq 0) { Fail '-Seeds is empty' }
+$negative = @($Seeds | Where-Object { $_ -lt 0 })
+if ($negative.Count -gt 0) { Fail "seeds must be whole numbers >= 0 (got $($negative -join ', '))" }
 if ($Prefix -notmatch '^[A-Za-z0-9._-]*$') { Fail "-Prefix may only use letters, digits, '.', '_' and '-'" }
 
 $learn = if ($env:MLAGENTS_LEARN) { $env:MLAGENTS_LEARN } else { 'mlagents-learn' }
@@ -83,8 +87,9 @@ foreach ($cfg in $Configs) {
 
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 Set-Location $repo
-New-Item -ItemType Directory -Force -Path 'results' | Out-Null
-$date = (Get-Date).ToUniversalTime().ToString('yyyyMMdd')
+if (-not $DryRun) { New-Item -ItemType Directory -Force -Path 'results' | Out-Null }
+# Invariant culture: in some locales (Thai, for one) the default calendar is not Gregorian.
+$date = (Get-Date).ToUniversalTime().ToString('yyyyMMdd', [Globalization.CultureInfo]::InvariantCulture)
 
 $ran = 0; $skipped = 0; $failed = 0; $clocked = 0
 $smokeNote = if ($Smoke) { ", smoke $SmokeSteps steps" } else { '' }
@@ -104,14 +109,16 @@ foreach ($cfg in $absConfigs) {
 
         $used = $cfg
         if ($Smoke) {
-            New-Item -ItemType Directory -Force -Path 'results\_tmp' | Out-Null
             $used = Join-Path $repo "results\_tmp\$runId.yaml"
             $text = [IO.File]::ReadAllText($cfg)
             $text = $text -replace '(?m)^(\s*max_steps:).*$', "`${1} $SmokeSteps"
             $text = $text -replace '(?m)^(\s*summary_freq:).*$', '${1} 1000'
             $text = $text -replace '(?m)^(\s*checkpoint_interval:).*$', "`${1} $SmokeSteps"
-            if (([regex]::Matches($text, "(?m)^\s*max_steps: $SmokeSteps\s*$")).Count -ne 1) { Fail "could not set max_steps in $used" }
-            [IO.File]::WriteAllText($used, $text)
+            if (([regex]::Matches($text, "(?m)^\s*max_steps: $SmokeSteps\s*$")).Count -ne 1) { Fail "could not set max_steps for $cfg" }
+            if (-not $DryRun) {
+                New-Item -ItemType Directory -Force -Path 'results\_tmp' | Out-Null
+                [IO.File]::WriteAllText($used, $text)
+            }
         }
 
         Write-Host "run   $runId"
@@ -123,6 +130,8 @@ foreach ($cfg in $absConfigs) {
         }
 
         $log = "results\$runId.log"
+        # Overwrite a log an earlier attempt left behind, as tee does in run_series.sh.
+        if (Test-Path -LiteralPath $log) { Remove-Item -LiteralPath $log }
         # mlagents-learn writes its log to stderr; in Windows PowerShell 5.1 redirected
         # stderr turns into error records, so do not stop on them here.
         $previous = $ErrorActionPreference
