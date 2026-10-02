@@ -8,9 +8,14 @@ Usage, from the repository root, inside the mlagents environment:
 Rules (exit code 1 if any fails):
 - every variant differs from the base in exactly one setting, except the two
   marked "MULTIPLE CHANGES" in their first line (sac-base, teacher-style);
-- every file starts with a comment line saying how it differs and why;
+- every file, including the smoke configs (config/smoke*.yaml), starts with a
+  comment line saying how it differs and why;
 - every file has the single behavior TradingAgent, the environment parameters
-  fee_rate, fixed_fee and slippage, and torch_settings.device cpu.
+  fee_rate, fixed_fee and slippage, and torch_settings.device cpu;
+- the cost parameters are plain numbers inside the ranges the environment's
+  CostModel accepts: fee_rate in [0, 1), slippage in [0, 0.1), fixed_fee >= 0.
+  ML-Agents accepts any number, but outside these ranges every episode of the
+  training player would fail when it starts.
 
 If the mlagents package is importable, each file is also parsed with ML-Agents'
 own RunOptions, which catches misspelt or misplaced settings.
@@ -19,6 +24,8 @@ own RunOptions, which catches misspelt or misplaced settings.
 from __future__ import annotations
 
 import argparse
+import glob
+import math
 import sys
 from pathlib import Path
 
@@ -27,6 +34,12 @@ import yaml
 MULTIPLE_MARK = "MULTIPLE CHANGES"
 EXPECTED_MULTIPLE = {"sac-base.yaml", "teacher-style.yaml"}
 ENV_PARAMS = ("fee_rate", "fixed_fee", "slippage")
+# The ranges Gym.Core.CostModel enforces (05D S-12).
+COST_RANGES = {
+    "fee_rate": (lambda v: 0 <= v < 1, "in [0, 1)"),
+    "fixed_fee": (lambda v: v >= 0 and math.isfinite(v), ">= 0"),
+    "slippage": (lambda v: 0 <= v < 0.1, "in [0, 0.1)"),
+}
 
 
 def flatten(value, prefix=""):
@@ -63,6 +76,14 @@ def common_problems(path: Path, data: dict, first_line: str) -> list[str]:
     missing = [p for p in ENV_PARAMS if p not in params]
     if missing:
         problems.append(f"environment_parameters is missing {missing}")
+    for name, (in_range, text) in COST_RANGES.items():
+        if name not in params:
+            continue
+        value = params[name]
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            problems.append(f"environment_parameters.{name} should be a plain number, got {value!r}")
+        elif not in_range(value):
+            problems.append(f"environment_parameters.{name} = {value!r} is outside the range CostModel accepts ({text})")
     device = ((data or {}).get("torch_settings") or {}).get("device")
     if device != "cpu":
         problems.append(f"torch_settings.device should be 'cpu', got {device!r}")
@@ -88,6 +109,7 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--base", default="config/ppo_base.yaml")
     parser.add_argument("--variants", default="config/variants")
+    parser.add_argument("--smoke", default="config/smoke*.yaml", help="glob of the smoke configs")
     args = parser.parse_args(argv)
 
     base_path = Path(args.base)
@@ -137,12 +159,27 @@ def main(argv=None) -> int:
             print(f"     ! {problem}")
         failed |= bool(problems)
 
+    smoke = sorted(Path(p) for p in glob.glob(args.smoke))
+    if not smoke:
+        print(f"FAIL no smoke configs match {args.smoke}")
+        failed = True
+    for path in smoke:
+        text = path.read_text()
+        problems = common_problems(path, yaml.safe_load(text), text.split("\n", 1)[0])
+        parsed = mlagents_parse(path)
+        if parsed not in (None, "skipped"):
+            problems.append(f"ML-Agents rejects it: {parsed}")
+        print(f"{'FAIL' if problems else 'ok':4} {path.name} (smoke; mlagents {'ok' if parsed is None else parsed})")
+        for problem in problems:
+            print(f"     ! {problem}")
+        failed |= bool(problems)
+
     missing_multiple = EXPECTED_MULTIPLE - seen_multiple
     if missing_multiple:
         print(f"FAIL expected multi-change variants not found or not marked: {sorted(missing_multiple)}")
         failed = True
 
-    print("FAILED" if failed else f"all {len(variants)} variants ok")
+    print("FAILED" if failed else f"all {len(variants)} variants and {len(smoke)} smoke configs ok")
     return 1 if failed else 0
 
 
