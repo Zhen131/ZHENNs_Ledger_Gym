@@ -152,6 +152,30 @@ namespace Gym.Tests.Editor
             Assert.IsNull(GymConfigLoader.GetArg(new[] { "app", "-gymConfig" }, "-gymConfig"));
         }
 
+        [TestCase("-gymFeeRate", "1.5")]
+        [TestCase("-gymFeeRate", "-0.001")]
+        [TestCase("-gymSlippage", "0.1")]
+        [TestCase("-gymFixedFee", "-1")]
+        public void M1_CostArgumentsOutsideTheCostModelRangesAreConfigErrors(string name, string value)
+        {
+            // 05D M-1: the evaluation player hung on -gymFeeRate 1.5 because CostModel threw
+            // only when the agent reset. Now the loader reports it like any other config error.
+            var e = Assert.Throws<GymConfigException>(() => GymConfigLoader.Load(GymConfigLoader.DefaultConfigPath,
+                GymConfigLoader.DefaultSymbolsPath, new[] { "x", "-gymMode", "eval", name, value }));
+            Assert.AreEqual(1, e.Errors.Count, string.Join("; ", e.Errors));
+            StringAssert.StartsWith($"{name} {value} is out of range", e.Errors[0]);
+        }
+
+        [Test]
+        public void M1_CostArgumentsAtTheEdgesOfTheRangesAreAccepted()
+        {
+            GymSettings s = GymConfigLoader.Load(GymConfigLoader.DefaultConfigPath, GymConfigLoader.DefaultSymbolsPath,
+                new[] { "x", "-gymMode", "eval", "-gymFeeRate", "0.999", "-gymSlippage", "0.0999", "-gymFixedFee", "0" });
+            Assert.AreEqual(0.999, s.FeeRateArg);
+            Assert.AreEqual(0.0999, s.SlippageArg);
+            Assert.AreEqual(0.0, s.FixedFeeArg);
+        }
+
         [Test]
         public void E01_DataIsParsedOncePerPath()
         {

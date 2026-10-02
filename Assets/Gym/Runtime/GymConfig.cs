@@ -157,9 +157,9 @@ namespace Gym.Runtime
 
             args = args ?? Array.Empty<string>();
             settings.Mode = ReadMode(args, errors, out string evalSegmentName);
-            settings.FeeRateArg = ReadNumberArg(args, FeeRateArg, errors);
-            settings.FixedFeeArg = ReadNumberArg(args, FixedFeeArg, errors);
-            settings.SlippageArg = ReadNumberArg(args, SlippageArg, errors);
+            settings.FeeRateArg = ReadCostArg(args, FeeRateArg, errors, v => new CostModel(v, 0, 0));
+            settings.FixedFeeArg = ReadCostArg(args, FixedFeeArg, errors, v => new CostModel(0, v, 0));
+            settings.SlippageArg = ReadCostArg(args, SlippageArg, errors, v => new CostModel(0, 0, v));
             settings.Rules = FindSymbol(config.symbol, table, settings.SymbolsPath, errors);
 
             if (!(config.initialCash > 0)) errors.Add($"initialCash must be > 0 (got {config.initialCash})");
@@ -257,6 +257,28 @@ namespace Gym.Runtime
                 return value;
             errors.Add($"{name} '{text}' is not a number");
             return null;
+        }
+
+        /// <summary>
+        /// A cost argument, checked by the same ranges CostModel enforces (05D M-1): a value
+        /// CostModel would reject is a configuration error here, not an exception when the
+        /// agent first resets.
+        /// </summary>
+        static double? ReadCostArg(string[] args, string name, List<string> errors, Func<double, CostModel> check)
+        {
+            double? value = ReadNumberArg(args, name, errors);
+            if (value == null) return null;
+            try
+            {
+                check(value.Value);
+                return value;
+            }
+            catch (ArgumentOutOfRangeException e)
+            {
+                string reason = e.Message.Split('\n')[0].Trim();
+                errors.Add($"{name} {GetArg(args, name)} is out of range: {reason}");
+                return null;
+            }
         }
 
         static T ReadJson<T>(string path, string what, List<string> errors) where T : class

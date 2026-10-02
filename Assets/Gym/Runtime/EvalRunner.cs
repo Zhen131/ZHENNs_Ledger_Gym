@@ -35,7 +35,12 @@ namespace Gym.Runtime
         [SerializeField] int stepsPerFrame = 500;
         [SerializeField] bool quitWhenDone = true;
 
+        /// <summary>Environment steps allowed beyond the segment's candle count before the run counts as stuck.</summary>
+        public const int StepMargin = 100;
+
         int exitCode = 1;
+        int steps;
+        int stepLimit;
         Stopwatch watch;
 
         public TradingAgent Agent
@@ -75,20 +80,53 @@ namespace Gym.Runtime
                 yield break;
             }
             yield return null;
+            if (agent.Env == null)
+            {
+                Debug.LogError("[Gym] the evaluation agent did not initialise; see the errors above");
+                Quit(1);
+                yield break;
+            }
+            // One pass needs about one step per candle; far more means the episode never ends (05D M-1).
+            stepLimit = agent.Env.Last - agent.Env.First + 1 + StepMargin;
             watch = Stopwatch.StartNew();
-            int steps = 0;
+            steps = 0;
             while (!Finished)
             {
-                for (int i = 0; i < stepsPerFrame && !Finished; i++)
+                if (!StepBatch())
                 {
-                    Academy.Instance.EnvironmentStep();
-                    steps++;
+                    Quit(1);
+                    yield break;
                 }
                 yield return null;
             }
             Debug.Log($"[Gym] evaluation finished: {steps} environment steps in {watch.Elapsed.TotalSeconds:F1} s, " +
                       $"return {Result.TotalReturn:R}, log {LogPath}");
             Quit(exitCode);
+        }
+
+        /// <summary>One frame's worth of steps. False, with the reason logged, on an exception or past the step limit.</summary>
+        bool StepBatch()
+        {
+            try
+            {
+                for (int i = 0; i < stepsPerFrame && !Finished; i++)
+                {
+                    if (steps >= stepLimit)
+                    {
+                        Debug.LogError($"[Gym] evaluation did not finish within {stepLimit} environment steps " +
+                                       $"(segment length + {StepMargin}); stopping");
+                        return false;
+                    }
+                    Academy.Instance.EnvironmentStep();
+                    steps++;
+                }
+                return true;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[Gym] evaluation failed after {steps} environment steps: {e}");
+                return false;
+            }
         }
 
         void Quit(int code)
