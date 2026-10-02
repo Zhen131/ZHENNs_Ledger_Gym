@@ -2,6 +2,8 @@
 
 All configs train the behavior `TradingAgent` on the CPU and pass the costs to the environment as `environment_parameters` (`fee_rate`, `fixed_fee`, `slippage`). The first line of every file says how it differs from `ppo_base.yaml`.
 
+What the `Trading/*` curves in TensorBoard mean is in the README's [Training curves](../README.md#training-curves-trading-in-tensorboard) table. Note that `Trading/Turnover` divides the traded value by the **starting** equity of the episode, while `turnover` in the evaluation log divides by the **average** equity.
+
 ## Base and smoke runs
 
 | File | What it is |

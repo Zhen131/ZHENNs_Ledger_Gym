@@ -93,7 +93,23 @@ python tools/data/fetch_binance_klines.py --symbol BTCUSDT
 python tools/eval/summarize.py evaluations/log.csv
 ```
 
-可选参数：`-gymSegment validation|test`、`-gymFeeRates 0,0.001,0.003`、`-gymRandomSeeds 100`、`-gymOut <目录>`、`-gymConfig <文件>`。训练好的模型用单独的评估包评估（`BuildMacEval` / `BuildWindowsEval` 加 `-gymModel`），每一行都会记下 run-id 和模型的 SHA-256；`-gymFixedFee`、`-gymSlippage` 设定另外两项费用。
+可选参数：`-gymSegment validation|test`、`-gymFeeRates 0,0.001,0.003`、`-gymRandomSeeds 100`、`-gymOut <目录>`、`-gymConfig <文件>`。训练好的模型用单独的评估包评估（`BuildMacEval` / `BuildWindowsEval` 加 `-gymModel`），每一行都会记下 run-id 和模型的 SHA-256；`-gymFixedFee`、`-gymSlippage` 设定另外两项费用。评估包不带 `-gymMode eval` 和 `-gymOut <目录>` 就不跑：退出码 1，什么都不写。
+
+## 训练曲线（TensorBoard 里的 `Trading/*`）
+
+训练时每个智能体在每局结束时报 9 个数；TensorBoard 显示的是每个汇总区间里结束的那些局的平均值。它们说的是训练局（随机起点、720 步、开局可能持币），所以不是上面的评估指标，名字相同的也不是一回事。
+
+| 标签 | 意思 |
+| --- | --- |
+| `Trading/Return` | 期末权益 ÷ 期初权益 − 1 |
+| `Trading/Trades` | 成交笔数 |
+| `Trading/Rejected` | 没成交的单：被遮罩挡住、太小（低于最小下单额或不够一个最小币量单位）、或被固定费吃光 |
+| `Trading/FeesPaidPct` | 手续费 ÷ 期初权益 × 100（百分数） |
+| `Trading/Exposure` | 走完一步后手里还有币的步数占比 |
+| `Trading/Turnover` | 成交额 ÷ **期初**权益。评估流水的 `turnover` 除的是**平均**权益，权益一变，两者就不一样 |
+| `Trading/RewardClips` | 奖励被截到 ±1 的步数 |
+| `Trading/FeeRate` | 这一局用的费率，用来确认配置里的 `fee_rate` 确实传到了 |
+| `Trading/FixedFee` | 这一局用的每笔固定费 |
 
 ## 版本（每台机器都必须一样）
 

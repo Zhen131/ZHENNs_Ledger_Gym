@@ -93,7 +93,23 @@ Baselines (buy-and-hold, always cash, and a random policy over seeds 0–99 repo
 python tools/eval/summarize.py evaluations/log.csv
 ```
 
-Options: `-gymSegment validation|test`, `-gymFeeRates 0,0.001,0.003`, `-gymRandomSeeds 100`, `-gymOut <dir>`, `-gymConfig <file>`. A trained model is evaluated in its own build (`BuildMacEval` / `BuildWindowsEval` with `-gymModel`), which records the run id and the model's SHA-256 in every row; `-gymFixedFee` and `-gymSlippage` set the other costs.
+Options: `-gymSegment validation|test`, `-gymFeeRates 0,0.001,0.003`, `-gymRandomSeeds 100`, `-gymOut <dir>`, `-gymConfig <file>`. A trained model is evaluated in its own build (`BuildMacEval` / `BuildWindowsEval` with `-gymModel`), which records the run id and the model's SHA-256 in every row; `-gymFixedFee` and `-gymSlippage` set the other costs. The evaluation player refuses to start (exit code 1, nothing written) without `-gymMode eval` and `-gymOut <dir>`.
+
+## Training curves (`Trading/*` in TensorBoard)
+
+During training every agent reports nine numbers at the end of each episode; TensorBoard shows their average over the episodes that ended in each summary period. They describe training episodes (720 steps from a random start, possibly holding coin at the start), so they are not the evaluation metrics above, even where the names match.
+
+| Tag | Meaning |
+| --- | --- |
+| `Trading/Return` | Final equity ÷ starting equity − 1 |
+| `Trading/Trades` | Filled orders |
+| `Trading/Rejected` | Orders that were not filled: masked, too small (below the minimum order or one coin step), or eaten by the fixed fee |
+| `Trading/FeesPaidPct` | Fees paid ÷ starting equity × 100 (a percentage) |
+| `Trading/Exposure` | Share of steps that ended holding coin |
+| `Trading/Turnover` | Traded value ÷ **starting** equity. The evaluation log's `turnover` divides by the **average** equity instead, so the two differ whenever equity moves |
+| `Trading/RewardClips` | Steps whose reward was clipped to ±1 |
+| `Trading/FeeRate` | Fee rate the episode used, to check that the config's `fee_rate` arrived |
+| `Trading/FixedFee` | Fixed fee per order the episode used |
 
 ## Versions (pinned on every machine)
 
