@@ -9,7 +9,7 @@ Rules that matter for every step:
 - Use **exactly** Unity 6000.0.84f1 and `mlagents` 1.1.0. Other versions break ML-Agents in ways that are hard to see.
 - Close the Unity editor before any command-line Unity step; the project cannot be open twice.
 - **Do not press Ctrl+C during training.** Let a run reach its `max_steps`. If a run must be abandoned, leave its `results\<run-id>` folder alone and start a new run id: with the series script, add `-Prefix` (for example `-Prefix rerun1`) and the run ids change.
-- `results\` and `Builds\` stay on this machine; Git ignores them. `evaluations\log.csv` is tracked and append-only. **The official evaluation log is appended only on this PC** (the trained models live here): `git pull` before appending, commit right after. Evaluations on the Mac always go to `evaluations\smoke\`.
+- `results\` and `Builds\` stay on this machine; Git ignores them. `evaluations\log.csv` is tracked and append-only. **The official evaluation log is appended only on this PC** (the trained models live here): `git pull` before appending (skip `git pull` while the repository is a copy that is not connected to GitHub yet), commit right after. Evaluations on the Mac always go to `evaluations\smoke\`.
 - Keep the PC awake during long runs (*Settings → System → Power*: never sleep while plugged in).
 
 ## 1. Git
@@ -104,14 +104,18 @@ mlagents-learn config\smoke-100k.yaml --env Builds\win\Gym.exe --run-id smoke-pc
 # Graphics card (skip if step 3 printed False)
 $t0 = Get-Date
 mlagents-learn config\smoke-100k-cuda.yaml --env Builds\win\Gym.exe --run-id smoke-pc-100k-cuda --no-graphics
-"GPU: {0:N0} steps/s" -f (100000 / ((Get-Date) - $t0).TotalSeconds)
+if ($LASTEXITCODE -ne 0) {
+  "GPU: the graphics card failed this time; use the CPU"   # no speed for a failed run
+} else {
+  "GPU: {0:N0} steps/s" -f (100000 / ((Get-Date) - $t0).TotalSeconds)
+}
 
 python tools\train\read_scalars.py results\smoke-pc-100k-cpu
 ```
 
 The first time `mlagents-learn` runs, Windows Firewall may ask whether **Python** (`python.exe`) may use the network. Allow or Cancel both work: `mlagents-learn` only waits on local port 5005 for the player to connect, nothing goes outside, and connections within the machine are not affected by the firewall.
 
-- Write down both steps-per-second figures and **use the faster device**. If the graphics-card run stops with an error (a known ML-Agents problem; the message contains `Expected all tensors to be on the same device`), use the CPU.
+- Write down both steps-per-second figures and **use the faster device**. If the graphics-card run stops with an error (a known ML-Agents problem; the message contains `Expected all tensors to be on the same device`), the last line prints "the graphics card failed this time; use the CPU" instead of a speed: a run that stopped early takes little time, so a steps-per-second figure would come out far too high and make the graphics card look faster. Use the CPU then.
 - If the graphics card is faster, add `-Device cuda` to the series in step 8; for the CPU add nothing.
 - 2M steps take `2000000 ÷ (steps/s)` seconds. For comparison, the Mac (Apple M5, 10 cores, CPU) did about 2,000–2,900 steps/s with one environment, so 2M steps take 12–16 minutes there. The faster speed decides how many steps and seeds each group gets in the real series.
 
@@ -119,7 +123,18 @@ The first time `mlagents-learn` runs, Windows Firewall may ask whether **Python*
 
 ## 8. The comparison series
 
-After the `Set-ExecutionPolicy` of step 3 the script runs as is. If PowerShell still says scripts are disabled, allow them for this window only (fallback):
+After the `Set-ExecutionPolicy` of step 3 the script runs as is. If PowerShell still prints red text, check which of the two it is:
+
+- "…\run_series.ps1 cannot be loaded because running scripts is disabled on this system": the command of step 3 did not take effect.
+- "…\run_series.ps1 cannot be loaded. The file …\run_series.ps1 is not digitally signed": the repository was unpacked from a zip downloaded in a browser. Windows marks every downloaded file as coming from the internet, and step 3 only allows scripts written on this machine, so marked ones are still blocked.
+
+For the second one, remove the mark once in the repository folder (`C:\Gym\ZHENN_Ledger_Gym`); new windows then need nothing more (it takes a while because of the many files in `Library\`):
+
+```powershell
+Get-ChildItem -Recurse | Unblock-File
+```
+
+Either one can also use the fallback, which allows scripts for this window only and ends when the window closes:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
@@ -164,10 +179,10 @@ Open <http://localhost:6006>. Compare `Environment/Cumulative Reward`, `Policy/E
 
 ## 10. Evaluation
 
-`git pull` first, then build an evaluation player with a trained model baked in and run it on the validation segment. It goes to its own folder, `Builds\win-eval\`: while the training player runs, it holds `UnityPlayer.dll` and the other files in `Builds\win\`, so a second player could not be built next to it.
+`git pull` first (skip `git pull` while the repository is a copy that is not connected to GitHub yet: without a remote it only fails), then build an evaluation player with a trained model baked in and run it on the validation segment. It goes to its own folder, `Builds\win-eval\`: while the training player runs, it holds `UnityPlayer.dll` and the other files in `Builds\win\`, so a second player could not be built next to it.
 
 ```powershell
-git pull
+git pull   # skip this line while the repository is a copy not connected to GitHub yet
 
 $p = Start-Process -FilePath $unity -Wait -PassThru -ArgumentList @(
   '-batchmode', '-nographics', '-projectPath', "`"$PWD`"",

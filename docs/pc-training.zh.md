@@ -9,7 +9,7 @@
 - Unity **必须是 6000.0.84f1**，`mlagents` **必须是 1.1.0**。版本不一样，ML-Agents 会出很难发现的毛病。
 - 用命令行跑 Unity 之前，先把 Unity 编辑器关掉。同一个工程不能同时打开两次。
 - **训练中途不要按 Ctrl+C。** 让它跑到 `max_steps` 自己停。实在要放弃一次训练，就别动它的 `results\<run-id>` 文件夹，换一个新的 run-id 重跑：用成批脚本时加 `-Prefix`（例如 `-Prefix rerun1`），run-id 就变成新的。
-- `results\` 和 `Builds\` 只留在这台电脑上，不进 Git。`evaluations\log.csv` 进 Git，而且只追加、不改。**正式的评估流水只在这台 PC 上追加**（训练结果都在 PC 上）：追加前先 `git pull`，追加后马上提交。Mac 上的评估一律写进 `evaluations\smoke\`。
+- `results\` 和 `Builds\` 只留在这台电脑上，不进 Git。`evaluations\log.csv` 进 Git，而且只追加、不改。**正式的评估流水只在这台 PC 上追加**（训练结果都在 PC 上）：追加前先 `git pull`（还没有连上 GitHub、仓库是拷过来的时候跳过 `git pull`），追加后马上提交。Mac 上的评估一律写进 `evaluations\smoke\`。
 - 长时间训练时别让电脑睡着（*设置 → 系统 → 电源*：插电时从不睡眠）。
 
 ## 1. 装 Git
@@ -106,14 +106,18 @@ mlagents-learn config\smoke-100k.yaml --env Builds\win\Gym.exe --run-id smoke-pc
 # 显卡（第 3 步那行显示 False 的话跳过）
 $t0 = Get-Date
 mlagents-learn config\smoke-100k-cuda.yaml --env Builds\win\Gym.exe --run-id smoke-pc-100k-cuda --no-graphics
-"GPU: {0:N0} steps/s" -f (100000 / ((Get-Date) - $t0).TotalSeconds)
+if ($LASTEXITCODE -ne 0) {
+  "GPU: 显卡这次失败，用 CPU"   # 报错退出时不算速度
+} else {
+  "GPU: {0:N0} steps/s" -f (100000 / ((Get-Date) - $t0).TotalSeconds)
+}
 
 python tools\train\read_scalars.py results\smoke-pc-100k-cpu
 ```
 
 第一次跑 `mlagents-learn` 时，Windows 防火墙可能弹窗问 **Python**（`python.exe`）要不要联网。点「允许」或「取消」都行：`mlagents-learn` 只是在本机的 5005 端口等训练包连上来，不走外网，本机内部的连接不受防火墙影响。
 
-- 两个「每秒多少步」都记下来，**谁快就用谁**。显卡那次如果中途报错退出（ML-Agents 有个已知毛病，报错里会有 `Expected all tensors to be on the same device`），就用 CPU。
+- 两个「每秒多少步」都记下来，**谁快就用谁**。显卡那次如果中途报错退出（ML-Agents 有个已知毛病，报错里会有 `Expected all tensors to be on the same device`），最后一行会打印「显卡这次失败，用 CPU」、不算速度：报错退出的那次用时很短，硬算出来的「每秒步数」会大得离谱，看着像显卡更快。这时就用 CPU。
 - 用显卡更快的话，第 8 步成批训练加 `-Device cuda`；用 CPU 就什么都不用加。
 - 200 万步要 `2000000 ÷ 每秒步数` 秒。作为参考，Mac（Apple M5、10 核，CPU）单环境大约每秒 2,000～2,900 步，200 万步要 12～16 分钟。**正式训练每组跑多少步、几个种子，就按快的那个速度定。**
 
@@ -121,7 +125,18 @@ python tools\train\read_scalars.py results\smoke-pc-100k-cpu
 
 ## 8. 跑对比组
 
-第 3 步那条 `Set-ExecutionPolicy` 执行过的话，脚本直接就能跑。万一还提示「禁止运行脚本」，只对当前窗口放开（备用）：
+第 3 步那条 `Set-ExecutionPolicy` 执行过的话，脚本直接就能跑。万一还是红字，看是哪一种：
+
+- 「无法加载文件 …\run_series.ps1，因为在此系统上禁止运行脚本」：第 3 步那条没生效。
+- 「无法加载文件 …\run_series.ps1。未对文件 …\run_series.ps1 进行数字签名」：仓库是用浏览器下载 zip 解压出来的。Windows 给下载来的每个文件都打了「来自网络」的标记，第 3 步放开的只是本机写的脚本，带这个标记的照样拦着。
+
+第二种可以在仓库目录（`C:\Gym\ZHENN_Ledger_Gym`）里先把标记去掉，以后新开的窗口也不用再管（`Library\` 里文件多，要等一会儿）：
+
+```powershell
+Get-ChildItem -Recurse | Unblock-File
+```
+
+两种都可以用备用的办法：只对当前这个窗口放开，关掉窗口就恢复：
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
@@ -166,10 +181,10 @@ tensorboard --logdir results
 
 ## 10. 评估
 
-先 `git pull` 拿到最新的仓库，再把训练好的模型打进一个评估包，在验证段上跑。评估包单独放在 `Builds\win-eval\`：训练包正在跑时会占着 `Builds\win\` 里的 `UnityPlayer.dll` 等文件，两个包放一起就打不出来。
+先 `git pull` 拿到最新的仓库（还没有连上 GitHub、仓库是拷过来的时候，跳过 `git pull`：没有远端，它只会报错），再把训练好的模型打进一个评估包，在验证段上跑。评估包单独放在 `Builds\win-eval\`：训练包正在跑时会占着 `Builds\win\` 里的 `UnityPlayer.dll` 等文件，两个包放一起就打不出来。
 
 ```powershell
-git pull
+git pull   # 还没有连上 GitHub、仓库是拷过来的时候跳过这一行
 
 $p = Start-Process -FilePath $unity -Wait -PassThru -ArgumentList @(
   '-batchmode', '-nographics', '-projectPath', "`"$PWD`"",
