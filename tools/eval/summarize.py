@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Summarise an evaluation log as Markdown tables, one per segment and fee rate.
+"""Summarise an evaluation log as Markdown tables, one per segment and cost setting.
 
 Usage, from the repository root:
 
@@ -8,6 +8,9 @@ Usage, from the repository root:
 Standard library only. Each row of the log becomes one table row: policy, total
 return, max drawdown, Sharpe, trades, fees as a share of the starting equity and
 exposure (share of steps holding coin). Random baselines are medians over their seeds.
+Rows are grouped by segment, fee rate, fixed fee and slippage, so runs with
+different costs never share a table; the heading names a fixed fee or slippage
+only when it is not zero.
 """
 
 from __future__ import annotations
@@ -49,12 +52,18 @@ def summarize(path: Path) -> str:
 
     groups: dict[tuple, list[dict]] = defaultdict(list)
     for row in rows:
-        groups[(row["segment"], float(row["fee_rate"]))].append(row)
+        key = (row["segment"], float(row["fee_rate"]), float(row["fixed_fee"] or 0), float(row["slippage"] or 0))
+        groups[key].append(row)
 
     out = []
-    for (segment, fee), items in sorted(groups.items()):
+    for (segment, fee, fixed_fee, slippage), items in sorted(groups.items()):
         first = items[0]
-        out.append(f"### {segment} ({first['segment_start']} to {first['segment_end']}), fee {fee * 100:g} %\n")
+        costs = f"fee {fee * 100:g} %"
+        if fixed_fee:
+            costs += f", fixed fee {fixed_fee:g} USDT"
+        if slippage:
+            costs += f", slippage {slippage * 10_000:g} bp"
+        out.append(f"### {segment} ({first['segment_start']} to {first['segment_end']}), {costs}\n")
         out.append("| Policy | Return | Max drawdown | Sharpe | Trades | Fees % of start | Exposure | Logged (UTC) |")
         out.append("| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |")
         items.sort(key=lambda r: (POLICY_ORDER.get(r["policy"], 9), r["timestamp_utc"]))
