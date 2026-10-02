@@ -11,7 +11,9 @@ Rules (exit code 1 if any fails):
 - every file, including the smoke configs (config/smoke*.yaml), starts with a
   comment line saying how it differs and why;
 - every file has the single behavior TradingAgent, the environment parameters
-  fee_rate, fixed_fee and slippage, and torch_settings.device cpu;
+  fee_rate, fixed_fee and slippage, and torch_settings.device cpu. The one
+  exception is smoke-100k-cuda.yaml, the PC's speed test on the graphics card,
+  which must say cuda (PyTorch ruling, 2026-10-02);
 - the cost parameters are plain numbers inside the ranges the environment's
   CostModel accepts: fee_rate in [0, 1), slippage in [0, 0.1), fixed_fee >= 0.
   ML-Agents accepts any number, but outside these ranges every episode of the
@@ -34,6 +36,10 @@ import yaml
 MULTIPLE_MARK = "MULTIPLE CHANGES"
 EXPECTED_MULTIPLE = {"sac-base.yaml", "teacher-style.yaml"}
 ENV_PARAMS = ("fee_rate", "fixed_fee", "slippage")
+# Every config trains on the CPU except the PC's graphics-card speed test, which exists to
+# compare the two (PyTorch ruling, 2026-10-02). The series scripts' --device only changes
+# their copies in results/_tmp/, never these files.
+DEVICE_EXCEPTIONS = {"smoke-100k-cuda.yaml": "cuda"}
 # The ranges Gym.Core.CostModel enforces (05D S-12).
 COST_RANGES = {
     "fee_rate": (lambda v: 0 <= v < 1, "in [0, 1)"),
@@ -85,8 +91,9 @@ def common_problems(path: Path, data: dict, first_line: str) -> list[str]:
         elif not in_range(value):
             problems.append(f"environment_parameters.{name} = {value!r} is outside the range CostModel accepts ({text})")
     device = ((data or {}).get("torch_settings") or {}).get("device")
-    if device != "cpu":
-        problems.append(f"torch_settings.device should be 'cpu', got {device!r}")
+    expected_device = DEVICE_EXCEPTIONS.get(path.name, "cpu")
+    if device != expected_device:
+        problems.append(f"torch_settings.device should be {expected_device!r}, got {device!r}")
     return problems
 
 

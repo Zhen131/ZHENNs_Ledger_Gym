@@ -22,12 +22,16 @@ seed-used.txt.
 summary_freq 1000 and checkpoint_interval = max_steps; it only proves the script works.
 15000 steps is just past the end of the first episodes (16 agents x 720 steps =
 11,520 steps); Trading/* statistics only appear from then on.
+-Device (default cpu) sets torch_settings.device. When a config says something else,
+it is copied to results\_tmp\ with the device changed; the files in config\ are never
+edited. config-used.yaml records the device each run really used.
 
 Option names map one to one onto run_series.sh:
   -Env <path>          --env <path>
   -Seeds 1,2,3,4,5     --seeds "1 2 3 4 5"
   -NumEnvs 1           --num-envs 1
   -Prefix NAME         --prefix NAME
+  -Device cpu|cuda     --device cpu|cuda
   -Smoke               --smoke
   -SmokeSteps 15000    --smoke-steps 15000
   -DryRun              --dry-run
@@ -44,6 +48,7 @@ param(
     [int[]]$Seeds = @(1, 2, 3, 4, 5),
     [int]$NumEnvs = 1,
     [string]$Prefix = '',
+    [string]$Device = 'cpu',
     [switch]$Smoke,
     [int]$SmokeSteps = 15000,
     [switch]$DryRun
@@ -72,6 +77,7 @@ if ($Seeds.Count -eq 0) { Fail '-Seeds is empty' }
 $negative = @($Seeds | Where-Object { $_ -lt 0 })
 if ($negative.Count -gt 0) { Fail "seeds must be whole numbers >= 0 (got $($negative -join ', '))" }
 if ($Prefix -notmatch '^[A-Za-z0-9._-]*$') { Fail "-Prefix may only use letters, digits, '.', '_' and '-'" }
+if ($Device -cnotin @('cpu', 'cuda')) { Fail "-Device must be cpu or cuda (got '$Device')" }
 
 $learn = if ($env:MLAGENTS_LEARN) { $env:MLAGENTS_LEARN } else { 'mlagents-learn' }
 if (-not $DryRun -and -not (Get-Command $learn -ErrorAction SilentlyContinue)) {
@@ -93,7 +99,7 @@ $date = (Get-Date).ToUniversalTime().ToString('yyyyMMdd', [Globalization.Culture
 
 $ran = 0; $skipped = 0; $failed = 0; $clocked = 0
 $smokeNote = if ($Smoke) { ", smoke $SmokeSteps steps" } else { '' }
-Write-Host "series: $($absConfigs.Count) config(s) x seeds [$($Seeds -join ' ')], -NumEnvs $NumEnvs, env $EnvPath$smokeNote"
+Write-Host "series: $($absConfigs.Count) config(s) x seeds [$($Seeds -join ' ')], -NumEnvs $NumEnvs, device $Device, env $EnvPath$smokeNote"
 
 foreach ($cfg in $absConfigs) {
     $name = [IO.Path]::GetFileNameWithoutExtension($cfg)
@@ -108,13 +114,18 @@ foreach ($cfg in $absConfigs) {
         }
 
         $used = $cfg
-        if ($Smoke) {
+        $text = [IO.File]::ReadAllText($cfg)
+        $configDevice = [regex]::Match($text, '(?m)^[ \t]*device:[ \t]*([^\s#]+)').Groups[1].Value
+        if ($Smoke -or $configDevice -cne $Device) {
             $used = Join-Path $repo "results\_tmp\$runId.yaml"
-            $text = [IO.File]::ReadAllText($cfg)
-            $text = $text -replace '(?m)^(\s*max_steps:).*$', "`${1} $SmokeSteps"
-            $text = $text -replace '(?m)^(\s*summary_freq:).*$', '${1} 1000'
-            $text = $text -replace '(?m)^(\s*checkpoint_interval:).*$', "`${1} $SmokeSteps"
-            if (([regex]::Matches($text, "(?m)^\s*max_steps: $SmokeSteps\s*$")).Count -ne 1) { Fail "could not set max_steps for $cfg" }
+            if ($Smoke) {
+                $text = $text -replace '(?m)^(\s*max_steps:).*$', "`${1} $SmokeSteps"
+                $text = $text -replace '(?m)^(\s*summary_freq:).*$', '${1} 1000'
+                $text = $text -replace '(?m)^(\s*checkpoint_interval:).*$', "`${1} $SmokeSteps"
+                if (([regex]::Matches($text, "(?m)^\s*max_steps: $SmokeSteps\s*$")).Count -ne 1) { Fail "could not set max_steps for $cfg" }
+            }
+            $text = $text -replace '(?m)^([ \t]*device:).*$', "`${1} $Device"
+            if (([regex]::Matches($text, "(?m)^[ \t]*device: $Device\s*$")).Count -ne 1) { Fail "could not set torch_settings.device for $cfg" }
             if (-not $DryRun) {
                 New-Item -ItemType Directory -Force -Path 'results\_tmp' | Out-Null
                 [IO.File]::WriteAllText($used, $text)

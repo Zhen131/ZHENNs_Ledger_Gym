@@ -41,7 +41,7 @@ To play by hand, open the project in Unity, open `Assets/Gym/Scenes/Play.unity` 
 
 ## Training on the Windows PC
 
-Long runs happen on a Windows PC: see [docs/pc-training.md](docs/pc-training.md) (English) or [docs/pc-training.zh.md](docs/pc-training.zh.md) (Chinese). In short: same Unity and Python versions, `BuildWindowsTraining`, a 100k-step speed test with `config/smoke-100k.yaml`, then the comparison series with `tools/train/run_series.ps1`.
+Long runs happen on a Windows PC: see [docs/pc-training.md](docs/pc-training.md) (English) or [docs/pc-training.zh.md](docs/pc-training.zh.md) (Chinese). In short: same Unity and Python versions, `BuildWindowsTraining`, 100k-step speed tests on the CPU (`config/smoke-100k.yaml`) and on the graphics card (`config/smoke-100k-cuda.yaml`), then the comparison series with `tools/train/run_series.ps1` on whichever was faster (`-Device cpu|cuda`).
 
 ## Repository layout
 

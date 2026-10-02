@@ -1,0 +1,32 @@
+# Speed test on the graphics card (PC; PyTorch ruling 2026-10-02): smoke-100k.yaml with torch_settings.device cuda, so it differs from ppo_base.yaml in max_steps 100000, checkpoint_interval 100000 and device cuda. The only committed config not on the CPU; compare its steps/s with smoke-100k.yaml and train on whichever is faster.
+behaviors:
+  TradingAgent:
+    trainer_type: ppo
+    hyperparameters:
+      batch_size: 1024
+      buffer_size: 10240
+      learning_rate: 0.0003
+      beta: 0.005
+      epsilon: 0.2
+      lambd: 0.95
+      num_epoch: 3
+      learning_rate_schedule: linear
+    network_settings:
+      normalize: false
+      hidden_units: 256
+      num_layers: 1
+    reward_signals:
+      extrinsic:
+        gamma: 0.99
+        strength: 1.0
+    keep_checkpoints: 5
+    checkpoint_interval: 100000
+    max_steps: 100000
+    time_horizon: 64
+    summary_freq: 10000
+environment_parameters:
+  fee_rate: 0.001
+  fixed_fee: 0.0
+  slippage: 0.0
+torch_settings:
+  device: cuda

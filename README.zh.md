@@ -41,7 +41,7 @@ python tools/eval/summarize.py evaluations/smoke/log.csv
 
 ## 在 Windows 电脑上训练
 
-长时间训练放在 Windows 电脑上，步骤见 [docs/pc-training.zh.md](docs/pc-training.zh.md)（英文版 [docs/pc-training.md](docs/pc-training.md)）。一句话：装同样版本的 Unity 和 Python 环境，用 `BuildWindowsTraining` 打包，先用 `config/smoke-100k.yaml` 跑 10 万步测速度，再用 `tools/train/run_series.ps1` 跑对比组。
+长时间训练放在 Windows 电脑上，步骤见 [docs/pc-training.zh.md](docs/pc-training.zh.md)（英文版 [docs/pc-training.md](docs/pc-training.md)）。一句话：装同样版本的 Unity 和 Python 环境，用 `BuildWindowsTraining` 打包，先用 CPU（`config/smoke-100k.yaml`）和显卡（`config/smoke-100k-cuda.yaml`）各跑 10 万步测速度，再用 `tools/train/run_series.ps1` 在快的那个上跑对比组（`-Device cpu|cuda`）。
 
 ## 目录
 

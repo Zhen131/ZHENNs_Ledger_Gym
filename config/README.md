@@ -1,6 +1,6 @@
 # Training configs
 
-All configs train the behavior `TradingAgent` on the CPU and pass the costs to the environment as `environment_parameters` (`fee_rate`, `fixed_fee`, `slippage`). The first line of every file says how it differs from `ppo_base.yaml`.
+All configs train the behavior `TradingAgent` on the CPU (the one exception is `smoke-100k-cuda.yaml`, below) and pass the costs to the environment as `environment_parameters` (`fee_rate`, `fixed_fee`, `slippage`). The first line of every file says how it differs from `ppo_base.yaml`.
 
 What the `Trading/*` curves in TensorBoard mean is in the README's [Training curves](../README.md#training-curves-trading-in-tensorboard) table. Note that `Trading/Turnover` divides the traded value by the **starting** equity of the episode, while `turnover` in the evaluation log divides by the **average** equity.
 
@@ -12,6 +12,7 @@ What the `Trading/*` curves in TensorBoard mean is in the README's [Training cur
 | `smoke.yaml` | Base with 30k steps (`summary_freq` 5000, `checkpoint_interval` 30000) |
 | `smoke-fee0003.yaml` | `smoke.yaml` with `fee_rate` 0.003 and 15k steps: the first episodes end at 16 agents × 720 steps = 11,520 steps, and only then do the `Trading/*` tags (including `Trading/FeeRate`) appear |
 | `smoke-100k.yaml` | Base with 100k steps, to measure the speed of a new machine |
+| `smoke-100k-cuda.yaml` | `smoke-100k.yaml` on the graphics card (`torch_settings.device: cuda`). The PC runs both speed tests and trains on whichever is faster; the series scripts then take `--device cuda` / `-Device cuda`, which changes only their copy of each config |
 
 ## Comparison variants (`variants/`)
 
@@ -35,6 +36,6 @@ Check the variants after editing any of them:
 python tools/train/check_configs.py
 ```
 
-It fails unless every single-change variant differs from the base in exactly one setting, every file has the `TradingAgent` behavior, the three cost parameters and the CPU device, and ML-Agents itself accepts the file.
+It fails unless every single-change variant differs from the base in exactly one setting, every file (smoke configs included) has the `TradingAgent` behavior, the three cost parameters inside the ranges the environment accepts (`fee_rate` in [0, 1), `slippage` in [0, 0.1), `fixed_fee` ≥ 0) and the CPU device (cuda in `smoke-100k-cuda.yaml`), and ML-Agents itself accepts the file.
 
 Run a series (every config × every seed) with `tools/train/run_series.sh` on macOS or `tools/train/run_series.ps1` on Windows; see `docs/pc-training.md`.

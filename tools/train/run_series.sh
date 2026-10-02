@@ -5,7 +5,8 @@
 # Usage, with the mlagents environment active (or MLAGENTS_LEARN pointing at mlagents-learn):
 #
 #   tools/train/run_series.sh --env Builds/mac/Gym.app [--seeds "1 2 3 4 5"] [--num-envs 1]
-#       [--prefix NAME] [--smoke] [--smoke-steps 15000] [--dry-run] CONFIG.yaml [CONFIG.yaml ...]
+#       [--prefix NAME] [--device cpu|cuda] [--smoke] [--smoke-steps 15000] [--dry-run]
+#       CONFIG.yaml [CONFIG.yaml ...]
 #
 # Run ids:   [smoke-][NAME-]<config file name>-s<seed>-<yyyyMMdd, UTC>
 # Results:   results/<run-id>/                (ML-Agents output, plus config-used.yaml)
@@ -25,6 +26,9 @@
 # summary_freq 1000 and checkpoint_interval = max_steps; it only proves the script works.
 # 15000 steps is just past the end of the first episodes (16 agents x 720 steps =
 # 11,520 steps); Trading/* statistics only appear from then on (Q06).
+# --device (default cpu) sets torch_settings.device. When a config says something else,
+# it is copied to results/_tmp/ with the device changed; the files in config/ are never
+# edited. config-used.yaml records the device each run really used.
 
 set -u
 
@@ -36,6 +40,7 @@ NUM_ENVS=1
 PREFIX=""
 SMOKE=0
 SMOKE_STEPS=15000
+DEVICE=cpu
 DRY_RUN=0
 CONFIGS=()
 
@@ -47,6 +52,7 @@ while [ $# -gt 0 ]; do
         --prefix) PREFIX="${2:-}"; shift 2 ;;
         --smoke) SMOKE=1; shift ;;
         --smoke-steps) SMOKE_STEPS="${2:-}"; shift 2 ;;
+        --device) DEVICE="${2:-}"; shift 2 ;;
         --dry-run) DRY_RUN=1; shift ;;
         -h|--help) usage; exit 0 ;;
         --*) echo "error: unknown option $1" >&2; usage >&2; exit 2 ;;
@@ -60,6 +66,12 @@ smoke_text() {
            -e "s/^([[:space:]]*summary_freq:).*/\1 1000/" \
            -e "s/^([[:space:]]*checkpoint_interval:).*/\1 $SMOKE_STEPS/" "$1"
 }
+# The config as the run uses it: shortened with --smoke, torch_settings.device from --device.
+used_text() {
+    if [ "$SMOKE" -eq 1 ]; then smoke_text "$1"; else cat "$1"; fi |
+        sed -E "s/^([[:space:]]*device:).*/\1 $DEVICE/"
+}
+config_device() { sed -nE 's/^[[:space:]]*device:[[:space:]]*([^[:space:]#]+).*/\1/p' "$1"; }
 is_int() { case "$1" in ''|*[!0-9]*) return 1 ;; *) return 0 ;; esac; }
 abs_path() { (cd "$(dirname "$1")" && printf '%s/%s\n' "$(pwd)" "$(basename "$1")"); }
 # True when any agent of the run logged its master seed as "(clock)" instead of "(trainer)" (Q08).
@@ -73,6 +85,7 @@ is_int "$SMOKE_STEPS" && [ "$SMOKE_STEPS" -ge 1 ] || fail "--smoke-steps must be
 for seed in $SEEDS; do is_int "$seed" || fail "seeds must be whole numbers (got '$seed')"; done
 [ -n "$SEEDS" ] || fail "--seeds is empty"
 case "$PREFIX" in *[!A-Za-z0-9._-]*) fail "--prefix may only use letters, digits, '.', '_' and '-'" ;; esac
+case "$DEVICE" in cpu|cuda) ;; *) fail "--device must be cpu or cuda (got '$DEVICE')" ;; esac
 
 LEARN="${MLAGENTS_LEARN:-mlagents-learn}"
 if [ "$DRY_RUN" -eq 0 ] && ! command -v "$LEARN" >/dev/null 2>&1; then
@@ -92,7 +105,7 @@ cd "$REPO" || exit 2
 DATE="$(LC_ALL=C date -u +%Y%m%d)"
 
 ran=0; skipped=0; failed=0; clocked=0
-echo "series: ${#ABS_CONFIGS[@]} config(s) x seeds [$SEEDS], --num-envs $NUM_ENVS, env $ENV_PATH$( [ "$SMOKE" -eq 1 ] && echo ", smoke $SMOKE_STEPS steps")"
+echo "series: ${#ABS_CONFIGS[@]} config(s) x seeds [$SEEDS], --num-envs $NUM_ENVS, device $DEVICE, env $ENV_PATH$( [ "$SMOKE" -eq 1 ] && echo ", smoke $SMOKE_STEPS steps")"
 
 for cfg in "${ABS_CONFIGS[@]}"; do
     name="$(basename "$cfg" .yaml)"
@@ -106,12 +119,14 @@ for cfg in "${ABS_CONFIGS[@]}"; do
         fi
 
         used="$cfg"
-        if [ "$SMOKE" -eq 1 ]; then
+        if [ "$SMOKE" -eq 1 ] || [ "$(config_device "$cfg")" != "$DEVICE" ]; then
             used="$REPO/results/_tmp/$run_id.yaml"
-            [ "$(smoke_text "$cfg" | grep -cE "^[[:space:]]*max_steps: $SMOKE_STEPS\$")" -eq 1 ] || fail "could not set max_steps for $cfg"
+            [ "$SMOKE" -eq 0 ] || [ "$(used_text "$cfg" | grep -cE "^[[:space:]]*max_steps: $SMOKE_STEPS\$")" -eq 1 ] ||
+                fail "could not set max_steps for $cfg"
+            [ "$(used_text "$cfg" | grep -cE "^[[:space:]]*device: $DEVICE\$")" -eq 1 ] || fail "could not set torch_settings.device for $cfg"
             if [ "$DRY_RUN" -eq 0 ]; then
                 mkdir -p results/_tmp
-                smoke_text "$cfg" > "$used"
+                used_text "$cfg" > "$used"
             fi
         fi
 
