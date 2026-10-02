@@ -92,6 +92,61 @@ namespace Gym.Tests.EditMode
             StringAssert.Contains("overlap", report.Errors[0]);
         }
 
+        // 01D-5: every way two segments can overlap is refused, not only train and validation sharing a day.
+
+        static void AssertOverlap(SplitReport report, string first, string second)
+        {
+            Assert.IsFalse(report.IsValid);
+            Assert.IsTrue(report.Errors.Exists(e => e.StartsWith($"overlap: {first} ") && e.Contains($" and {second} ")),
+                $"expected an overlap of {first} and {second}; got: {string.Join("; ", report.Errors)}");
+        }
+
+        [Test]
+        public void D01_5_ValidationAndTestSharingADayIsAnError()
+        {
+            SplitReport report = SplitValidator.Validate(DefaultSplits.Train, DefaultSplits.Validation,
+                Seg("test", "2025-08-31", "2026-08-31"), TestData.Btc, 720);
+            AssertOverlap(report, "validation", "test");
+            Assert.AreEqual(1, report.Errors.Count, string.Join("; ", report.Errors));
+        }
+
+        [Test]
+        public void D01_5_TestInsideTrainingIsAnError()
+        {
+            SplitReport report = SplitValidator.Validate(DefaultSplits.Train, DefaultSplits.Validation,
+                Seg("test", "2020-01-01", "2020-12-31"), TestData.Btc, 720);
+            AssertOverlap(report, "train", "test");
+            Assert.AreEqual(1, report.Errors.Count, string.Join("; ", report.Errors));
+        }
+
+        [Test]
+        public void D01_5_TestEqualToValidationIsAnError()
+        {
+            SplitReport report = SplitValidator.Validate(DefaultSplits.Train, DefaultSplits.Validation,
+                Seg("test", "2024-09-01", "2025-08-31"), TestData.Btc, 720);
+            AssertOverlap(report, "validation", "test");
+            Assert.AreEqual(1, report.Errors.Count, string.Join("; ", report.Errors));
+        }
+
+        [Test]
+        public void D01_5_ValidationContainingTestIsAnError()
+        {
+            SplitReport report = SplitValidator.Validate(DefaultSplits.Train,
+                Seg("validation", "2024-09-01", "2026-08-31"), DefaultSplits.Test, TestData.Btc, 720);
+            AssertOverlap(report, "validation", "test");
+            Assert.AreEqual(1, report.Errors.Count, string.Join("; ", report.Errors));
+        }
+
+        [Test]
+        public void D01_5_TrainingContainingBothOthersIsAnError()
+        {
+            SplitReport report = SplitValidator.Validate(Seg("train", "2017-08-17", "2026-08-31"),
+                DefaultSplits.Validation, DefaultSplits.Test, TestData.Btc, 720);
+            AssertOverlap(report, "train", "validation");
+            AssertOverlap(report, "train", "test");
+            Assert.AreEqual(2, report.Errors.Count, string.Join("; ", report.Errors));
+        }
+
         [Test]
         public void T09_OutOfRangeIsAnError()
         {

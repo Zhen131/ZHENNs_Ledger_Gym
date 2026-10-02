@@ -232,5 +232,32 @@ namespace Gym.Tests.EditMode
             Assert.Throws<ArgumentOutOfRangeException>(() => a.Buy(1.5, 50_000));
             Assert.Throws<ArgumentOutOfRangeException>(() => a.Buy(0.5, 0));
         }
+
+        // ---- 01D review
+
+        [Test]
+        public void D01_1_FullBuyWithMillionsInCashDoesNotOverspend()
+        {
+            // (decimal)12345678.999999998 keeps 15 significant digits and rounds up to 12345679,
+            // so without a fee the floor gave 1,234,567,900 units of 0.1 ADA at 0.1 = 12345679 USDT
+            // and left cash at −1.9e-9: the buy threw. Now it gives one unit back.
+            foreach (var cost in new[] { new CostModel(0), new CostModel(0, 1, 0), new CostModel(0.001) })
+            {
+                var a = new Account(Ada, cost, 12_345_678.999999998);
+                Assert.DoesNotThrow(() => a.TryBuy(1, 0.1, out _), cost.ToString());
+                Assert.AreEqual(1, a.Trades, cost.ToString());
+                Assert.GreaterOrEqual(a.Cash, 0, cost.ToString());
+                Assert.Less(a.Cash, 0.1 * 0.1 * (1 + cost.FeeRate), $"{cost}: at most one unit's price is left over");
+            }
+        }
+
+        [Test]
+        public void D01_2_HoldingCoinNeedsAPositiveAverageCost()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => new Account(Btc, new CostModel(), 0, coinUnits: 10, avgCost: 0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new Account(Btc, new CostModel(), 0, coinUnits: 10, avgCost: -1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new Account(Btc, new CostModel(), 0, coinUnits: 10, avgCost: double.NaN));
+            Assert.DoesNotThrow(() => new Account(Btc, new CostModel(), 10_000, coinUnits: 0, avgCost: 0));
+        }
     }
 }

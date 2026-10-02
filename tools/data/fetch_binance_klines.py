@@ -29,8 +29,14 @@ What it does:
    (open = high = low = close = previous close, volume = 0). Only earlier
    values are ever used, so the filler never looks into the future.
 5. Writes {out}/{S}-1h.csv and {out}/{S}-1h.manifest.json.
+6. Warns loudly when the result has off-hour candles or gaps over 24 hours
+   that the committed data does not have (BTCUSDT 1h: 43 off-hour candles,
+   one 75-hour gap from 2018-02-08 01:00), so a new stretch of flat filler
+   cannot slip in unnoticed when --end adds months.
 
 Numbers are copied as the original strings; nothing is passed through float.
+On another machine the manifest differs only in downloaded_at_utc (the time
+the archives were saved there); that change need not be committed.
 """
 
 from __future__ import annotations
@@ -61,6 +67,11 @@ DEFAULT_OFF_HOUR = "drop"  # the committed data drops the 43 off-hour candles of
 # Last month fetched by default: the end of the test segment (2026-08-31), so the
 # default command always rebuilds the same file. Pass --end to add newer months (Q01).
 DEFAULT_END_MONTH = (2026, 8)
+# What the committed data is known to contain (01D-4). Anything else after a rebuild is
+# printed as a warning: dropped candles become flat filler and would otherwise show up
+# only as a count in the manifest.
+KNOWN_OFF_HOUR_ROWS = {("BTCUSDT", "1h"): 43}
+KNOWN_LONG_GAPS = {("BTCUSDT", "1h"): {"2018-02-08T01:00:00Z"}}
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_RAW_DIR = REPO_ROOT / "data" / "raw"
@@ -292,6 +303,20 @@ def off_hour_summary(policy: str, handled: list[int]) -> dict:
     }
 
 
+def data_warnings(symbol: str, interval: str, handled: list[int], gaps: list[tuple[int, int]]) -> list[str]:
+    """Off-hour candles or gaps over 24 hours beyond what the committed data has (01D-4)."""
+    warnings = []
+    known_off_hour = KNOWN_OFF_HOUR_ROWS.get((symbol, interval), 0)
+    if len(handled) != known_off_hour:
+        warnings.append(f"{len(handled)} off-hour candles were handled, {known_off_hour} expected; "
+                        "check off_hour_rows in the manifest before using this data")
+    known_gaps = KNOWN_LONG_GAPS.get((symbol, interval), set())
+    for start, hours in gaps:
+        if hours > 24 and utc_text(start) not in known_gaps:
+            warnings.append(f"new gap of {hours} hours from {utc_text(start)} is filled with a flat line")
+    return warnings
+
+
 def build_manifest(symbol, interval, months, rows, gaps, csv_bytes, downloaded_at,
                    off_hour="error", handled=()) -> dict:
     return {
@@ -370,6 +395,8 @@ def run(args) -> int:
         print(f"off-hour rows ({args.off_hour}): {manifest['off_hour_rows']}")
     print(f"wrote {csv_path}")
     print(f"wrote {manifest_path}")
+    for warning in data_warnings(symbol, interval, handled, gaps):
+        print(f"!!! WARNING: {warning}", file=sys.stderr)
     return 0
 
 
@@ -479,7 +506,18 @@ def self_test() -> int:
     expect(floored[2][1:] == ("10.6", "12", "10", "11", "2"), "floored row keeps its numbers")
     expect(floored_gaps == [(t0 + HOUR_MS, 1), (t0 + 4 * HOUR_MS, 1)], f"floor gaps {floored_gaps}")
     expect(off_hour_summary("drop", dropped_times)["count"] == 2, "off-hour summary")
-    header = _make_zip("h.csv", ["open_time,open,high,low,close,volume,close_time,q,n,tb,tq,ignore"])
+
+    # 01D-4: a new block of off-hour candles or a new long gap is flagged; the known ones are not.
+    known_gap = (1518051600000, 75)  # 2018-02-08T01:00:00Z
+    expect(utc_text(known_gap[0]) == "2018-02-08T01:00:00Z", "known gap start")
+    expect(data_warnings("BTCUSDT", "1h", list(range(43)), [known_gap, (t0, 3)]) == [], "committed data: no warning")
+    new_off_hour = data_warnings("BTCUSDT", "1h", dropped_times, dropped_gaps)
+    expect(len(new_off_hour) == 1 and "2 off-hour candles" in new_off_hour[0], f"new off-hour warning {new_off_hour}")
+    new_gap = data_warnings("BTCUSDT", "1h", list(range(43)), [known_gap, (t0, 30)])
+    expect(len(new_gap) == 1 and "30 hours" in new_gap[0], f"new gap warning {new_gap}")
+    expect(len(data_warnings("ETHUSDT", "1h", dropped_times, [known_gap])) == 2, "other symbols have no known list")
+
+    header =_make_zip("h.csv", ["open_time,open,high,low,close,volume,close_time,q,n,tb,tq,ignore"])
     expect_error(lambda: parse_archive(header, "header"), "not an integer")
     short = _make_zip("s.csv", [f"{t0},1,1,1,1,1"])
     expect_error(lambda: parse_archive(short, "short"), "12 columns")

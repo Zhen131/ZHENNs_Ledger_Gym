@@ -30,6 +30,8 @@ namespace Gym.Core
     public sealed class Account
     {
         const double NegativeCashTolerance = 1e-9;
+        /// <summary>How many step units a buy may give back when rounding left it over the cash (01D-1).</summary>
+        const int MaxUnitStepBacks = 3;
 
         public Account(SymbolRules rules, CostModel cost, double cash, long coinUnits = 0, double avgCost = 0)
         {
@@ -38,6 +40,9 @@ namespace Gym.Core
             if (!(cash >= 0) || double.IsInfinity(cash))
                 throw new ArgumentOutOfRangeException(nameof(cash), cash, "Must be a finite value >= 0.");
             if (coinUnits < 0) throw new ArgumentOutOfRangeException(nameof(coinUnits), coinUnits, "Must be >= 0.");
+            // A position needs a cost; with 0 the unrealised return divides by zero (01D-2).
+            if (coinUnits > 0 && (!(avgCost > 0) || double.IsInfinity(avgCost)))
+                throw new ArgumentOutOfRangeException(nameof(avgCost), avgCost, "Must be a finite value > 0 when holding coin.");
             Cash = cash;
             CoinUnits = coinUnits;
             AvgCost = coinUnits == 0 ? 0 : avgCost;
@@ -75,9 +80,18 @@ namespace Gym.Core
             decimal unitsExact = (decimal)spendable / ((decimal)fillPrice * (1m + (decimal)Cost.FeeRate)) / Rules.StepSize;
             long units = (long)decimal.Floor(unitsExact);
             double notional = Notional(units, fillPrice);
+            double fee = notional * Cost.FeeRate + Cost.FixedFee;
+            // double → decimal keeps 15 significant digits, so with cash in the millions the floor
+            // can land a unit too high and overspend by a few 1e-9. Give units back (01D-1); only
+            // buys the tolerance below would refuse are changed.
+            for (int i = 0; i < MaxUnitStepBacks && units > 0 && Cash - (notional + fee) < -NegativeCashTolerance; i++)
+            {
+                units--;
+                notional = Notional(units, fillPrice);
+                fee = notional * Cost.FeeRate + Cost.FixedFee;
+            }
             if (units == 0 || notional < Rules.MinNotional) return Reject();
 
-            double fee = notional * Cost.FeeRate + Cost.FixedFee;
             double cash = Cash - (notional + fee);
             if (cash < 0)
             {
