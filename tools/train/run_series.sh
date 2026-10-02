@@ -15,6 +15,10 @@
 # the seed + k and seeds 1, 2, 3 ... would collide when --num-envs > 1 (Q03). The run id
 # keeps the plain seed (-s3); results/<run-id>/seed-used.txt records what was passed.
 # One series uses one --num-envs value for every run, so the runs stay comparable.
+# After each run the Player logs are searched for "(clock)": an agent that could not read
+# the trainer's seed seeds itself from the clock and the run cannot be repeated (Q08). Such
+# a run gets a loud warning and the line "WARNING: some agents seeded from the clock" in
+# seed-used.txt.
 # --smoke copies each config to results/_tmp/ with max_steps 15000 (or --smoke-steps),
 # summary_freq 1000 and checkpoint_interval = max_steps; it only proves the script works.
 # 15000 steps is just past the end of the first episodes (16 agents x 720 steps =
@@ -51,6 +55,8 @@ done
 fail() { echo "error: $*" >&2; exit 2; }
 is_int() { case "$1" in ''|*[!0-9]*) return 1 ;; *) return 0 ;; esac; }
 abs_path() { (cd "$(dirname "$1")" && printf '%s/%s\n' "$(pwd)" "$(basename "$1")"); }
+# True when any agent of the run logged its master seed as "(clock)" instead of "(trainer)" (Q08).
+clock_seeded() { grep -qsF '(clock)' "$1"/run_logs/Player-*.log; }
 
 [ -n "$ENV_PATH" ] || fail "--env <path to the training build> is required"
 [ -e "$ENV_PATH" ] || fail "environment build not found: $ENV_PATH"
@@ -78,7 +84,7 @@ cd "$REPO" || exit 2
 mkdir -p results
 DATE="$(date -u +%Y%m%d)"
 
-ran=0; skipped=0; failed=0
+ran=0; skipped=0; failed=0; clocked=0
 echo "series: ${#ABS_CONFIGS[@]} config(s) x seeds [$SEEDS], --num-envs $NUM_ENVS, env $ENV_PATH$( [ "$SMOKE" -eq 1 ] && echo ", smoke $SMOKE_STEPS steps")"
 
 for cfg in "${ABS_CONFIGS[@]}"; do
@@ -119,6 +125,16 @@ for cfg in "${ABS_CONFIGS[@]}"; do
                 echo "--seed passed to mlagents-learn: $learn_seed"
                 echo "--num-envs: $NUM_ENVS (environment k gets $learn_seed + k)"
             } > "results/$run_id/seed-used.txt"
+            if clock_seeded "results/$run_id"; then
+                echo "WARNING: some agents seeded from the clock" >> "results/$run_id/seed-used.txt"
+                clocked=$((clocked + 1))
+                {
+                    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                    echo "!!! WARNING: in $run_id some agents seeded from the clock, not from --seed"
+                    echo "!!! $learn_seed; this run cannot be repeated. See results/$run_id/run_logs (Q08)."
+                    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                } >&2
+            fi
         fi
         if [ "$rc" -eq 0 ]; then
             ran=$((ran + 1))
@@ -131,4 +147,5 @@ for cfg in "${ABS_CONFIGS[@]}"; do
 done
 
 echo "series finished: $ran ran, $skipped skipped, $failed failed"
+[ "$clocked" -eq 0 ] || echo "WARNING: $clocked run(s) had agents seeded from the clock; see the warnings above (Q08)" >&2
 [ "$failed" -eq 0 ]

@@ -12,6 +12,10 @@ Seeds: mlagents-learn gets --seed <seed x 1000>, because ML-Agents gives environ
 the seed + k and seeds 1, 2, 3 ... would collide when -NumEnvs > 1. The run id keeps
 the plain seed (-s3); results\<run-id>\seed-used.txt records what was passed.
 One series uses one -NumEnvs value for every run, so the runs stay comparable.
+After each run the Player logs are searched for "(clock)": an agent that could not read
+the trainer's seed seeds itself from the clock and the run cannot be repeated (Q08). Such
+a run gets a loud warning and the line "WARNING: some agents seeded from the clock" in
+seed-used.txt.
 -Smoke copies each config to results\_tmp\ with max_steps 15000 (or -SmokeSteps),
 summary_freq 1000 and checkpoint_interval = max_steps; it only proves the script works.
 15000 steps is just past the end of the first episodes (16 agents x 720 steps =
@@ -50,6 +54,15 @@ function Fail([string]$message) {
     exit 2
 }
 
+# True when any agent of the run logged its master seed as "(clock)" instead of "(trainer)" (Q08).
+function Test-ClockSeeded([string]$runDir) {
+    $logs = Get-ChildItem -Path (Join-Path $runDir 'run_logs') -Filter 'Player-*.log' -File -ErrorAction SilentlyContinue
+    foreach ($log in $logs) {
+        if (Select-String -LiteralPath $log.FullName -Pattern '(clock)' -SimpleMatch -Quiet) { return $true }
+    }
+    return $false
+}
+
 if (-not (Test-Path -LiteralPath $EnvPath)) { Fail "environment build not found: $EnvPath" }
 if ($NumEnvs -lt 1) { Fail "-NumEnvs must be one whole number >= 1 (got $NumEnvs)" }
 if ($SmokeSteps -lt 1) { Fail '-SmokeSteps must be a whole number >= 1' }
@@ -73,7 +86,7 @@ Set-Location $repo
 New-Item -ItemType Directory -Force -Path 'results' | Out-Null
 $date = (Get-Date).ToUniversalTime().ToString('yyyyMMdd')
 
-$ran = 0; $skipped = 0; $failed = 0
+$ran = 0; $skipped = 0; $failed = 0; $clocked = 0
 $smokeNote = if ($Smoke) { ", smoke $SmokeSteps steps" } else { '' }
 Write-Host "series: $($absConfigs.Count) config(s) x seeds [$($Seeds -join ' ')], -NumEnvs $NumEnvs, env $EnvPath$smokeNote"
 
@@ -126,6 +139,17 @@ foreach ($cfg in $absConfigs) {
             Copy-Item -LiteralPath $used -Destination "results\$runId\config-used.yaml"
             $seedNote = "seed (run id): $seed`n--seed passed to mlagents-learn: $learnSeed`n--num-envs: $NumEnvs (environment k gets $learnSeed + k)`n"
             [IO.File]::WriteAllText((Join-Path $repo "results\$runId\seed-used.txt"), $seedNote)
+            if (Test-ClockSeeded (Join-Path $repo "results\$runId")) {
+                [IO.File]::AppendAllText((Join-Path $repo "results\$runId\seed-used.txt"), "WARNING: some agents seeded from the clock`n")
+                $clocked++
+                $bar = '!' * 77
+                foreach ($line in @($bar,
+                        "!!! WARNING: in $runId some agents seeded from the clock, not from --seed",
+                        "!!! $learnSeed; this run cannot be repeated. See results\$runId\run_logs (Q08).",
+                        $bar)) {
+                    Write-Host $line -ForegroundColor Yellow -BackgroundColor DarkRed
+                }
+            }
         }
         if ($rc -eq 0) {
             $ran++
@@ -138,5 +162,8 @@ foreach ($cfg in $absConfigs) {
 }
 
 Write-Host "series finished: $ran ran, $skipped skipped, $failed failed"
+if ($clocked -gt 0) {
+    Write-Host "WARNING: $clocked run(s) had agents seeded from the clock; see the warnings above (Q08)" -ForegroundColor Yellow -BackgroundColor DarkRed
+}
 if ($failed -gt 0) { exit 1 }
 exit 0
