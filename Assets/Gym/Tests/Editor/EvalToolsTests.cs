@@ -33,6 +33,23 @@ namespace Gym.Tests.Editor
             Assert.Throws<ArgumentException>(() => EvalTools.ParsePolicies(","));
         }
 
+        [Test]
+        public void S1_TheEvaluationPlayerNeedsEvalModeAndAnOutputFolder()
+        {
+            string none = EvalRunner.CheckArguments(new[] { "GymEval" });
+            StringAssert.Contains("missing -gymMode eval and -gymOut <folder>", none);
+            StringAssert.Contains("Nothing was written", none);
+            StringAssert.Contains("missing -gymOut <folder>.",
+                EvalRunner.CheckArguments(new[] { "GymEval", "-gymMode", "eval", "-gymSegment", "validation" }));
+            StringAssert.Contains("missing -gymMode eval.",
+                EvalRunner.CheckArguments(new[] { "GymEval", "-gymOut", "evaluations/smoke" }));
+            StringAssert.Contains("missing -gymMode eval.",
+                EvalRunner.CheckArguments(new[] { "GymEval", "-gymMode", "train", "-gymOut", "evaluations/smoke" }));
+            StringAssert.Contains("missing -gymOut <folder>.",
+                EvalRunner.CheckArguments(new[] { "GymEval", "-gymMode", "eval", "-gymOut" }));
+            Assert.IsNull(EvalRunner.CheckArguments(new[] { "GymEval", "-gymMode", "EVAL", "-gymOut", "evaluations/smoke" }));
+        }
+
         // ---- 05D M-2: committed evaluation files must not carry a machine's paths
 
         static void AssertNoMachinePath(string text, string what)

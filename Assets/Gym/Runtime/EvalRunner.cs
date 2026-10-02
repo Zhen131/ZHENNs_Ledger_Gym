@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using Gym.Core;
@@ -24,19 +25,20 @@ namespace Gym.Runtime
     /// Drives one evaluation episode in the Eval scene (04B §4.2): turns off automatic
     /// stepping, calls Academy.EnvironmentStep in batches each frame until the agent's
     /// episode ends, appends the result to &lt;-gymOut&gt;/log.csv with a JSON detail file,
-    /// and quits (0 on success, 1 on failure).
+    /// and quits (0 on success, 1 on failure). It runs only when started with
+    /// -gymMode eval and -gymOut &lt;folder&gt;.
     /// </summary>
     public class EvalRunner : MonoBehaviour
     {
         public const string BuildInfoFile = "build-info.json";
         public const string OutArg = "-gymOut";
 
+        /// <summary>Environment steps allowed beyond the segment's candle count before the run counts as stuck.</summary>
+        public const int StepMargin = 100;
+
         [SerializeField] TradingAgent agent;
         [SerializeField] int stepsPerFrame = 500;
         [SerializeField] bool quitWhenDone = true;
-
-        /// <summary>Environment steps allowed beyond the segment's candle count before the run counts as stuck.</summary>
-        public const int StepMargin = 100;
 
         int exitCode = 1;
         int steps;
@@ -71,8 +73,32 @@ namespace Gym.Runtime
             if (agent != null) agent.EpisodeFinished -= OnEpisodeFinished;
         }
 
+        /// <summary>
+        /// Null when the command line asks for an evaluation run, else what is missing (05D S-1).
+        /// Without -gymMode eval the player would quietly evaluate the test segment, and
+        /// without -gymOut it would write next to wherever it was started.
+        /// </summary>
+        public static string CheckArguments(string[] args)
+        {
+            var missing = new List<string>();
+            if (!string.Equals(GymConfigLoader.GetArg(args, GymConfigLoader.ModeArg), "eval", StringComparison.OrdinalIgnoreCase))
+                missing.Add($"{GymConfigLoader.ModeArg} eval");
+            if (string.IsNullOrWhiteSpace(GymConfigLoader.GetArg(args, OutArg)))
+                missing.Add($"{OutArg} <folder>");
+            if (missing.Count == 0) return null;
+            return $"the evaluation player needs {GymConfigLoader.ModeArg} eval and {OutArg} <folder>; missing {string.Join(" and ", missing)}. " +
+                   $"Nothing was written. Example: -gymMode eval -gymSegment validation -gymFeeRate 0.001 -gymOut evaluations/smoke";
+        }
+
         IEnumerator Start()
         {
+            string problem = CheckArguments(Environment.GetCommandLineArgs());
+            if (problem != null)
+            {
+                Debug.LogError("[Gym] " + problem);
+                Quit(1);
+                yield break;
+            }
             if (agent == null)
             {
                 Debug.LogError("[Gym] EvalRunner has no agent");
@@ -154,7 +180,7 @@ namespace Gym.Runtime
 
         void Write(TradingAgent source, EpisodeMetrics metrics)
         {
-            string outDir = Path.GetFullPath(GymConfigLoader.GetArg(Environment.GetCommandLineArgs(), OutArg) ?? "evaluations");
+            string outDir = Path.GetFullPath(GymConfigLoader.GetArg(Environment.GetCommandLineArgs(), OutArg)); // checked in Start
             EvalBuildInfo info = ReadBuildInfo();
             GymSettings s = source.Settings;
             TradingEnv env = source.Env;
