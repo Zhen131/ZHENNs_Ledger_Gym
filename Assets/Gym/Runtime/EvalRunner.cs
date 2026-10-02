@@ -26,7 +26,7 @@ namespace Gym.Runtime
     /// stepping, calls Academy.EnvironmentStep in batches each frame until the agent's
     /// episode ends, appends the result to &lt;-gymOut&gt;/log.csv with a JSON detail file,
     /// and quits (0 on success, 1 on failure). It runs only when started with
-    /// -gymMode eval and -gymOut &lt;folder&gt;.
+    /// -gymMode eval, -gymSegment validation|test and -gymOut &lt;folder&gt;.
     /// </summary>
     public class EvalRunner : MonoBehaviour
     {
@@ -74,21 +74,34 @@ namespace Gym.Runtime
         }
 
         /// <summary>
-        /// Null when the command line asks for an evaluation run, else what is missing (05D S-1).
-        /// Without -gymMode eval the player would quietly evaluate the test segment, and
-        /// without -gymOut it would write next to wherever it was started.
+        /// Null when the command line asks for an evaluation run, else what is missing (05D S-1, 08D N-1).
+        /// Without -gymMode eval the player would quietly evaluate the test segment, without
+        /// -gymSegment it would fall back to the test segment too (kept for the final numbers,
+        /// and the log cannot be undone), and without -gymOut it would write next to wherever
+        /// it was started.
         /// </summary>
         public static string CheckArguments(string[] args)
         {
             var missing = new List<string>();
             if (!string.Equals(GymConfigLoader.GetArg(args, GymConfigLoader.ModeArg), "eval", StringComparison.OrdinalIgnoreCase))
                 missing.Add($"{GymConfigLoader.ModeArg} eval");
+            string segment = GymConfigLoader.GetArg(args, GymConfigLoader.SegmentArg);
+            if (!string.Equals(segment, "validation", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(segment, "test", StringComparison.OrdinalIgnoreCase))
+                missing.Add($"{GymConfigLoader.SegmentArg} validation|test");
             if (string.IsNullOrWhiteSpace(GymConfigLoader.GetArg(args, OutArg)))
                 missing.Add($"{OutArg} <folder>");
             if (missing.Count == 0) return null;
-            return $"the evaluation player needs {GymConfigLoader.ModeArg} eval and {OutArg} <folder>; missing {string.Join(" and ", missing)}. " +
-                   $"Nothing was written. Example: -gymMode eval -gymSegment validation -gymFeeRate 0.001 -gymOut evaluations/smoke";
+            string player = args.Length > 0 ? GymConfigLoader.FileNameOnly(args[0]) : "GymEval";
+            return $"the evaluation player needs {GymConfigLoader.ModeArg} eval, {GymConfigLoader.SegmentArg} validation|test " +
+                   $"and {OutArg} <folder>; missing {JoinWithAnd(missing)}. Nothing was written. Example: " +
+                   $"{player} -batchmode -nographics -gymMode eval -gymSegment validation -gymFeeRate 0.001 -gymOut evaluations/smoke";
         }
+
+        /// <summary>"a", "a and b", "a, b and c".</summary>
+        static string JoinWithAnd(List<string> items) =>
+            items.Count < 2 ? string.Join("", items)
+                : string.Join(", ", items.GetRange(0, items.Count - 1)) + " and " + items[items.Count - 1];
 
         IEnumerator Start()
         {

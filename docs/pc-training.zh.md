@@ -186,7 +186,7 @@ $e.ExitCode   # 0 表示成功；不是 0 就看 Logs\eval.log 的最后几行
 ```
 
 - `-gymFeeRate` 用这个模型训练时的费率。测试段只留到最后出正式数字时用。
-- 评估包必须带 `-gymMode eval` 和 `-gymOut`，少一个它就报错退出（退出码 1），什么都不写。费率写错（比如 `1.5`）也是几秒内退出码 1，`Logs\eval.log` 里写着是哪个参数。
+- 评估包必须带 `-gymMode eval`、`-gymSegment`（`validation` 或 `test`）和 `-gymOut`，少一个它就报错退出（退出码 1），什么都不写。段没有默认值，免得一不小心跑了测试段。费率写错（比如 `1.5`）也是几秒内退出码 1，`Logs\eval.log` 里写着是哪个参数。
 - 跑完马上提交，例如：
 
 ```powershell

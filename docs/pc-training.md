@@ -184,7 +184,7 @@ $e.ExitCode   # 0 = success; otherwise read the end of Logs\eval.log
 ```
 
 - Use the same `-gymFeeRate` the model was trained with. Use the test segment only for the final numbers.
-- The evaluation player needs `-gymMode eval` and `-gymOut`; without either it exits with code 1 and writes nothing. A fee outside the valid range (for example `1.5`) also exits with code 1 within seconds, and `Logs\eval.log` names the argument.
+- The evaluation player needs `-gymMode eval`, `-gymSegment` (`validation` or `test`) and `-gymOut`; without any one of them it exits with code 1 and writes nothing. There is no default segment, so the test segment is never evaluated by accident. A fee outside the valid range (for example `1.5`) also exits with code 1 within seconds, and `Logs\eval.log` names the argument.
 - Commit right away, for example:
 
 ```powershell

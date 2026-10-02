@@ -37,17 +37,33 @@ namespace Gym.Tests.Editor
         public void S1_TheEvaluationPlayerNeedsEvalModeAndAnOutputFolder()
         {
             string none = EvalRunner.CheckArguments(new[] { "GymEval" });
-            StringAssert.Contains("missing -gymMode eval and -gymOut <folder>", none);
+            StringAssert.Contains("missing -gymMode eval, -gymSegment validation|test and -gymOut <folder>", none);
             StringAssert.Contains("Nothing was written", none);
             StringAssert.Contains("missing -gymOut <folder>.",
                 EvalRunner.CheckArguments(new[] { "GymEval", "-gymMode", "eval", "-gymSegment", "validation" }));
             StringAssert.Contains("missing -gymMode eval.",
-                EvalRunner.CheckArguments(new[] { "GymEval", "-gymOut", "evaluations/smoke" }));
+                EvalRunner.CheckArguments(new[] { "GymEval", "-gymSegment", "validation", "-gymOut", "evaluations/smoke" }));
             StringAssert.Contains("missing -gymMode eval.",
-                EvalRunner.CheckArguments(new[] { "GymEval", "-gymMode", "train", "-gymOut", "evaluations/smoke" }));
+                EvalRunner.CheckArguments(new[] { "GymEval", "-gymMode", "train", "-gymSegment", "validation", "-gymOut", "evaluations/smoke" }));
             StringAssert.Contains("missing -gymOut <folder>.",
-                EvalRunner.CheckArguments(new[] { "GymEval", "-gymMode", "eval", "-gymOut" }));
-            Assert.IsNull(EvalRunner.CheckArguments(new[] { "GymEval", "-gymMode", "EVAL", "-gymOut", "evaluations/smoke" }));
+                EvalRunner.CheckArguments(new[] { "GymEval", "-gymMode", "eval", "-gymSegment", "validation", "-gymOut" }));
+            Assert.IsNull(EvalRunner.CheckArguments(new[] { "GymEval", "-gymMode", "EVAL", "-gymSegment", "Test", "-gymOut", "evaluations/smoke" }));
+        }
+
+        [Test]
+        public void N1_TheEvaluationPlayerNeedsTheSegmentToo()
+        {
+            // 08D N-1: without -gymSegment the player fell back to the test segment and wrote to -gymOut,
+            // which on the PC is the append-only log.
+            string noSegment = EvalRunner.CheckArguments(new[] { "GymEval", "-gymMode", "eval", "-gymOut", "x" });
+            Assert.IsNotNull(noSegment);
+            StringAssert.Contains("missing -gymSegment validation|test.", noSegment);
+            StringAssert.Contains("Nothing was written", noSegment);
+            StringAssert.Contains("Example: GymEval -batchmode -nographics -gymMode eval -gymSegment validation", noSegment);
+            StringAssert.Contains("missing -gymSegment validation|test.",
+                EvalRunner.CheckArguments(new[] { "GymEval", "-gymMode", "eval", "-gymSegment", "train", "-gymOut", "x" }));
+            Assert.IsNull(EvalRunner.CheckArguments(new[] { "GymEval", "-gymMode", "eval", "-gymSegment", "validation", "-gymOut", "x" }));
+            Assert.IsNull(EvalRunner.CheckArguments(new[] { "GymEval", "-gymMode", "eval", "-gymSegment", "test", "-gymOut", "x" }));
         }
 
         // ---- 05D M-2: committed evaluation files must not carry a machine's paths
