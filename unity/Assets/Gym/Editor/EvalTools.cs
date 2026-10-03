@@ -108,7 +108,7 @@ namespace Gym.Editor
             EpisodeMetrics median = MedianOf(runs.Select(r => r.metrics).ToList());
             double p5 = Metrics.Percentile(runs.Select(r => r.metrics.TotalReturn), 5);
             double p95 = Metrics.Percentile(runs.Select(r => r.metrics.TotalReturn), 95);
-            string notes = $"seeds mixed (Q03); medians over seeds 0-{seeds - 1}; " +
+            string notes = $"seeds mixed; medians over seeds 0-{seeds - 1}; " +
                            $"total_return p5={EvaluationLog.Number(p5)} p95={EvaluationLog.Number(p95)}";
             WriteRandomRuns(outDir, settings, cost, market, median, runs, notes);
             Debug.Log($"[Gym] fee {cost.FeeRate}: random median {median.TotalReturn:P2} (p5 {p5:P2}, p95 {p95:P2})");

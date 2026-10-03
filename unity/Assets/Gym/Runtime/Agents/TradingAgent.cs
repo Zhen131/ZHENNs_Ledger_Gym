@@ -89,7 +89,7 @@ namespace Gym.Runtime.Agents
             int trainerSeed = 0;
             bool fromTrainer = academy.IsCommunicatorOn && MasterSeedChooser.TryReadTrainerSeed(academy, out trainerSeed);
             if (academy.IsCommunicatorOn && !fromTrainer)
-                Debug.LogWarning("[Gym] trainer attached but its seed could not be read; seeding from the clock (Q08)");
+                Debug.LogWarning("[Gym] trainer attached but its seed could not be read; seeding from the clock");
             (MasterSeed, MasterSeedSource) = MasterSeedChooser.Choose(fromTrainer, trainerSeed, DateTime.UtcNow.Ticks, agentIndex);
             seedSource = new System.Random(MasterSeed);
             Debug.Log($"[Gym] {name}: index {agentIndex}, mode {mode}, segment {segment}, master seed {MasterSeed} ({MasterSeedChooser.LogName(MasterSeedSource)})");
