@@ -174,12 +174,12 @@ namespace Gym.Runtime.Play
             triangles.Add(start + 3);
         }
 
-        void AddTriangle(Vector3 a, Vector3 b, Vector3 c, Color color)
+        void AddTriangle(Vector3 corner1, Vector3 corner2, Vector3 corner3, Color color)
         {
             int start = vertices.Count;
-            vertices.Add(a);
-            vertices.Add(b);
-            vertices.Add(c);
+            vertices.Add(corner1);
+            vertices.Add(corner2);
+            vertices.Add(corner3);
             for (int k = 0; k < 3; k++) colors.Add(color);
             triangles.Add(start);
             triangles.Add(start + 1);

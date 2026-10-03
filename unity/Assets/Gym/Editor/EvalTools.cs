@@ -226,12 +226,12 @@ namespace Gym.Editor
         /// <summary>Median of every metric; counts are rounded medians (exact halves go in the log row).</summary>
         static EpisodeMetrics MedianOf(IReadOnlyList<EpisodeMetrics> runs)
         {
-            double M(Func<EpisodeMetrics, double> f) => Metrics.Median(runs.Select(f));
+            double Median(Func<EpisodeMetrics, double> metric) => Metrics.Median(runs.Select(metric));
             return new EpisodeMetrics(
-                M(r => r.TotalReturn), M(r => r.MaxDrawdown), M(r => r.SharpeAnnualized),
-                (int)Math.Round(M(r => r.Trades)), (int)Math.Round(M(r => r.Rejected)),
-                M(r => r.Turnover), M(r => r.FeesPaid), M(r => r.FeesPct), M(r => r.Exposure),
-                runs[0].Steps, M(r => r.InitialEquity), M(r => r.FinalEquity));
+                Median(r => r.TotalReturn), Median(r => r.MaxDrawdown), Median(r => r.SharpeAnnualized),
+                (int)Math.Round(Median(r => r.Trades)), (int)Math.Round(Median(r => r.Rejected)),
+                Median(r => r.Turnover), Median(r => r.FeesPaid), Median(r => r.FeesPct), Median(r => r.Exposure),
+                runs[0].Steps, Median(r => r.InitialEquity), Median(r => r.FinalEquity));
         }
 
         public static JsonObject SegmentJson(SegmentSpec segment, CandleSeries series)
@@ -267,7 +267,7 @@ namespace Gym.Editor
             };
         }
 
-        static string Json(JsonObject o) => JsonWriter.Serialize(o).Replace("\n", " ").Replace("  ", "");
+        static string Json(JsonObject value) => JsonWriter.Serialize(value).Replace("\n", " ").Replace("  ", "");
 
         /// <summary>
         /// The repository root: the folder that holds the Unity project (Application.dataPath is

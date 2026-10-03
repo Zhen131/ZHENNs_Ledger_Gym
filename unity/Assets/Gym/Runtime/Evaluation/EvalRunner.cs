@@ -220,10 +220,10 @@ namespace Gym.Runtime.Evaluation
         /// names it and the model only by its file name (the SHA-256 identifies it), so the
         /// committed file carries no machine's folders or user name (05D M-2).
         /// </summary>
-        public static JsonObject Details(EvaluationRecord record, EvalBuildInfo info, GymSettings s, TradingEnv env,
+        public static JsonObject Details(EvaluationRecord record, EvalBuildInfo info, GymSettings settings, TradingEnv env,
             EpisodeMetrics metrics, string behaviorType, bool deterministicInference, string inferenceDevice)
         {
-            SegmentSpec segment = s.EvalSegment;
+            SegmentSpec segment = settings.EvalSegment;
             return new JsonObject
             {
                 { "timestamp_utc", record.TimestampUtc },
@@ -238,8 +238,8 @@ namespace Gym.Runtime.Evaluation
                 { "behavior_type", behaviorType },
                 { "deterministic_inference", deterministicInference },
                 { "inference_device", inferenceDevice },
-                { "symbol", s.Rules.Symbol },
-                { "data_file", RecordPaths.PathForRecords(s.Config.dataFile) },
+                { "symbol", settings.Rules.Symbol },
+                { "data_file", RecordPaths.PathForRecords(settings.Config.dataFile) },
                 { "segment", new JsonObject
                     {
                         { "name", segment.Name },
@@ -251,7 +251,7 @@ namespace Gym.Runtime.Evaluation
                     }
                 },
                 { "cost", new JsonObject { { "fee_rate", env.Cost.FeeRate }, { "fixed_fee", env.Cost.FixedFee }, { "slippage", env.Cost.Slippage } } },
-                { "initial_cash", s.Config.initialCash },
+                { "initial_cash", settings.Config.initialCash },
                 { "metrics", EvaluationLog.MetricsJson(metrics) },
             };
         }
