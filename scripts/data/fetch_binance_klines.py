@@ -63,11 +63,11 @@ TERMS = "Binance Vision Terms and Conditions v1.0 (2026-08-26)"
 LICENSE = "CC BY-NC-SA 4.0"
 SUPPORTED_INTERVALS = ("1h",)
 OFF_HOUR_POLICIES = ("error", "drop", "floor")
-DEFAULT_OFF_HOUR = "drop"  # the committed data drops the 43 off-hour candles of 2018-02 (Q02)
+DEFAULT_OFF_HOUR = "drop"  # the committed data drops the 43 off-hour candles of 2018-02
 # Last month fetched by default: the end of the test segment (2026-08-31), so the
-# default command always rebuilds the same file. Pass --end to add newer months (Q01).
+# default command always rebuilds the same file. Pass --end to add newer months.
 DEFAULT_END_MONTH = (2026, 8)
-# What the committed data is known to contain (01D-4). Anything else after a rebuild is
+# What the committed data is known to contain. Anything else after a rebuild is
 # printed as a warning: dropped candles become flat filler and would otherwise show up
 # only as a count in the manifest.
 KNOWN_OFF_HOUR_ROWS = {("BTCUSDT", "1h"): 43}
@@ -96,28 +96,28 @@ def parse_month(text: str) -> tuple[int, int]:
     return year, month
 
 
-def format_month(ym: tuple[int, int]) -> str:
-    return f"{ym[0]:04d}-{ym[1]:02d}"
+def format_month(year_month: tuple[int, int]) -> str:
+    return f"{year_month[0]:04d}-{year_month[1]:02d}"
 
 
-def next_month(ym: tuple[int, int]) -> tuple[int, int]:
-    year, month = ym
+def next_month(year_month: tuple[int, int]) -> tuple[int, int]:
+    year, month = year_month
     return (year + 1, 1) if month == 12 else (year, month + 1)
 
 
 def months_between(start: tuple[int, int], end: tuple[int, int]):
-    ym = start
-    while ym <= end:
-        yield ym
-        ym = next_month(ym)
+    year_month = start
+    while year_month <= end:
+        yield year_month
+        year_month = next_month(year_month)
 
 
-def archive_name(symbol: str, interval: str, ym: tuple[int, int]) -> str:
-    return f"{symbol}-{interval}-{format_month(ym)}.zip"
+def archive_name(symbol: str, interval: str, year_month: tuple[int, int]) -> str:
+    return f"{symbol}-{interval}-{format_month(year_month)}.zip"
 
 
-def archive_url(symbol: str, interval: str, ym: tuple[int, int]) -> str:
-    return f"{BASE_URL}/{symbol}/{interval}/{archive_name(symbol, interval, ym)}"
+def archive_url(symbol: str, interval: str, year_month: tuple[int, int]) -> str:
+    return f"{BASE_URL}/{symbol}/{interval}/{archive_name(symbol, interval, year_month)}"
 
 
 # ---------------------------------------------------------------- download
@@ -156,9 +156,9 @@ def sha256_hex(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def fetch_month(symbol: str, interval: str, ym: tuple[int, int], raw_dir: Path):
+def fetch_month(symbol: str, interval: str, year_month: tuple[int, int], raw_dir: Path):
     """Return (zip bytes, sha256), or None if Binance Vision has no such month."""
-    name = archive_name(symbol, interval, ym)
+    name = archive_name(symbol, interval, year_month)
     zip_path = raw_dir / name
     checksum_path = raw_dir / (name + ".CHECKSUM")
 
@@ -169,7 +169,7 @@ def fetch_month(symbol: str, interval: str, ym: tuple[int, int], raw_dir: Path):
             return data, expected
         print(f"  {name}: cached copy fails its checksum, downloading again", file=sys.stderr)
 
-    url = archive_url(symbol, interval, ym)
+    url = archive_url(symbol, interval, year_month)
     checksum_body = http_get(url + ".CHECKSUM")
     if checksum_body is None:
         return None
@@ -281,16 +281,20 @@ def render_csv(rows: list[tuple]) -> bytes:
 
 
 def utc_text(ms: int) -> str:
-    return dt.datetime.fromtimestamp(ms / 1000, tz=dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return utc_seconds_text(ms / 1000)
+
+
+def utc_seconds_text(seconds: float) -> str:
+    return dt.datetime.fromtimestamp(seconds, tz=dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def gap_summary(gaps: list[tuple[int, int]]) -> dict:
-    longest = max(gaps, key=lambda g: g[1]) if gaps else None
+    longest = max(gaps, key=lambda gap: gap[1]) if gaps else None
     return {
         "count": len(gaps),
-        "total_hours": sum(g[1] for g in gaps),
+        "total_hours": sum(gap[1] for gap in gaps),
         "longest": None if longest is None else {"start_utc": utc_text(longest[0]), "hours": longest[1]},
-        "over_24h": [{"start_utc": utc_text(s), "hours": h} for s, h in gaps if h > 24],
+        "over_24h": [{"start_utc": utc_text(start), "hours": hours} for start, hours in gaps if hours > 24],
     }
 
 
@@ -304,7 +308,7 @@ def off_hour_summary(policy: str, handled: list[int]) -> dict:
 
 
 def data_warnings(symbol: str, interval: str, handled: list[int], gaps: list[tuple[int, int]]) -> list[str]:
-    """Off-hour candles or gaps over 24 hours beyond what the committed data has (01D-4)."""
+    """Off-hour candles or gaps over 24 hours beyond what the committed data has."""
     warnings = []
     known_off_hour = KNOWN_OFF_HOUR_ROWS.get((symbol, interval), 0)
     if len(handled) != known_off_hour:
@@ -353,15 +357,15 @@ def run(args) -> int:
     out_dir = Path(args.out_dir)
 
     archives, months, found_first = [], [], False
-    for ym in months_between(start, end):
-        name = archive_name(symbol, interval, ym)
-        result = fetch_month(symbol, interval, ym, raw_dir)
+    for year_month in months_between(start, end):
+        name = archive_name(symbol, interval, year_month)
+        result = fetch_month(symbol, interval, year_month, raw_dir)
         if result is None:
             if probing and not found_first:
                 print(f"  {name}: not on Binance Vision, still looking for the first month")
                 continue
             hint = ""
-            if ym == end:
+            if year_month == end:
                 hint = (" (monthly archives appear on the first Monday of the next month;"
                         " pass --end to stop at an earlier month)")
             raise DataError(f"{name}: 404 on Binance Vision{hint}")
@@ -375,24 +379,12 @@ def run(args) -> int:
 
     rows, gaps, handled = build_rows(archives, args.off_hour)
     csv_bytes = render_csv(rows)
-    newest = max((raw_dir / name).stat().st_mtime for name, _ in months)
-    downloaded_at = dt.datetime.fromtimestamp(newest, tz=dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    downloaded_at = archives_saved_at(raw_dir, months)
     manifest = build_manifest(symbol, interval, months, rows, gaps, csv_bytes, downloaded_at,
                               args.off_hour, handled)
+    csv_path, manifest_path = write_outputs(out_dir, f"{symbol}-{interval}", csv_bytes, manifest)
 
-    out_dir.mkdir(parents=True, exist_ok=True)
-    csv_path = out_dir / f"{symbol}-{interval}.csv"
-    manifest_path = out_dir / f"{symbol}-{interval}.manifest.json"
-    csv_path.write_bytes(csv_bytes)
-    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n")
-
-    summary = manifest["filled_gaps"]
-    print(f"{symbol} {interval}: {manifest['rows']} rows, "
-          f"{manifest['first_open_time_utc']} .. {manifest['last_open_time_utc']}")
-    print(f"filled gaps: {summary['count']} segments, {summary['total_hours']} hours, "
-          f"longest {summary['longest']}")
-    if handled:
-        print(f"off-hour rows ({args.off_hour}): {manifest['off_hour_rows']}")
+    print_summary(symbol, interval, manifest, args.off_hour, handled)
     print(f"wrote {csv_path}")
     print(f"wrote {manifest_path}")
     for warning in data_warnings(symbol, interval, handled, gaps):
@@ -400,12 +392,38 @@ def run(args) -> int:
     return 0
 
 
+def archives_saved_at(raw_dir: Path, months: list[tuple[str, str]]) -> str:
+    """UTC time the newest of the archives was saved to raw_dir (downloaded_at_utc)."""
+    newest = max((raw_dir / name).stat().st_mtime for name, _ in months)
+    return utc_seconds_text(newest)
+
+
+def write_outputs(out_dir: Path, stem: str, csv_bytes: bytes, manifest: dict) -> tuple[Path, Path]:
+    """Write {stem}.csv and {stem}.manifest.json into out_dir; return both paths."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    csv_path = out_dir / f"{stem}.csv"
+    manifest_path = out_dir / f"{stem}.manifest.json"
+    csv_path.write_bytes(csv_bytes)
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n")
+    return csv_path, manifest_path
+
+
+def print_summary(symbol: str, interval: str, manifest: dict, off_hour: str, handled: list[int]) -> None:
+    summary = manifest["filled_gaps"]
+    print(f"{symbol} {interval}: {manifest['rows']} rows, "
+          f"{manifest['first_open_time_utc']} .. {manifest['last_open_time_utc']}")
+    print(f"filled gaps: {summary['count']} segments, {summary['total_hours']} hours, "
+          f"longest {summary['longest']}")
+    if handled:
+        print(f"off-hour rows ({off_hour}): {manifest['off_hour_rows']}")
+
+
 # ---------------------------------------------------------------- self-test
 
 
-def _kline_line(open_time: int, o: str, h: str, l: str, c: str, v: str) -> str:
+def _kline_line(open_time: int, open_price: str, high: str, low: str, close: str, volume: str) -> str:
     # 12 columns, the last one is Binance's "Ignore" field.
-    return ",".join([str(open_time), o, h, l, c, v, str(open_time + HOUR_MS - 1),
+    return ",".join([str(open_time), open_price, high, low, close, volume, str(open_time + HOUR_MS - 1),
                      "0", "1", "0", "0", "7"])
 
 
@@ -507,7 +525,7 @@ def self_test() -> int:
     expect(floored_gaps == [(t0 + HOUR_MS, 1), (t0 + 4 * HOUR_MS, 1)], f"floor gaps {floored_gaps}")
     expect(off_hour_summary("drop", dropped_times)["count"] == 2, "off-hour summary")
 
-    # 01D-4: a new block of off-hour candles or a new long gap is flagged; the known ones are not.
+    # A new block of off-hour candles or a new long gap is flagged; the known ones are not.
     known_gap = (1518051600000, 75)  # 2018-02-08T01:00:00Z
     expect(utc_text(known_gap[0]) == "2018-02-08T01:00:00Z", "known gap start")
     expect(data_warnings("BTCUSDT", "1h", list(range(43)), [known_gap, (t0, 3)]) == [], "committed data: no warning")
