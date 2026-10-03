@@ -12,10 +12,9 @@ Working on macOS: the environment and its tests, the keyboard Play scene, the tr
 
 ## Quick start (Mac)
 
-Prerequisites: Unity Hub with Unity **6000.0.84f1**, and the `mlagents` conda environment from [Python environment](#python-environment). Close the Unity editor before running any command-line Unity step; the project cannot be open twice.
+Prerequisites: Unity Hub with Unity **6000.0.84f1**, and the `mlagents` conda environment from [docs/setup.md](docs/setup.md#python-environment). Close the Unity editor before running any command-line Unity step; the project cannot be open twice. Run every command from the root of the cloned repository (the folder that holds this README). The Windows commands are in [docs/pc-training.md](docs/pc-training.md).
 
 ```bash
-cd ZHENN_Ledger_Gym
 UNITY=/Applications/Unity/Hub/Editor/6000.0.84f1/Unity.app/Contents/MacOS/Unity
 
 # 1. Tests (exit code 0 means all passed)
@@ -39,122 +38,42 @@ python scripts/eval/summarize.py evaluations/smoke/log.csv
 
 To play by hand, open the project in Unity (the `unity/` folder), open `Assets/Gym/Scenes/Play.unity` and press Play. Click into the Game view, then: `1`–`4` pick 10 / 25 / 50 / 100 %, `B` buys, `S` sells, `H` or Space holds (each key moves one candle), `P` toggles auto-play, `R` restarts.
 
-## Training on the Windows PC
-
-Long runs happen on a Windows PC: see [docs/pc-training.md](docs/pc-training.md) (English) or [docs/pc-training.zh.md](docs/pc-training.zh.md) (Chinese). In short: same Unity and Python versions, `BuildWindowsTraining`, 100k-step speed tests on the CPU (`config/smoke-100k.yaml`) and on the graphics card (`config/smoke-100k-cuda.yaml`), then the comparison series with `scripts/train/run_series.ps1` on whichever was faster (`-Device cpu|cuda`).
-
 ## Repository layout
 
 | Path | What is there |
 | --- | --- |
-| `unity/Assets/Gym/Core/` | `Gym.Core`: the trading environment in plain C# (no UnityEngine): candles, account and fees, actions and mask, observation, reward, episode, splits, metrics, baselines, evaluation log |
-| `unity/Assets/Gym/Runtime/` | `Gym.Runtime`: the ML-Agents agent around `TradingEnv`, config loading, the Play scene views, the evaluation runner |
-| `unity/Assets/Gym/Editor/` | Build scripts, baseline evaluation, scene builder, Play checklist and snapshot tools |
+| `unity/` | The Unity project; open this folder in Unity |
+| `unity/Assets/Gym/Core/` | `Gym.Core`: the trading environment in plain C# (no UnityEngine), one folder and namespace per concept: `Market/` (candles, symbol rules, splits: `CandleSeries`, `SymbolRules`, `SegmentSpec`, `SplitValidator`), `Accounting/` (account and fees: `Account`, `CostModel`), `Env/` (actions and mask, observation, reward, episode, seeds: `TradingEnv`, `TradeAction`, `ActionCodec`, `ObservationBuilder`, `RewardFunction`, `SeedMixer`), `Evaluation/` (metrics, baselines, evaluation log: `Metrics`, `Baselines`, `EvaluationLog`, `JsonWriter`) |
+| `unity/Assets/Gym/Runtime/` | `Gym.Runtime`: `Agents/` (`TradingAgent`, the ML-Agents agent around `TradingEnv`, and `EpisodeStats`), `Configuration/` (config loading: `GymConfigLoader`, `GymDataCache`), `Evaluation/` (the evaluation runner `EvalRunner`), `Play/` (the Play scene views: `PlayController`, `HudView`, `CandleChartView`) |
+| `unity/Assets/Gym/Editor/` | `BuildScript` (training and evaluation players), `EvalTools` (baseline evaluation), `GymSceneBuilder` (scene builder), `PlayChecklist` and `PlaySnapshot` (Play checklist and snapshot tools) |
 | `unity/Assets/Gym/Scenes/` | `Training` (16 agents), `Play` (keyboard), `Eval` (one agent plus the runner) |
-| `unity/Assets/Gym/Tests/` | EditMode tests (core and editor) and PlayMode tests |
-| `unity/Assets/StreamingAssets/Gym/` | `gym-config.json`, `symbols.json` and the data; shipped inside every build |
-| `config/` | Training configs and the comparison variants ([config/README.md](config/README.md)) |
-| `scripts/data/` | The Binance Vision fetcher |
-| `scripts/train/` | Series runners, the config checker and the TensorBoard scalar reader |
+| `unity/Assets/Gym/Prefabs/` | `TradingAgent.prefab`; its observations and actions are in [docs/architecture.md](docs/architecture.md) |
+| `unity/Assets/Gym/Materials/` | `CandleChart.mat` for the Play scene's candle chart |
+| `unity/Assets/Gym/Models/` | Models imported by an evaluation build go to `Imported/`, which Git ignores ([Models/README.md](unity/Assets/Gym/Models/README.md)) |
+| `unity/Assets/Gym/Tests/` | EditMode tests in `Core/` (the core, in the same four folders), `Runtime/` and `Editor/`; PlayMode tests in `PlayMode/` |
+| `unity/Assets/StreamingAssets/Gym/` | `gym-config.json`, `symbols.json` and the data (`data/BTCUSDT-1h.csv`, its manifest and `DATA-LICENSE.md`); shipped inside every build |
+| `unity/Packages/` | `manifest.json` and `packages-lock.json`: the Unity packages and their versions |
+| `unity/ProjectSettings/` | Unity's project settings, including the editor version (`ProjectVersion.txt`) |
+| `config/` | Training configs (`ppo_base.yaml`, the smoke configs) and the comparison variants (`variants/`); see [config/README.md](config/README.md) |
+| `scripts/data/` | The Binance Vision fetcher (`fetch_binance_klines.py`) |
+| `scripts/train/` | Series runners (`run_series.sh`, `run_series.ps1`), the config checker (`check_configs.py`) and the TensorBoard scalar reader (`read_scalars.py`) |
 | `scripts/eval/` | `summarize.py` for evaluation logs |
-| `evaluations/` | The append-only evaluation log and its per-run details (tracked) |
-| `docs/` | PC training guide |
-| `results/`, `unity/Builds/`, `evaluations/smoke/` | Local output, ignored by Git |
+| `evaluations/` | The append-only evaluation log (`log.csv`) and its per-run details (`runs/*.json`), tracked |
+| `docs/` | The pages listed below |
+| `results/`, `data/raw/`, `unity/Builds/`, `evaluations/smoke/` | Local output, ignored by Git |
+
+## Documentation
+
+- [docs/setup.md](docs/setup.md): pinned versions, the Python environment (macOS and Windows), reading the code in VS Code
+- [docs/architecture.md](docs/architecture.md): the three layers, one step, observation, action, reward and seeds, where to start reading
+- [docs/data.md](docs/data.md): the data, its licence, how to rebuild it, gaps and the three segments
+- [docs/evaluation.md](docs/evaluation.md): the evaluation log, its metrics and the baselines
+- [docs/training.md](docs/training.md): a training series on the Mac and the `Trading/*` curves
+- [docs/development.md](docs/development.md): regenerating scenes, the Play checklist and snapshots; what Unity writes by itself
+- [docs/pc-training.md](docs/pc-training.md) ([Chinese](docs/pc-training.zh.md)): training on the Windows PC
+- [config/README.md](config/README.md): the training configs and comparison variants
+- [AGENTS.md](AGENTS.md): the rules for anyone, human or AI, who changes the code
 
 ## Data and licence
 
-**Data: Binance Vision.** The environment replays BTC/USDT spot 1-hour candles from [Binance Vision](https://data.binance.vision), from 2017-08-17 04:00 UTC to 2026-08-31 23:00 UTC. The processed file is committed at `unity/Assets/StreamingAssets/Gym/data/BTCUSDT-1h.csv`, next to a manifest with the SHA-256 of every source archive and of the CSV itself.
-
-The data is licensed [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) under the [Binance Vision Dataset Terms v1.0 (2026-08-26)](https://github.com/binance/binance-public-data/blob/master/TERMS_AND_CONDITIONS.md); see [`DATA-LICENSE.md`](unity/Assets/StreamingAssets/Gym/data/DATA-LICENSE.md) for the attribution and the list of changes. This project is not affiliated with, sponsored or endorsed by Binance. The code has no licence file yet.
-
-To regenerate the data (standard library only; raw archives are cached in `data/raw/`, which Git ignores):
-
-```bash
-python scripts/data/fetch_binance_klines.py --self-test
-python scripts/data/fetch_binance_klines.py --symbol BTCUSDT
-```
-
-By default the script stops at 2026-08, the end of the test segment (pass `--end YYYY-MM` to add newer months), and drops the 43 candles of February 2018 that start at hh:28 instead of on the hour, forward-filling those hours (`--off-hour error` stops instead, `--off-hour floor` moves them to the hour). So the default command rebuilds exactly the committed file: the `csv_sha256` in the manifest is `4739c139dc501e38498589359db093394dcee86cabde5a6e37c12d726d084242`.
-
-When the archives are downloaded afresh (another machine, an empty `data/raw/`), the CSV is the same and the manifest differs only in `downloaded_at_utc`, the time the archives were saved; do not commit that change. The script prints a `!!! WARNING` when the result has off-hour candles or gaps over 24 hours that the committed data does not have (it has 43 off-hour candles and one 75-hour gap from 2018-02-08 01:00), so a new stretch of flat filler from a later `--end` does not go unnoticed.
-
-Segments (in `gym-config.json`): train 2017-08-17 to 2024-08-31, validation 2024-09-01 to 2025-08-31, test 2025-09-01 to 2026-08-31. In the test segment BTC fell 27.4 %, so holding cash beats buy-and-hold there.
-
-## Evaluation log
-
-Every evaluation is one full pass over the validation or test segment: start at the first candle in cash, no randomness, the same fills and fees as in training. Each one appends a row to `evaluations/log.csv` and writes a JSON file with all metrics and settings to `evaluations/runs/`. **The log is append-only**: rows are never edited or removed, and a log whose header differs from the current columns is refused. Running the same evaluation twice adds a second row.
-
-Metrics: total return, maximum drawdown, annualised Sharpe ratio (hourly log returns, √8760), trades, rejected orders, turnover (traded value ÷ average equity), fees (USDT and % of the starting equity) and exposure (share of steps that end holding coin).
-
-Baselines (buy-and-hold, always cash, and a random policy over seeds 0–99 reported as medians with the 5th and 95th percentile of the return) for fee rates 0, 0.1 % and 0.3 %:
-
-```bash
-"$UNITY" -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.EvalTools.RunBaselines -gymSegment validation -gymOut "$PWD/evaluations" -quit -logFile "$PWD/unity/Logs/baselines.log"
-python scripts/eval/summarize.py evaluations/log.csv
-```
-
-Options: `-gymSegment validation|test`, `-gymFeeRates 0,0.001,0.003`, `-gymRandomSeeds 100`, `-gymOut <dir>`, `-gymConfig <file>`. A trained model is evaluated in its own build (`BuildMacEval` / `BuildWindowsEval` with `-gymModel`), which records the run id and the model's SHA-256 in every row; `-gymFixedFee` and `-gymSlippage` set the other costs. The evaluation player refuses to start (exit code 1, nothing written) without `-gymMode eval`, `-gymSegment validation|test` and `-gymOut <dir>`; it has no default segment, so the test segment is never evaluated by accident.
-
-`BuildMacEval` signs `GymEval.app` again after adding `build-info.json`, so a fresh build passes `codesign --verify --deep`. ML-Agents, however, writes its timer file into the app (`Contents/ML-Agents/Timers/`) every time the player runs, which breaks the signature again. It still runs on this Mac; to give the app to another Mac, copy it before its first run, or sign it again first: `codesign --force --deep -s - unity/Builds/mac/GymEval.app`.
-
-## Training curves (`Trading/*` in TensorBoard)
-
-During training every agent reports nine numbers at the end of each episode; TensorBoard shows their average over the episodes that ended in each summary period. They describe training episodes (720 steps from a random start, possibly holding coin at the start), so they are not the evaluation metrics above, even where the names match.
-
-| Tag | Meaning |
-| --- | --- |
-| `Trading/Return` | Final equity ÷ starting equity − 1 |
-| `Trading/Trades` | Filled orders |
-| `Trading/Rejected` | Orders that were not filled: masked, too small (below the minimum order or one coin step), or eaten by the fixed fee |
-| `Trading/FeesPaidPct` | Fees paid ÷ starting equity × 100 (a percentage) |
-| `Trading/Exposure` | Share of steps that ended holding coin |
-| `Trading/Turnover` | Traded value ÷ **starting** equity. The evaluation log's `turnover` divides by the **average** equity instead, so the two differ whenever equity moves |
-| `Trading/RewardClips` | Steps whose reward was clipped to ±1 |
-| `Trading/FeeRate` | Fee rate the episode used, to check that the config's `fee_rate` arrived |
-| `Trading/FixedFee` | Fixed fee per order the episode used |
-
-## Versions (pinned on every machine)
-
-| Component | Version |
-| --- | --- |
-| Unity Editor | 6000.0.84f1 (LTS) |
-| ML-Agents Unity package | `com.unity.ml-agents` 4.0.3 |
-| Python | 3.10.12 (Miniforge / conda) |
-| `mlagents` Python package | 1.1.0 |
-| PyTorch | 2.2.x |
-
-Opening the project with a different Unity version, or pairing a different `mlagents` release, is the most common way ML-Agents setups break.
-
-## Python environment
-
-### macOS (Apple Silicon)
-
-`grpcio` 1.48.2, which `mlagents` 1.1.0 pins, has no Apple Silicon wheel on PyPI or conda-forge. Use conda-forge's 1.48.1 and install the remaining dependencies explicitly:
-
-```bash
-conda create -n mlagents python=3.10.12
-conda install -n mlagents "grpcio=1.48"
-conda activate mlagents
-pip install "torch~=2.2.1" "numpy>=1.23.5,<1.24" "protobuf>=3.6,<3.21" "onnx==1.15.0" \
-  h5py "Pillow>=4.2.1" "pyyaml>=3.1.0" "six>=1.16" "attrs>=19.3.0" "huggingface-hub>=0.14" \
-  "cattrs>=1.1.0,<1.7" cloudpickle "gym>=0.21.0" "pettingzoo==1.15.0" "filelock>=3.4.0" \
-  absl-py markdown packaging "setuptools<70" tensorboard-data-server werkzeug
-pip install --no-deps mlagents==1.1.0 mlagents-envs==1.1.0 tensorboard==2.18.0
-```
-
-`pip check` then reports one expected mismatch (TensorBoard asks for grpcio ≥ 1.48.2); it does not affect training.
-
-### Windows
-
-```bash
-conda create -n mlagents python=3.10.12
-conda activate mlagents
-pip install torch~=2.2.1 --index-url https://download.pytorch.org/whl/cu121
-pip install mlagents==1.1.0
-```
-
-(Not yet verified on the PC.)
-
-## Reading the code
-
-Open the `unity/` folder in VS Code (*File → Open Folder*). Unity is configured to open scripts in VS Code; install the *Unity* extension (`visualstudiotoolsforunity.vstuc`) and a .NET SDK for IntelliSense. Start with `unity/Assets/Gym/Core/Env/TradingEnv.cs`; `AGENTS.md` lists the rules for anyone, human or AI, who changes the code.
+The environment replays BTC/USDT spot 1-hour candles from [Binance Vision](https://data.binance.vision). The data is licensed [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/); see [`DATA-LICENSE.md`](unity/Assets/StreamingAssets/Gym/data/DATA-LICENSE.md) for the attribution and the list of changes. This project is not affiliated with, sponsored or endorsed by Binance. The code has no licence file yet. Source, terms, rebuilding and gap filling: [docs/data.md](docs/data.md).
