@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using System.IO;
 using Gym.Core.Env;
-using Gym.Runtime;
+using Gym.Runtime.Agents;
+using Gym.Runtime.Evaluation;
+using Gym.Runtime.Play;
 using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
 using Unity.MLAgents.Policies;

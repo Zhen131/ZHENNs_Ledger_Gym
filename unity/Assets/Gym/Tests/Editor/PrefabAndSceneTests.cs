@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
-using Gym.Runtime;
+using Gym.Runtime.Agents;
+using Gym.Runtime.Evaluation;
+using Gym.Runtime.Play;
 using NUnit.Framework;
 using Unity.MLAgents;
 using Unity.MLAgents.Policies;

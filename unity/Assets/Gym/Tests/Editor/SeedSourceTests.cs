@@ -1,6 +1,6 @@
 using System.Linq;
 using Gym.Core.Env;
-using Gym.Runtime;
+using Gym.Runtime.Agents;
 using NUnit.Framework;
 
 namespace Gym.Tests.Editor

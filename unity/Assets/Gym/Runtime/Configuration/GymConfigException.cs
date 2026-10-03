@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Gym.Runtime
+namespace Gym.Runtime.Configuration
 {
     public class GymConfigException : Exception
     {

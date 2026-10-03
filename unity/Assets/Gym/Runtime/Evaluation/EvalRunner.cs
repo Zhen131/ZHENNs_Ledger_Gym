@@ -6,11 +6,13 @@ using System.IO;
 using Gym.Core.Env;
 using Gym.Core.Evaluation;
 using Gym.Core.Market;
+using Gym.Runtime.Agents;
+using Gym.Runtime.Configuration;
 using Unity.MLAgents;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
 
-namespace Gym.Runtime
+namespace Gym.Runtime.Evaluation
 {
     /// <summary>
     /// Drives one evaluation episode in the Eval scene (04B §4.2): turns off automatic

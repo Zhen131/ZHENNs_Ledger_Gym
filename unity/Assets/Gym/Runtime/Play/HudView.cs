@@ -2,9 +2,10 @@ using System.Globalization;
 using System.Text;
 using Gym.Core.Accounting;
 using Gym.Core.Env;
+using Gym.Runtime.Agents;
 using UnityEngine;
 
-namespace Gym.Runtime
+namespace Gym.Runtime.Play
 {
     /// <summary>IMGUI read-out for the Play scene.</summary>
     public class HudView : MonoBehaviour

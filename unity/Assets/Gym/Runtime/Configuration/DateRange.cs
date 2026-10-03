@@ -1,6 +1,6 @@
 using System;
 
-namespace Gym.Runtime
+namespace Gym.Runtime.Configuration
 {
     [Serializable]
     public class DateRange

@@ -7,7 +7,7 @@ using Gym.Core.Accounting;
 using Gym.Core.Env;
 using Gym.Core.Evaluation;
 using Gym.Core.Market;
-using Gym.Runtime;
+using Gym.Runtime.Configuration;
 using UnityEditor;
 using UnityEngine;
 

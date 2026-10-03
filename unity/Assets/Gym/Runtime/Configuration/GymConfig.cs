@@ -1,6 +1,6 @@
 using System;
 
-namespace Gym.Runtime
+namespace Gym.Runtime.Configuration
 {
     /// <summary>The shape of gym-config.json.</summary>
     [Serializable]

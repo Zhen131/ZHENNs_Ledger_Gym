@@ -1,7 +1,8 @@
 using System.IO;
 using Gym.Core.Accounting;
 using Gym.Core.Env;
-using Gym.Runtime;
+using Gym.Runtime.Configuration;
+using Gym.Runtime.Play;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;

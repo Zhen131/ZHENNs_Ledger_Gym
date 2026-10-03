@@ -1,6 +1,6 @@
 using Unity.MLAgents.Actuators;
 
-namespace Gym.Runtime
+namespace Gym.Runtime.Agents
 {
     /// <summary>Something that can fill the agent's actions when it runs on heuristics (the keyboard).</summary>
     public interface IActionSource

@@ -1,9 +1,10 @@
 using Gym.Core.Env;
+using Gym.Runtime.Agents;
 using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
 using UnityEngine;
 
-namespace Gym.Runtime
+namespace Gym.Runtime.Play
 {
     /// <summary>
     /// Keyboard play: one key press moves one candle. Automatic Academy stepping is

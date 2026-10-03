@@ -1,5 +1,5 @@
 using System.Collections;
-using Gym.Runtime;
+using Gym.Runtime.Agents;
 using NUnit.Framework;
 using Unity.MLAgents;
 using UnityEngine;

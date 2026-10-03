@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Gym.Core.Market;
 
-namespace Gym.Runtime
+namespace Gym.Runtime.Configuration
 {
     /// <summary>A loaded and validated configuration, with its data.</summary>
     public sealed class GymSettings

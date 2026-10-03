@@ -1,4 +1,4 @@
-namespace Gym.Runtime
+namespace Gym.Runtime.Agents
 {
     public enum AgentStartMode
     {

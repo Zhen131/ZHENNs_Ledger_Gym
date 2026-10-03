@@ -1,6 +1,6 @@
 using System;
 
-namespace Gym.Runtime
+namespace Gym.Runtime.Play
 {
     /// <summary>The numbers the HUD shows, captured right after each step.</summary>
     public struct HudSnapshot

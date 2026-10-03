@@ -7,7 +7,7 @@ using Gym.Core.Env;
 using Gym.Core.Market;
 using UnityEngine;
 
-namespace Gym.Runtime
+namespace Gym.Runtime.Configuration
 {
     /// <summary>
     /// Reads gym-config.json and symbols.json from StreamingAssets/Gym (or the file

@@ -1,7 +1,7 @@
 using Gym.Core.Accounting;
 using Gym.Core.Env;
 
-namespace Gym.Runtime
+namespace Gym.Runtime.Agents
 {
     /// <summary>End-of-episode numbers sent to TensorBoard under Trading/… (02B §2.2).</summary>
     public readonly struct EpisodeStats

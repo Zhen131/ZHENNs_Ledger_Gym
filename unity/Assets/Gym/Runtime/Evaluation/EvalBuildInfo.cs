@@ -1,6 +1,6 @@
 using System;
 
-namespace Gym.Runtime
+namespace Gym.Runtime.Evaluation
 {
     /// <summary>What BuildScript.BuildMacEval writes next to the data as StreamingAssets/Gym/build-info.json.</summary>
     [Serializable]

@@ -4,7 +4,8 @@ using Gym.Core.Accounting;
 using Gym.Core.Env;
 using Gym.Core.Evaluation;
 using Gym.Editor;
-using Gym.Runtime;
+using Gym.Runtime.Configuration;
+using Gym.Runtime.Evaluation;
 using NUnit.Framework;
 
 namespace Gym.Tests.Editor

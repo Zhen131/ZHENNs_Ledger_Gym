@@ -2,9 +2,10 @@ using System;
 using System.Collections.Generic;
 using Gym.Core.Env;
 using Gym.Core.Market;
+using Gym.Runtime.Agents;
 using UnityEngine;
 
-namespace Gym.Runtime
+namespace Gym.Runtime.Play
 {
     /// <summary>
     /// Draws the last 64 candles ending at the current one as a single vertex-coloured

@@ -4,12 +4,13 @@ using Gym.Core.Accounting;
 using Gym.Core.Env;
 using Gym.Core.Evaluation;
 using Gym.Core.Market;
+using Gym.Runtime.Configuration;
 using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
 using Unity.MLAgents.Sensors;
 using UnityEngine;
 
-namespace Gym.Runtime
+namespace Gym.Runtime.Agents
 {
     /// <summary>
     /// ML-Agents shell around <see cref="TradingEnv"/>. No bookkeeping, observation

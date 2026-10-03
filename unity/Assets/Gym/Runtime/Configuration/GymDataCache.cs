@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using Gym.Core.Market;
 
-namespace Gym.Runtime
+namespace Gym.Runtime.Configuration
 {
     /// <summary>
     /// Parsed candle files keyed by full path. Every agent in the process shares

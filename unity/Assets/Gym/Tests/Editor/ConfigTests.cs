@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 using Gym.Core.Market;
-using Gym.Runtime;
+using Gym.Runtime.Configuration;
 using NUnit.Framework;
 using UnityEngine;
 
