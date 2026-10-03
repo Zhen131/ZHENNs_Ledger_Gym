@@ -15,16 +15,15 @@ using UnityEngine;
 namespace Gym.Editor
 {
     /// <summary>
-    /// Baseline evaluation from the command line:
+    /// 从命令行跑对照组评估：
     ///
     ///   Unity -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.EvalTools.RunBaselines
     ///         -gymSegment test -gymFeeRates 0,0.001,0.003 -gymRandomSeeds 100 -gymOut "$PWD/evaluations"
     ///         [-gymPolicies buyhold,cash,random] -quit
     ///
-    /// For every fee rate it runs the chosen policies (default all three: buy-and-hold, cash
-    /// and the random policy over seeds 0 … n−1, mixed by SeedMixer) through TradingEnv in
-    /// evaluation mode, appends one row per policy to log.csv and writes a detail JSON per
-    /// policy under runs/.
+    /// 对每一个费率，让选中的 policy（默认三个都跑：买入持有、一直拿现金，以及 seed 0 … n−1 上的
+    /// 随机 policy，seed 经 SeedMixer 打散）在评估模式下走 TradingEnv；每个 policy 往 log.csv 追加一行，
+    /// 并在 runs/ 下写一份明细 JSON。
     /// </summary>
     public static class EvalTools
     {
@@ -54,7 +53,7 @@ namespace Gym.Editor
             }
         }
 
-        /// <summary>The work of <see cref="RunBaselines"/> for the given arguments; throws on any problem. Returns the log path.</summary>
+        /// <summary>按给定的参数做 <see cref="RunBaselines"/> 的活；有任何问题就抛异常。返回评估流水的路径。</summary>
         public static string Run(string[] args)
         {
             string segmentName = CommandLineArgs.ValueOf(args, GymConfigLoader.SegmentArg) ?? SegmentNames.Test;
@@ -98,12 +97,12 @@ namespace Gym.Editor
             return logPath;
         }
 
-        /// <summary>-gymFeeRates: comma-separated numbers in the invariant culture.</summary>
+        /// <summary>-gymFeeRates：用逗号分隔的数字，按 invariant culture 解析。</summary>
         static double[] ParseFeeRates(string text) =>
             text.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(x => double.Parse(x.Trim(), NumberStyles.Float, Inv)).ToArray();
 
-        /// <summary>The random policy over seeds 0 … n−1: one row with the medians, and every seed in the detail file.</summary>
+        /// <summary>seed 0 … n−1 上的随机 policy：评估流水里一行记中位数，明细文件里记每个 seed。</summary>
         static void RunRandomPolicy(string outDir, GymSettings settings, TradingEnv env, JsonObject market, CostModel cost, int seeds)
         {
             var runs = new List<(int seed, EpisodeMetrics metrics)>();
@@ -117,7 +116,7 @@ namespace Gym.Editor
             Debug.Log($"[Gym] fee {cost.FeeRate}: random median {median.TotalReturn:P2} (p5 {p5:P2}, p95 {p95:P2})");
         }
 
-        /// <summary>A policy run once (buy-and-hold, cash): the log row and a detail file with its metrics.</summary>
+        /// <summary>只运行一次的 policy（买入持有、一直拿现金）：写评估流水的一行，和一份带指标的明细文件。</summary>
         static void WriteSingleRun(string outDir, GymSettings settings, CostModel cost, JsonObject market,
             string policy, EpisodeMetrics metrics)
         {
@@ -128,13 +127,13 @@ namespace Gym.Editor
             Save(outDir, now, record, details);
         }
 
-        /// <summary>The random policy: the log row holds the medians, the detail file a summary and every seed's metrics.</summary>
+        /// <summary>随机 policy：评估流水那一行放中位数，明细文件放汇总和每个 seed 的指标。</summary>
         static void WriteRandomRuns(string outDir, GymSettings settings, CostModel cost, JsonObject market,
             EpisodeMetrics median, List<(int seed, EpisodeMetrics metrics)> perSeed, string notes)
         {
             DateTime now = DateTime.UtcNow;
             EvaluationRecord record = BaselineRecord(now, settings, cost, Baselines.RandomName, median, perSeed.Count, notes);
-            // Medians of integer counts can be halves; keep them exact.
+            // 整数计数的中位数可能带 .5；保留精确值。
             record.Trades = Metrics.Median(perSeed.Select(r => (double)r.metrics.Trades));
             record.Rejected = Metrics.Median(perSeed.Select(r => (double)r.metrics.Rejected));
             JsonObject details = DetailsHead(now, record, settings, cost, market);
@@ -161,7 +160,7 @@ namespace Gym.Editor
             return record;
         }
 
-        /// <summary>The keys every baseline detail file starts with.</summary>
+        /// <summary>每份对照组明细文件开头都有的那些键。</summary>
         static JsonObject DetailsHead(DateTime now, EvaluationRecord record, GymSettings settings, CostModel cost, JsonObject market) =>
             new JsonObject
             {
@@ -210,7 +209,7 @@ namespace Gym.Editor
             EvaluationLog.WriteRunDetails(outDir, now, record.Policy, record.Segment, details);
         }
 
-        /// <summary>-gymPolicies: a comma-separated subset of buyhold, cash, random; all three when absent.</summary>
+        /// <summary>-gymPolicies：buyhold、cash、random 里用逗号分隔的一部分；没给时三个都要。</summary>
         public static HashSet<string> ParsePolicies(string text)
         {
             if (string.IsNullOrWhiteSpace(text)) return new HashSet<string>(PolicyNames);
@@ -226,7 +225,7 @@ namespace Gym.Editor
             return chosen;
         }
 
-        /// <summary>Median of every metric; counts are rounded medians (exact halves go in the log row).</summary>
+        /// <summary>每个指标的中位数；计数用取整后的中位数（精确的 .5 写在评估流水那一行里）。</summary>
         static EpisodeMetrics MedianOf(IReadOnlyList<EpisodeMetrics> runs)
         {
             double Median(Func<EpisodeMetrics, double> metric) => Metrics.Median(runs.Select(metric));
@@ -253,7 +252,7 @@ namespace Gym.Editor
             };
         }
 
-        /// <summary>The segment's price move: from the close the evaluation starts at to the last close.</summary>
+        /// <summary>分段的价格变化：从评估起点的 close 到最后一个 close。</summary>
         public static JsonObject Market(TradingEnv env)
         {
             int start = Math.Max(env.First, ObservationBuilder.Lookback);
@@ -273,9 +272,8 @@ namespace Gym.Editor
         static string Json(JsonObject value) => JsonWriter.Serialize(value).Replace("\n", " ").Replace("  ", "");
 
         /// <summary>
-        /// The repository root: the folder that holds the Unity project (Application.dataPath is
-        /// &lt;project&gt;/Assets). The editor runs inside the Unity project, so a bare "evaluations"
-        /// would land in the project instead of the repository's evaluations/ folder.
+        /// 仓库根目录：装着 Unity 工程的那个文件夹（Application.dataPath 是 &lt;project&gt;/Assets）。
+        /// editor 在 Unity 工程里面运行，所以只写 "evaluations" 的话，会落到工程里，而不是仓库的 evaluations/ 文件夹。
         /// </summary>
         static string RepositoryRoot() => Path.GetFullPath(Path.Combine(Application.dataPath, "..", ".."));
     }

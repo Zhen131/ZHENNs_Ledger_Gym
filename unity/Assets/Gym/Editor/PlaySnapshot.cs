@@ -10,9 +10,9 @@ using UnityEngine;
 namespace Gym.Editor
 {
     /// <summary>
-    /// Renders the Play scene's chart after the checklist's three key presses to
-    /// Logs/play-snapshot.png. The IMGUI HUD is drawn only in a real Game view, so it
-    /// is not in the picture. Needs a graphics device (run without -nographics):
+    /// 把 Play scene 的图表渲染到 Logs/play-snapshot.png，画的是 40 次不动、25 % 买入、12 次不动、
+    /// 50 % 卖出、再 6 次不动之后的样子。IMGUI 的 HUD 只在真正的 Game 视图里才画，所以图里没有它。
+    /// 需要图形设备（运行时不要加 -nographics）：
     ///
     ///   Unity -batchmode -projectPath "$PWD/unity" -executeMethod Gym.Editor.PlaySnapshot.Render -quit
     /// </summary>
@@ -43,7 +43,7 @@ namespace Gym.Editor
                       $"last candle {s.Series.OpenTimeUtc(env.CurrentIndex):yyyy-MM-dd HH:mm} UTC, graphics {SystemInfo.graphicsDeviceType}");
         }
 
-        /// <summary>One frame of the camera into a texture of the given size, as PNG bytes.</summary>
+        /// <summary>把相机的一帧渲染到指定大小的纹理里，返回 PNG 字节。</summary>
         static byte[] RenderToPng(Camera camera, int width, int height)
         {
             var target = new RenderTexture(width, height, 24);

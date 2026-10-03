@@ -15,8 +15,7 @@ using UnityEngine.SceneManagement;
 namespace Gym.Editor
 {
     /// <summary>
-    /// Builds the agent prefab and the scenes from code, so they can be regenerated
-    /// from the command line without opening the editor UI:
+    /// 用代码生成 Agent 的 prefab 和各个 scene，这样不用打开 editor 界面，从命令行就能重新生成：
     ///
     ///   Unity -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.GymSceneBuilder.BuildAll -quit
     /// </summary>
@@ -41,7 +40,7 @@ namespace Gym.Editor
             Debug.Log("[Gym] prefab and scenes rebuilt");
         }
 
-        /// <summary>Only the Eval scene and the build list; leaves the prefab and the other scenes alone.</summary>
+        /// <summary>只生成 Eval scene 和打包用的 scene 列表；prefab 和其他 scene 保持原样。</summary>
         public static void BuildEvalOnly()
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
@@ -53,9 +52,9 @@ namespace Gym.Editor
         }
 
         /// <summary>
-        /// One agent that runs a single evaluation episode, and the EvalRunner that steps it
-        /// and writes the log. Behavior Type stays Default here (no model, so it holds);
-        /// BuildScript.BuildMacEval makes a copy with the model and Inference Only.
+        /// 一个只跑一个评估 episode 的 Agent，加上推着它走 step、并写评估流水的 EvalRunner。
+        /// 这里 Behavior Type 保持 Default（没有模型，所以它一直不动）；
+        /// BuildScript.BuildMacEval 会复制一份，挂上模型并设为 Inference Only。
         /// </summary>
         public static void BuildEvalScene(GameObject prefab)
         {
@@ -162,7 +161,7 @@ namespace Gym.Editor
             EditorSceneManager.SaveScene(scene, PlayScenePath);
         }
 
-        /// <summary>An orthographic camera on a dark background, looking at the chart.</summary>
+        /// <summary>一台对着图表、深色背景的正交相机。</summary>
         static void AddChartCamera()
         {
             var cameraObject = new GameObject("Main Camera") { tag = "MainCamera" };

@@ -11,9 +11,8 @@ using UnityEngine;
 namespace Gym.Editor
 {
     /// <summary>
-    /// Prints the expected HUD values for the first three key presses of the Play
-    /// scene (select 25 % + B, H, select 50 % + S), computed with TradingEnv from the
-    /// default config. Writes Logs/play-checklist.md as well.
+    /// 打印 Play scene 前三次按键（选 25 % + B、H、选 50 % + S）之后 HUD 应该显示的值，
+    /// 用 TradingEnv 按默认配置算出来。同时也写一份 Logs/play-checklist.md。
     ///
     ///   Unity -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.PlayChecklist.Print -quit
     /// </summary>

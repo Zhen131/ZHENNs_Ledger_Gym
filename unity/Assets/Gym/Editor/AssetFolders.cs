@@ -3,10 +3,10 @@ using UnityEditor;
 
 namespace Gym.Editor
 {
-    /// <summary>Creates asset folders the way the build and scene tools need them.</summary>
+    /// <summary>按打包工具和 scene 工具需要的方式建 asset 文件夹。</summary>
     public static class AssetFolders
     {
-        /// <summary>Creates the folder and any missing parents through the AssetDatabase, so each one gets its .meta.</summary>
+        /// <summary>通过 AssetDatabase 建这个文件夹和缺少的上级文件夹，这样每个文件夹都有自己的 .meta。</summary>
         public static void Ensure(string path)
         {
             path = path.Replace('\\', '/');

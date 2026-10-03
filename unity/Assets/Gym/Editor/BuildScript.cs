@@ -17,19 +17,19 @@ using UnityEngine.SceneManagement;
 namespace Gym.Editor
 {
     /// <summary>
-    /// Training player builds (Training scene only, Mono, non-development):
+    /// 打训练用的 player（只含 Training scene，Mono，不是 development 版）：
     ///
     ///   Unity -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.BuildScript.BuildMacTraining -quit -logFile "$PWD/unity/Logs/build-mac.log"
     ///   Unity -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.BuildScript.BuildWindowsTraining -quit -logFile "$PWD/unity/Logs/build-win.log"
     ///
-    /// A failed build exits the batch-mode editor with code 1.
+    /// 打包失败时，batch mode 下的 editor 以退出码 1 退出。
     ///
-    /// Evaluation player with a trained model baked in:
+    /// 打评估用的 player，把训练好的模型打进包里：
     ///
     ///   Unity -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.BuildScript.BuildMacEval
     ///         -gymModel "$PWD/results/&lt;run-id&gt;/TradingAgent.onnx" -quit -logFile "$PWD/unity/Logs/build-eval.log"
     ///
-    /// BuildWindowsEval does the same for Windows x64 (Builds/win-eval/GymEval.exe).
+    /// BuildWindowsEval 对 Windows x64 做同样的事（Builds/win-eval/GymEval.exe）。
     /// </summary>
     public static class BuildScript
     {
@@ -37,8 +37,8 @@ namespace Gym.Editor
         public const string MacOutput = "Builds/mac/Gym.app";
         public const string WindowsOutput = "Builds/win/Gym.exe";
         public const string MacEvalOutput = "Builds/mac/GymEval.app";
-        // Its own folder: a Windows player shares UnityPlayer.dll and MonoBleedingEdge\ with
-        // whatever else sits next to it, and those files are locked while Gym.exe trains.
+        // 单独一个文件夹：Windows 的 player 会和放在它旁边的其他东西共用 UnityPlayer.dll 和
+        // MonoBleedingEdge\，而 Gym.exe 训练时这些文件是锁住的。
         public const string WindowsEvalOutput = "Builds/win-eval/GymEval.exe";
         public const string ImportedModelsFolder = "Assets/Gym/Models/Imported";
         public const string ModelArg = "-gymModel";
@@ -53,16 +53,15 @@ namespace Gym.Editor
         public static void BuildWindowsTraining() => Build(BuildTarget.StandaloneWindows64, WindowsOutput);
 
         /// <summary>
-        /// Copies the ONNX given by -gymModel into Assets/Gym/Models/Imported/&lt;run-id&gt;.onnx,
-        /// makes a copy of the Eval scene there with the model on the agent (Inference Only,
-        /// deterministic, CPU/Burst), builds Builds/mac/GymEval.app from that copy and writes
-        /// the run id and the model's SHA-256 into the build's StreamingAssets/Gym/build-info.json.
-        /// The run id is -gymRunId, or the name of the folder above the ONNX (results/&lt;run-id&gt;/).
+        /// 把 -gymModel 给的 ONNX 复制成 Assets/Gym/Models/Imported/&lt;run-id&gt;.onnx，
+        /// 在同一个文件夹里复制一份 Eval scene，把模型挂到 Agent 上（Inference Only、确定性、CPU/Burst），
+        /// 用这份副本打包出 Builds/mac/GymEval.app，再把 run id 和模型的 SHA-256 写进包里的
+        /// StreamingAssets/Gym/build-info.json。run id 取 -gymRunId；没给时取 ONNX 上一级文件夹的名字（results/&lt;run-id&gt;/）。
         /// </summary>
         [MenuItem("Gym/Build/Mac Evaluation Player (needs -gymModel)")]
         public static void BuildMacEval() => BuildEval(BuildTarget.StandaloneOSX, MacEvalOutput);
 
-        /// <summary>Same as <see cref="BuildMacEval"/> for Windows x64: Builds/win-eval/GymEval.exe.</summary>
+        /// <summary>和 <see cref="BuildMacEval"/> 一样，只是针对 Windows x64：Builds/win-eval/GymEval.exe。</summary>
         [MenuItem("Gym/Build/Windows Evaluation Player (needs -gymModel)")]
         public static void BuildWindowsEval() => BuildEval(BuildTarget.StandaloneWindows64, WindowsEvalOutput);
 
@@ -88,7 +87,7 @@ namespace Gym.Editor
             }
         }
 
-        /// <summary>The full path of the -gymModel file and the run id (-gymRunId, or the model's folder name); throws when either is unusable.</summary>
+        /// <summary>-gymModel 文件的完整路径和 run id（-gymRunId，或者模型所在文件夹的名字）；任何一个用不了就抛异常。</summary>
         static (string modelPath, string runId) ReadModelArguments(string[] args)
         {
             string modelPath = CommandLineArgs.ValueOf(args, ModelArg)
@@ -101,7 +100,7 @@ namespace Gym.Editor
             return (modelPath, runId);
         }
 
-        /// <summary>Copies the ONNX to Imported/&lt;run-id&gt;.onnx and imports it.</summary>
+        /// <summary>把 ONNX 复制成 Imported/&lt;run-id&gt;.onnx 并导入。</summary>
         static ModelAsset ImportModel(string modelPath, string runId)
         {
             AssetFolders.Ensure(ImportedModelsFolder);
@@ -112,7 +111,7 @@ namespace Gym.Editor
                 ?? throw new InvalidOperationException($"{modelAssetPath} did not import as a ModelAsset");
         }
 
-        /// <summary>A copy of the Eval scene, Imported/Eval-&lt;run-id&gt;.unity, whose agent runs the model (Inference Only, deterministic, CPU/Burst).</summary>
+        /// <summary>Eval scene 的一份副本 Imported/Eval-&lt;run-id&gt;.unity，里面的 Agent 运行这个模型（Inference Only、确定性、CPU/Burst）。</summary>
         static string MakeEvalScene(string runId, ModelAsset model)
         {
             string scenePath = $"{ImportedModelsFolder}/Eval-{runId}.unity";
@@ -133,7 +132,7 @@ namespace Gym.Editor
             return scenePath;
         }
 
-        /// <summary>Writes the run id and the model's SHA-256 into the build's StreamingAssets/Gym/build-info.json; returns its path.</summary>
+        /// <summary>把 run id 和模型的 SHA-256 写进包里的 StreamingAssets/Gym/build-info.json；返回这个文件的路径。</summary>
         static string WriteBuildInfo(BuildTarget target, string output, string runId, string sha, string modelPath)
         {
             var info = new EvalBuildInfo
@@ -150,8 +149,8 @@ namespace Gym.Editor
         }
 
         /// <summary>
-        /// build-info.json is written into the .app after Unity signed it, which breaks the seal:
-        /// it still runs here, but a copy on another Mac is refused. Sign it again, ad hoc.
+        /// build-info.json 是在 Unity 签名之后才写进 .app 的，这会破坏签名：在本机还能运行，
+        /// 但复制到另一台 Mac 上就会被拒绝。所以再用 ad hoc 方式签一次。
         /// </summary>
         static void ResignMacApp(string app)
         {
@@ -184,7 +183,7 @@ namespace Gym.Editor
             Debug.Log($"[Gym] re-signed {app} (ad hoc) and verified the signature");
         }
 
-        /// <summary>Where a player build keeps StreamingAssets/Gym.</summary>
+        /// <summary>打出来的 player 把 StreamingAssets/Gym 放在哪里。</summary>
         static string StreamingGymFolder(BuildTarget target, string output) =>
             target == BuildTarget.StandaloneOSX
                 ? Path.Combine(output, "Contents", "Resources", "Data", "StreamingAssets", "Gym")
@@ -197,7 +196,7 @@ namespace Gym.Editor
                 return BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "").ToLowerInvariant();
         }
 
-        /// <summary>Player settings every training build relies on. Saved into ProjectSettings.asset.</summary>
+        /// <summary>每个训练 player 都依赖的 Player 设置。会存进 ProjectSettings.asset。</summary>
         public static void ApplyPlayerSettings()
         {
             PlayerSettings.runInBackground = true;
@@ -222,7 +221,7 @@ namespace Gym.Editor
             }
         }
 
-        /// <summary>Build one scene for a target; throws when the module is missing or the build fails.</summary>
+        /// <summary>为一个目标平台打包一个 scene；缺模块或打包失败时抛异常。</summary>
         static BuildSummary BuildPlayer(BuildTarget target, string output, string scenePath)
         {
             RequireModule(target);
