@@ -90,7 +90,24 @@ namespace Gym.Runtime.Configuration
             settings.FixedFeeArg = ReadCostArg(args, FixedFeeArg, errors, v => new CostModel(0, v, 0));
             settings.SlippageArg = ReadCostArg(args, SlippageArg, errors, v => new CostModel(0, 0, v));
             settings.Rules = FindSymbol(config.symbol, table, settings.SymbolsPath, errors);
+            CheckNumbers(config, errors);
+            bool datesOk = ReadDates(config, settings, errors);
+            LoadData(config, settings, errors);
 
+            if (settings.Series != null && datesOk)
+            {
+                ValidateSplit(config, settings, errors, warnings);
+                settings.EvalSegment = evalSegment == EvaluationSegment.Validation ? settings.Validation : settings.Test;
+                CheckPlayStart(config, settings, errors);
+            }
+
+            if (errors.Count > 0) throw new GymConfigException(errors);
+            settings.Warnings = warnings;
+            return settings;
+        }
+
+        static void CheckNumbers(GymConfig config, List<string> errors)
+        {
             if (!(config.initialCash > 0)) errors.Add($"initialCash must be > 0 (got {config.initialCash})");
             else if (config.initialCash > MaxInitialCash)
                 errors.Add($"initialCash must be <= {MaxInitialCash:0} (got {config.initialCash}): with more cash a double " +
@@ -98,53 +115,56 @@ namespace Gym.Runtime.Configuration
             if (config.episodeLength < 0) errors.Add($"episodeLength must be >= 0 (got {config.episodeLength})");
             if (!(config.randomInitialPositionShare >= 0 && config.randomInitialPositionShare <= 1))
                 errors.Add($"randomInitialPositionShare must be in [0, 1] (got {config.randomInitialPositionShare})");
+        }
 
-            bool datesOk = TryRange(SegmentNames.Train, config.train, errors, out settings.Train)
-                & TryRange(SegmentNames.Validation, config.validation, errors, out settings.Validation)
-                & TryRange(SegmentNames.Test, config.test, errors, out settings.Test)
-                & TryDate("playStart", config.playStart, errors, out settings.PlayStart);
+        /// <summary>The three segments and playStart. False when any of them is missing or malformed; each one is still checked.</summary>
+        static bool ReadDates(GymConfig config, GymSettings settings, List<string> errors) =>
+            TryRange(SegmentNames.Train, config.train, errors, out settings.Train)
+            & TryRange(SegmentNames.Validation, config.validation, errors, out settings.Validation)
+            & TryRange(SegmentNames.Test, config.test, errors, out settings.Test)
+            & TryDate("playStart", config.playStart, errors, out settings.PlayStart);
 
+        /// <summary>Sets DataPath and Series, or adds the reason the candle file cannot be used.</summary>
+        static void LoadData(GymConfig config, GymSettings settings, List<string> errors)
+        {
             if (string.IsNullOrEmpty(config.dataFile))
             {
                 errors.Add("dataFile is missing");
+                return;
             }
-            else
+            settings.DataPath = ResolveDataPath(config.dataFile, Path.GetDirectoryName(settings.ConfigPath));
+            if (!File.Exists(settings.DataPath))
             {
-                settings.DataPath = ResolveDataPath(config.dataFile, Path.GetDirectoryName(settings.ConfigPath));
-                if (!File.Exists(settings.DataPath))
-                    errors.Add($"data file not found: {settings.DataPath}");
-                else
-                {
-                    try
-                    {
-                        settings.Series = GymDataCache.Get(settings.DataPath);
-                    }
-                    catch (FormatException e)
-                    {
-                        errors.Add($"data file {settings.DataPath} is malformed: {e.Message}");
-                    }
-                }
+                errors.Add($"data file not found: {settings.DataPath}");
+                return;
             }
-
-            if (settings.Series != null && datesOk)
+            try
             {
-                SplitReport report = SplitValidator.Validate(settings.Train, settings.Validation, settings.Test,
-                    settings.Series, Math.Max(config.episodeLength, 0));
-                errors.AddRange(report.Errors);
-                warnings.AddRange(report.Warnings);
-                settings.EvalSegment = evalSegment == EvaluationSegment.Validation ? settings.Validation : settings.Test;
-
-                int trainLast = settings.Train.LastIndex(settings.Series);
-                settings.PlayStartIndex = settings.Series.FirstIndexOnOrAfter(settings.PlayStart);
-                int playMin = Math.Max(settings.Train.FirstIndex(settings.Series), ObservationBuilder.Lookback);
-                if (settings.PlayStart < settings.Train.StartDate || settings.PlayStart > settings.Train.EndDate ||
-                    settings.PlayStartIndex < playMin || settings.PlayStartIndex >= trainLast)
-                    errors.Add($"playStart {config.playStart} must fall inside the training segment {settings.Train}");
+                settings.Series = GymDataCache.Get(settings.DataPath);
             }
+            catch (FormatException e)
+            {
+                errors.Add($"data file {settings.DataPath} is malformed: {e.Message}");
+            }
+        }
 
-            if (errors.Count > 0) throw new GymConfigException(errors);
-            settings.Warnings = warnings;
-            return settings;
+        static void ValidateSplit(GymConfig config, GymSettings settings, List<string> errors, List<string> warnings)
+        {
+            SplitReport report = SplitValidator.Validate(settings.Train, settings.Validation, settings.Test,
+                settings.Series, Math.Max(config.episodeLength, 0));
+            errors.AddRange(report.Errors);
+            warnings.AddRange(report.Warnings);
+        }
+
+        /// <summary>Sets PlayStartIndex and checks that playStart falls inside the training segment.</summary>
+        static void CheckPlayStart(GymConfig config, GymSettings settings, List<string> errors)
+        {
+            int trainLast = settings.Train.LastIndex(settings.Series);
+            settings.PlayStartIndex = settings.Series.FirstIndexOnOrAfter(settings.PlayStart);
+            int playMin = Math.Max(settings.Train.FirstIndex(settings.Series), ObservationBuilder.Lookback);
+            if (settings.PlayStart < settings.Train.StartDate || settings.PlayStart > settings.Train.EndDate ||
+                settings.PlayStartIndex < playMin || settings.PlayStartIndex >= trainLast)
+                errors.Add($"playStart {config.playStart} must fall inside the training segment {settings.Train}");
         }
 
         /// <summary>
