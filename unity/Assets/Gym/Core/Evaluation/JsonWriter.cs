@@ -31,39 +31,41 @@ namespace Gym.Core.Evaluation
                 case float f: WriteDouble(sb, f); return;
                 case double d: WriteDouble(sb, d); return;
                 case DateTime t: WriteString(sb, t.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", Inv)); return;
-                case JsonObject o:
-                {
-                    if (o.Count == 0) { sb.Append("{}"); return; }
-                    sb.Append("{\n");
-                    int k = 0;
-                    foreach (KeyValuePair<string, object> pair in o)
-                    {
-                        sb.Append(' ', (indent + 1) * 2);
-                        WriteString(sb, pair.Key);
-                        sb.Append(": ");
-                        WriteJson(sb, pair.Value, indent + 1);
-                        sb.Append(++k < o.Count ? ",\n" : "\n");
-                    }
-                    sb.Append(' ', indent * 2).Append('}');
-                    return;
-                }
-                case IEnumerable list:
-                {
-                    var values = new List<object>();
-                    foreach (object item in list) values.Add(item);
-                    if (values.Count == 0) { sb.Append("[]"); return; }
-                    sb.Append("[\n");
-                    for (int k = 0; k < values.Count; k++)
-                    {
-                        sb.Append(' ', (indent + 1) * 2);
-                        WriteJson(sb, values[k], indent + 1);
-                        sb.Append(k + 1 < values.Count ? ",\n" : "\n");
-                    }
-                    sb.Append(' ', indent * 2).Append(']');
-                    return;
-                }
+                case JsonObject o: WriteObject(sb, o, indent); return;
+                case IEnumerable list: WriteArray(sb, list, indent); return;
                 default: WriteString(sb, Convert.ToString(value, Inv)); return;
             }
+        }
+
+        static void WriteObject(StringBuilder sb, JsonObject o, int indent)
+        {
+            if (o.Count == 0) { sb.Append("{}"); return; }
+            sb.Append("{\n");
+            int k = 0;
+            foreach (KeyValuePair<string, object> pair in o)
+            {
+                sb.Append(' ', (indent + 1) * 2);
+                WriteString(sb, pair.Key);
+                sb.Append(": ");
+                WriteJson(sb, pair.Value, indent + 1);
+                sb.Append(++k < o.Count ? ",\n" : "\n");
+            }
+            sb.Append(' ', indent * 2).Append('}');
+        }
+
+        static void WriteArray(StringBuilder sb, IEnumerable list, int indent)
+        {
+            var values = new List<object>();
+            foreach (object item in list) values.Add(item);
+            if (values.Count == 0) { sb.Append("[]"); return; }
+            sb.Append("[\n");
+            for (int k = 0; k < values.Count; k++)
+            {
+                sb.Append(' ', (indent + 1) * 2);
+                WriteJson(sb, values[k], indent + 1);
+                sb.Append(k + 1 < values.Count ? ",\n" : "\n");
+            }
+            sb.Append(' ', indent * 2).Append(']');
         }
 
         static void WriteDouble(StringBuilder sb, double d)

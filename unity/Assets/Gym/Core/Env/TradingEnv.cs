@@ -199,25 +199,7 @@ namespace Gym.Core.Env
             double equityBefore = account.Equity(closeNow);
             double fillBase = Series.OpenAt(T + 1);
             double fraction = ActionCodec.Fraction(continuousAction);
-            bool traded = false;
-            bool rejected = false;
-            Fill fill = default;
-
-            if (action != TradeAction.Hold)
-            {
-                if (!ActionCodec.IsEnabled(action, account, closeNow))
-                {
-                    account.RecordRejection();
-                    rejected = true;
-                }
-                else
-                {
-                    traded = action == TradeAction.Buy
-                        ? account.TryBuy(fraction, fillBase, out fill)
-                        : account.TrySell(fraction, fillBase, out fill);
-                    rejected = !traded;
-                }
-            }
+            bool traded = PlaceOrder(account, action, fraction, closeNow, fillBase, out bool rejected, out Fill fill);
 
             if (traded)
             {
@@ -239,12 +221,42 @@ namespace Gym.Core.Env
             RewardSum += reward;
             equityCurve.Add(equityAfter);
 
-            EndReason reason = EndReason.None;
-            if (!Evaluation && EpisodeLength > 0 && StepCount >= EpisodeLength) reason = EndReason.EpisodeLength;
-            else if (T >= Last) reason = EndReason.SegmentEnd;
+            EndReason reason = EndReasonAfterStep();
             Done = reason != EndReason.None;
             EndReason = reason;
             return new StepResult(reward, clipped, Done, reason, traded, rejected);
+        }
+
+        /// <summary>
+        /// Send a buy or sell to the account, filled from <paramref name="fillBase"/>. A choice
+        /// the mask forbids at <paramref name="closeNow"/> never reaches the account and is
+        /// booked as rejected. Returns whether an order filled.
+        /// </summary>
+        bool PlaceOrder(Account account, TradeAction action, double fraction, double closeNow, double fillBase,
+            out bool rejected, out Fill fill)
+        {
+            fill = default;
+            rejected = false;
+            if (action == TradeAction.Hold) return false;
+            if (!ActionCodec.IsEnabled(action, account, closeNow))
+            {
+                account.RecordRejection();
+                rejected = true;
+                return false;
+            }
+            bool traded = action == TradeAction.Buy
+                ? account.TryBuy(fraction, fillBase, out fill)
+                : account.TrySell(fraction, fillBase, out fill);
+            rejected = !traded;
+            return traded;
+        }
+
+        /// <summary>Why the episode ends after the step just taken, or <see cref="EndReason.None"/>.</summary>
+        EndReason EndReasonAfterStep()
+        {
+            if (!Evaluation && EpisodeLength > 0 && StepCount >= EpisodeLength) return EndReason.EpisodeLength;
+            if (T >= Last) return EndReason.SegmentEnd;
+            return EndReason.None;
         }
 
         Account RequireAccount() =>
