@@ -11,7 +11,7 @@ namespace Gym.Tests.Core.Env
         static readonly SymbolRules Btc = SymbolRules.BtcUsdt;
 
         [Test]
-        public void T05_FractionMapsMinusOneToZeroAndOneToOne()
+        public void ContinuousAction_MapsMinusOneToZeroAndOneToOne()
         {
             Assert.AreEqual(0, ActionCodec.Fraction(-1f));
             Assert.AreEqual(0.5, ActionCodec.Fraction(0f));
@@ -25,7 +25,7 @@ namespace Gym.Tests.Core.Env
         // ---- T-5 action mask
 
         [Test]
-        public void T05_SellIsMaskedWhenFlat()
+        public void WhenFlat_SellIsMasked()
         {
             var a = new Account(Btc, new CostModel(), 10_000);
             Assert.IsFalse(ActionCodec.SellEnabled(a, 50_000));
@@ -35,7 +35,7 @@ namespace Gym.Tests.Core.Env
         }
 
         [Test]
-        public void T05_BuyIsMaskedWithoutEnoughCash()
+        public void WithoutEnoughCash_BuyIsMasked()
         {
             // Threshold = 5 × 1.001 × 1 + 0 = 5.005.
             Assert.IsFalse(ActionCodec.BuyEnabled(new Account(Btc, new CostModel(), 5.0), 50_000));
@@ -48,7 +48,7 @@ namespace Gym.Tests.Core.Env
         }
 
         [Test]
-        public void T05_FixedFeeExactlyOnTheBoundary()
+        public void CashExactlyOnTheBuyThreshold_AllowsTheBuy()
         {
             // No proportional fee, no slippage, fixed fee 1: threshold = 5 × 1 × 1 + 1 = 6 exactly.
             var cost = new CostModel(0, 1, 0);
@@ -63,7 +63,7 @@ namespace Gym.Tests.Core.Env
         }
 
         [Test]
-        public void T05_SellBoundaryUsesSlippage()
+        public void SellThreshold_IncludesSlippage()
         {
             // 10 units = 0.0001 BTC; at 50,000 it is worth exactly 5 USDT.
             var a = new Account(Btc, new CostModel(), 0, coinUnits: 10, avgCost: 50_000);
@@ -74,7 +74,7 @@ namespace Gym.Tests.Core.Env
         }
 
         [Test]
-        public void T05_MaskedActionSentAnywayIsBookedAsRejected()
+        public void MaskedActionSentAnyway_IsBookedAsRejected()
         {
             CandleSeries s = TestData.Synthetic(100, i => 100);
             var env = new TradingEnv(s, Btc, 0, 99);

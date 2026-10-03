@@ -7,7 +7,7 @@ namespace Gym.Tests.Core.Accounting
     public class CostModelTests
     {
         [Test]
-        public void T03_CostModelRejectsOutOfRangeValues()
+        public void OutOfRangeValues_AreRejected()
         {
             Assert.Throws<ArgumentOutOfRangeException>(() => new CostModel(-0.001));
             Assert.Throws<ArgumentOutOfRangeException>(() => new CostModel(1));

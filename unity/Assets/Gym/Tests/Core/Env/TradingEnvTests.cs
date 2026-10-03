@@ -16,7 +16,7 @@ namespace Gym.Tests.Core.Env
         // ---- T-10 one episode
 
         [Test]
-        public void T10_TrainingEpisodeEndsAtStep720()
+        public void TrainingEpisode_EndsAtStep720()
         {
             TradingEnv env = TestData.TrainEnv();
             env.ResetForTraining(42, new CostModel());
@@ -35,7 +35,7 @@ namespace Gym.Tests.Core.Env
         }
 
         [Test]
-        public void T10_StartsForSeedsZeroTo999AreLegalAndHalfHoldCoin()
+        public void TrainingStartsForSeedsZeroTo999_AreLegalAndAboutHalfHoldCoin()
         {
             TradingEnv env = TestData.TrainEnv();
             int lo = Math.Max(env.First, ObservationBuilder.Lookback), hi = env.Last - 720;
@@ -61,7 +61,7 @@ namespace Gym.Tests.Core.Env
         }
 
         [Test]
-        public void T10_EvaluationRunsTheWholeTestSegmentFromCash()
+        public void EvaluationEpisode_RunsTheWholeTestSegmentFromCash()
         {
             CandleSeries s = TestData.Btc;
             TradingEnv env = TradingEnv.ForSegment(s, Btc, DefaultSplits.Test);
@@ -87,7 +87,7 @@ namespace Gym.Tests.Core.Env
         }
 
         [Test]
-        public void T10_SameSeedAndActionsGiveIdenticalBits()
+        public void SameSeedAndActions_GiveIdenticalEquityObservationsAndTrades()
         {
             var costs = new CostModel(0.001, 0.5, 0.0005);
             List<double> RunOnce(out List<float> observations, out List<TradeRecord> trades)
@@ -125,7 +125,7 @@ namespace Gym.Tests.Core.Env
         // ---- T-11 cash and coin never go negative
 
         [Test]
-        public void T11_CashAndCoinNeverGoNegativeUnderRandomActions()
+        public void RandomActions_NeverMakeCashOrCoinNegative()
         {
             var costs = new[]
             {
@@ -155,7 +155,7 @@ namespace Gym.Tests.Core.Env
         // ---- T-12 speed (no hard limit; reported)
 
         [Test]
-        public void T12_HundredThousandStepsTiming()
+        public void HundredThousandSteps_TimingIsReported()
         {
             TradingEnv env = TestData.TrainEnv();
             var random = new System.Random(12);
@@ -178,7 +178,7 @@ namespace Gym.Tests.Core.Env
         }
 
         [Test]
-        public void T10_ResetAtAGivenCandleStartsInCashAndRunsToTheEnd()
+        public void ResetAtAGivenCandle_StartsInCashAndRunsToTheEnd()
         {
             CandleSeries s = TestData.RandomWalk(300, 21, 0.01);
             var env = new TradingEnv(s, Btc, 10, 250);
@@ -220,7 +220,7 @@ namespace Gym.Tests.Core.Env
         }
 
         [Test]
-        public void T10_ConstructorAndResetGuardRails()
+        public void BadSegmentOrMissingReset_Throws()
         {
             CandleSeries s = TestData.Synthetic(100, k => 100);
             Assert.Throws<ArgumentOutOfRangeException>(() => new TradingEnv(s, Btc, 0, 32));
@@ -235,7 +235,7 @@ namespace Gym.Tests.Core.Env
         // ---- T-7 no look-ahead
 
         [Test]
-        public void T07_FutureCandlesDoNotChangeTheObservation()
+        public void FutureCandles_DoNotChangeTheObservation()
         {
             const int count = 200, t = 120;
             CandleSeries a = TestData.RandomWalk(count, 7, 0.02);
@@ -275,7 +275,7 @@ namespace Gym.Tests.Core.Env
         }
 
         [Test]
-        public void T07_OrdersFillAtTheNextOpen()
+        public void Orders_FillAtTheNextOpen()
         {
             // open[k] = close[k − 1] × 1.01, so open[t + 1] differs from close[t].
             CandleSeries s = TestData.Synthetic(80, k => 100 + k, k => k == 0 ? 100 : (100 + k - 1) * 1.01);
@@ -298,7 +298,7 @@ namespace Gym.Tests.Core.Env
         // ---- R-2 training starts for seeds 0..999 are no longer a lattice
 
         [Test]
-        public void R02_TrainingStartsForConsecutiveSeedsAreSpread()
+        public void TrainingStartsForConsecutiveSeeds_AreSpread()
         {
             TradingEnv env = TestData.TrainEnv();
             int lo = Math.Max(env.First, ObservationBuilder.Lookback), hi = env.Last - TradingEnv.TrainingEpisodeLength;
@@ -327,7 +327,7 @@ namespace Gym.Tests.Core.Env
         // ---- R-3 same seed, same actions, same bits
 
         [Test]
-        public void R03_SameSeedAndActionsStillGiveIdenticalBits()
+        public void SameSeedWithCosts_GivesTheSameStartAndEquityCurve()
         {
             TradingEnv a = TestData.TrainEnv(), b = TestData.TrainEnv();
             var cost = new CostModel(0.001, 0.5, 0.0005);

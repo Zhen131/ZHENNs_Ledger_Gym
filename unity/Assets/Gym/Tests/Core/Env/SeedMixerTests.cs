@@ -14,7 +14,7 @@ namespace Gym.Tests.Core.Env
         // ---- R-1 SeedMixer matches the Python reference
 
         [Test]
-        public void R01_MixMatchesThePythonReference()
+        public void Mix_MatchesThePythonReference()
         {
             // Reference (07C): z = x + 0x9E3779B97F4A7C15; z = (z ^ z>>30) * 0xBF58476D1CE4E5B9;
             // z = (z ^ z>>27) * 0x94D049BB133111EB; z ^= z>>31 (all mod 2^64); keep the low 31 bits.
@@ -34,7 +34,7 @@ namespace Gym.Tests.Core.Env
         }
 
         [Test]
-        public void R01_MixIsNonNegativeAndSpreadsNearbySeeds()
+        public void NearbySeeds_MixToDistinctNonNegativeValues()
         {
             var seen = new HashSet<int>();
             for (int s = -500; s < 500; s++)
@@ -75,7 +75,7 @@ namespace Gym.Tests.Core.Env
         }
 
         [Test]
-        public void R04_RandomBaselineDrawsAreNotShiftedCopies()
+        public void MixedSeedsZeroOneTwo_DrawStreamsThatAreNotShiftedCopies()
         {
             const int steps = 20;
             int raw = ArithmeticPositions(Draws(new Random(0), steps), Draws(new Random(1), steps), Draws(new Random(2), steps));

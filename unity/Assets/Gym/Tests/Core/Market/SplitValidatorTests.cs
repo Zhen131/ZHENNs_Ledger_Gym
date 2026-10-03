@@ -11,7 +11,7 @@ namespace Gym.Tests.Core.Market
         static SegmentSpec Seg(string name, string from, string to) => SegmentSpec.Parse(name, from, to);
 
         [Test]
-        public void T09_DefaultSplitsAreValidOnTheRealData()
+        public void DefaultSplitsOnTheCommittedData_AreValidWithoutWarnings()
         {
             SplitReport report = SplitValidator.Validate(DefaultSplits.Train, DefaultSplits.Validation, DefaultSplits.Test,
                 TestData.Btc, TradingEnv.TrainingEpisodeLength);
@@ -21,7 +21,7 @@ namespace Gym.Tests.Core.Market
         }
 
         [Test]
-        public void T09_OverlapIsAnError()
+        public void ValidationOverlappingTraining_IsAnError()
         {
             SplitReport report = SplitValidator.Validate(DefaultSplits.Train,
                 Seg("validation", "2024-08-31", "2025-08-31"), DefaultSplits.Test, TestData.Btc, 720);
@@ -39,7 +39,7 @@ namespace Gym.Tests.Core.Market
         }
 
         [Test]
-        public void D01_5_ValidationAndTestSharingADayIsAnError()
+        public void ValidationAndTestSharingADay_IsAnError()
         {
             SplitReport report = SplitValidator.Validate(DefaultSplits.Train, DefaultSplits.Validation,
                 Seg("test", "2025-08-31", "2026-08-31"), TestData.Btc, 720);
@@ -48,7 +48,7 @@ namespace Gym.Tests.Core.Market
         }
 
         [Test]
-        public void D01_5_TestInsideTrainingIsAnError()
+        public void TestInsideTraining_IsAnError()
         {
             SplitReport report = SplitValidator.Validate(DefaultSplits.Train, DefaultSplits.Validation,
                 Seg("test", "2020-01-01", "2020-12-31"), TestData.Btc, 720);
@@ -57,7 +57,7 @@ namespace Gym.Tests.Core.Market
         }
 
         [Test]
-        public void D01_5_TestEqualToValidationIsAnError()
+        public void TestEqualToValidation_IsAnError()
         {
             SplitReport report = SplitValidator.Validate(DefaultSplits.Train, DefaultSplits.Validation,
                 Seg("test", "2024-09-01", "2025-08-31"), TestData.Btc, 720);
@@ -66,7 +66,7 @@ namespace Gym.Tests.Core.Market
         }
 
         [Test]
-        public void D01_5_ValidationContainingTestIsAnError()
+        public void ValidationContainingTest_IsAnError()
         {
             SplitReport report = SplitValidator.Validate(DefaultSplits.Train,
                 Seg("validation", "2024-09-01", "2026-08-31"), DefaultSplits.Test, TestData.Btc, 720);
@@ -75,7 +75,7 @@ namespace Gym.Tests.Core.Market
         }
 
         [Test]
-        public void D01_5_TrainingContainingBothOthersIsAnError()
+        public void TrainingContainingBothOthers_IsAnErrorForEach()
         {
             SplitReport report = SplitValidator.Validate(Seg("train", "2017-08-17", "2026-08-31"),
                 DefaultSplits.Validation, DefaultSplits.Test, TestData.Btc, 720);
@@ -85,7 +85,7 @@ namespace Gym.Tests.Core.Market
         }
 
         [Test]
-        public void T09_OutOfRangeIsAnError()
+        public void SegmentOutsideTheData_IsAnError()
         {
             SplitReport late = SplitValidator.Validate(DefaultSplits.Train, DefaultSplits.Validation,
                 Seg("test", "2025-09-01", "2026-09-30"), TestData.Btc, 720);
@@ -99,7 +99,7 @@ namespace Gym.Tests.Core.Market
         }
 
         [Test]
-        public void T09_TooShortTrainingSegmentIsAnError()
+        public void TrainingSegmentShorterThanAnEpisode_IsAnError()
         {
             // 2024-08-01 00:00 .. 2024-08-30 23:00 = 720 bars; an episode needs 721.
             SplitReport shortOne = SplitValidator.Validate(Seg("train", "2024-08-01", "2024-08-30"),
@@ -113,7 +113,7 @@ namespace Gym.Tests.Core.Market
         }
 
         [Test]
-        public void T09_BackwardTestIsOnlyAWarning()
+        public void TestBeforeTraining_IsOnlyAWarning()
         {
             SplitReport report = SplitValidator.Validate(Seg("train", "2019-01-01", "2024-08-31"),
                 DefaultSplits.Validation, Seg("test", "2017-08-17", "2018-12-31"), TestData.Btc, 720);

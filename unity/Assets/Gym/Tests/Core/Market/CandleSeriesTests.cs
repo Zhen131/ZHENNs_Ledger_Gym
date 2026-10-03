@@ -19,7 +19,7 @@ namespace Gym.Tests.Core.Market
         // ---- T-1 CSV parsing
 
         [Test]
-        public void T01_ParsesHeaderAndRows()
+        public void ValidCsv_ParsesTheHeaderAndEveryColumn()
         {
             CandleSeries s = CandleSeries.Parse(TestData.CsvOf(new[] { Row(T0), Row(T0 + H, "4315.32") }));
             Assert.AreEqual(2, s.Count);
@@ -34,7 +34,7 @@ namespace Gym.Tests.Core.Market
         }
 
         [Test]
-        public void T01_ParsesTheSameUnderGermanCulture()
+        public void GermanCulture_ParsesTheSameNumbers()
         {
             CultureInfo saved = Thread.CurrentThread.CurrentCulture;
             try
@@ -53,33 +53,33 @@ namespace Gym.Tests.Core.Market
         }
 
         [Test]
-        public void T01_AcceptsCrlfAndBom()
+        public void CrlfLineEndsAndByteOrderMark_AreAccepted()
         {
             string text = "﻿" + TestData.CsvOf(new[] { Row(T0), Row(T0 + H) }).Replace("\n", "\r\n");
             Assert.AreEqual(2, CandleSeries.Parse(text).Count);
         }
 
         [Test]
-        public void T01_RejectsOutOfOrderRows() =>
+        public void RowsOutOfOrder_AreRejected() =>
             Assert.Throws<FormatException>(() => CandleSeries.Parse(TestData.CsvOf(new[] { Row(T0 + H), Row(T0) })));
 
         [Test]
-        public void T01_RejectsDuplicateRows() =>
+        public void DuplicateRows_AreRejected() =>
             Assert.Throws<FormatException>(() => CandleSeries.Parse(TestData.CsvOf(new[] { Row(T0), Row(T0) })));
 
         [Test]
-        public void T01_RejectsAMissingHour() =>
+        public void MissingHour_IsRejected() =>
             Assert.Throws<FormatException>(() => CandleSeries.Parse(TestData.CsvOf(new[] { Row(T0), Row(T0 + 2 * H) })));
 
         [Test]
-        public void T01_RejectsABadHeader()
+        public void WrongOrMissingHeader_IsRejected()
         {
             Assert.Throws<FormatException>(() => CandleSeries.Parse("time,open,high,low,close,volume\n" + Row(T0) + "\n"));
             Assert.Throws<FormatException>(() => CandleSeries.Parse(Row(T0) + "\n"));
         }
 
         [Test]
-        public void T01_RejectsMalformedRows()
+        public void MalformedRows_AreRejected()
         {
             Assert.Throws<FormatException>(() => CandleSeries.Parse(TestData.CsvOf(new[] { $"{T0},1,1,1,1" })));
             Assert.Throws<FormatException>(() => CandleSeries.Parse(TestData.CsvOf(new[] { $"{T0},1,1,1,abc,1" })));
@@ -88,7 +88,7 @@ namespace Gym.Tests.Core.Market
         }
 
         [Test]
-        public void T01_FindsIndicesByUtcDate()
+        public void UtcDatesAndTimes_MapToCandleIndices()
         {
             CandleSeries s = TestData.Synthetic(72, i => 100); // 2024-01-01 00:00 .. 2024-01-03 23:00
             Assert.AreEqual(24, s.FirstIndexOnOrAfter(new DateTime(2024, 1, 2)));
@@ -104,7 +104,7 @@ namespace Gym.Tests.Core.Market
         // ---- T-2 the committed BTCUSDT data
 
         [Test]
-        public void T02_RealDataMatchesTheManifest()
+        public void CommittedData_MatchesTheManifestRowsAndTimes()
         {
             CandleSeries s = TestData.Btc;
             Assert.AreEqual(TestData.ManifestLong("rows"), s.Count);
@@ -115,7 +115,7 @@ namespace Gym.Tests.Core.Market
         }
 
         [Test]
-        public void T02_RealDataChecksumMatchesTheManifest()
+        public void CommittedData_MatchesTheManifestChecksum()
         {
             byte[] bytes = File.ReadAllBytes(TestData.BtcCsvPath);
             string hex;
@@ -125,7 +125,7 @@ namespace Gym.Tests.Core.Market
         }
 
         [Test]
-        public void T02_MillisecondAndMicrosecondYearsMeetWithoutAGap()
+        public void CommittedData_HasNoGapWhereMillisecondAndMicrosecondYearsMeet()
         {
             CandleSeries s = TestData.Btc;
             long lastOf2024 = CandleSeries.ToMs(new DateTime(2024, 12, 31, 23, 0, 0, DateTimeKind.Utc));

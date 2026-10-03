@@ -14,7 +14,7 @@ namespace Gym.Tests.Core.Accounting
         // ---- T-3 hand-checked bookkeeping
 
         [Test]
-        public void T03_BuyQuarterThenSellHalf()
+        public void BuyAQuarterThenSellHalf_BooksTheHandCheckedValues()
         {
             // Buy 25 % of 10,000 USDT at 50,000, fee 0.1 %, no slippage, no fixed fee:
             //   B = 10000 × 0.25 = 2500, p = 50000
@@ -62,7 +62,7 @@ namespace Gym.Tests.Core.Accounting
         }
 
         [Test]
-        public void T03_SlippageFiveBasisPoints()
+        public void FiveBasisPointsOfSlippage_MoveBothFillsAgainstTheTrader()
         {
             // Fee 0.1 %, slippage 0.0005, buy 25 % of 10,000 at base price 50,000:
             //   p = 50000 × 1.0005 = 50025
@@ -92,7 +92,7 @@ namespace Gym.Tests.Core.Accounting
         }
 
         [Test]
-        public void T03_FixedFeeOneUsdt()
+        public void FixedFeeOfOneUsdt_IsChargedOnEveryFill()
         {
             // Fee 0.1 % + 1 USDT per order, buy 25 % of 10,000 at 50,000:
             //   B − FixedFee = 2500 − 1 = 2499
@@ -119,7 +119,7 @@ namespace Gym.Tests.Core.Accounting
         // ---- T-4 minimum order and step size
 
         [Test]
-        public void T04_FourUsdtBudgetIsRejectedAndChangesNothingElse()
+        public void FourUsdtBudget_IsRejectedAndChangesNothingElse()
         {
             // B = 16 × 0.25 = 4 → units = floor(4 ÷ 50050 ÷ 0.00001) = 7 → N = 3.5 < 5 → rejected.
             var a = new Account(Btc, new CostModel(), 16);
@@ -134,7 +134,7 @@ namespace Gym.Tests.Core.Accounting
         }
 
         [Test]
-        public void T04_SellBelowMinimumIsRejected()
+        public void SellBelowTheMinimumOrder_IsRejected()
         {
             // 0.0001 BTC at 40,000 = 4 USDT < 5.
             var a = new Account(Btc, new CostModel(), 0, coinUnits: 10, avgCost: 40_000);
@@ -150,7 +150,7 @@ namespace Gym.Tests.Core.Accounting
         }
 
         [Test]
-        public void T04_SellRejectedWhenFixedFeeEatsTheProceeds()
+        public void FixedFeeEatingTheProceeds_RejectsTheSell()
         {
             // N = 0.0002 × 50000 = 10 ≥ 5, but F = 0.01 + 10 = 10.01 → N − F ≤ 0 → rejected.
             var a = new Account(Btc, new CostModel(0.001, 10), 0, coinUnits: 20, avgCost: 50_000);
@@ -159,7 +159,7 @@ namespace Gym.Tests.Core.Accounting
         }
 
         [Test]
-        public void T04_QuantityRoundsDownToTheStep()
+        public void BoughtQuantity_RoundsDownToTheStep()
         {
             var a = new Account(Btc, new CostModel(), 1000);
             const double price = 30_000.123;
@@ -173,7 +173,7 @@ namespace Gym.Tests.Core.Accounting
         }
 
         [Test]
-        public void T04_AdaStepPointOneUsesExactDecimalDivision()
+        public void StepOfPointOne_UsesExactDecimalDivision()
         {
             // ADA, step 0.1, fee 0.1 %, all of 30.03 USDT at 0.3:
             //   units = floor(30.03 ÷ (0.3 × 1.001) ÷ 0.1) = floor(30.03 ÷ 0.3003 ÷ 0.1) = floor(1000) = 1000
@@ -195,7 +195,7 @@ namespace Gym.Tests.Core.Accounting
         }
 
         [Test]
-        public void T04_DecimalFloorWhereDoubleWouldLoseAUnit()
+        public void WhereDoubleWouldLoseAUnit_DecimalFloorKeepsIt()
         {
             // ADA at 0.1, fee 0.1 %, all of 5.62562 USDT:
             //   exact: 5.62562 ÷ (0.1 × 1.001) ÷ 0.1 = 5.62562 ÷ 0.1001 ÷ 0.1 = 562
@@ -209,7 +209,7 @@ namespace Gym.Tests.Core.Accounting
         }
 
         [Test]
-        public void T04_ZeroFractionIsRejected()
+        public void ZeroFraction_IsRejected()
         {
             var a = new Account(Btc, new CostModel(), 10_000);
             Assert.IsFalse(a.Buy(0, 50_000));
@@ -221,7 +221,7 @@ namespace Gym.Tests.Core.Accounting
         // ---- 01D review
 
         [Test]
-        public void D01_1_FullBuyWithMillionsInCashDoesNotOverspend()
+        public void FullBuyWithMillionsInCash_DoesNotOverspend()
         {
             // (decimal)12345678.999999998 keeps 15 significant digits and rounds up to 12345679,
             // so without a fee the floor gave 1,234,567,900 units of 0.1 ADA at 0.1 = 12345679 USDT
@@ -237,7 +237,7 @@ namespace Gym.Tests.Core.Accounting
         }
 
         [Test]
-        public void D01_2_HoldingCoinNeedsAPositiveAverageCost()
+        public void HoldingCoinWithoutAPositiveAverageCost_Throws()
         {
             Assert.Throws<ArgumentOutOfRangeException>(() => new Account(Btc, new CostModel(), 0, coinUnits: 10, avgCost: 0));
             Assert.Throws<ArgumentOutOfRangeException>(() => new Account(Btc, new CostModel(), 0, coinUnits: 10, avgCost: -1));

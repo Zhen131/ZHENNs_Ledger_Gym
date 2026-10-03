@@ -40,7 +40,7 @@ namespace Gym.Tests.Core.Evaluation
         };
 
         [Test]
-        public void M04_SecondAppendKeepsEveryEarlierByte()
+        public void SecondAppend_KeepsEveryEarlierByte()
         {
             string path = EvaluationLog.Append(dir, Record("cash", 0));
             byte[] first = File.ReadAllBytes(path);
@@ -58,7 +58,7 @@ namespace Gym.Tests.Core.Evaluation
         }
 
         [Test]
-        public void M04_ForeignHeaderIsRefusedAndLeftUntouched()
+        public void ForeignHeader_IsRefusedAndLeftUntouched()
         {
             string path = Path.Combine(dir, EvaluationLog.FileName);
             File.WriteAllText(path, "timestamp_utc,policy,total_return\n2026-01-01,x,0.1\n");
@@ -69,7 +69,7 @@ namespace Gym.Tests.Core.Evaluation
         }
 
         [Test]
-        public void M04_MissingFinalNewlineIsAddedByAppendingOnly()
+        public void MissingFinalNewline_IsAddedByAppendingOnly()
         {
             string path = Path.Combine(dir, EvaluationLog.FileName);
             string existing = EvaluationLog.Header + "\n" + EvaluationLog.FormatRow(Record("cash", 0));
@@ -82,7 +82,7 @@ namespace Gym.Tests.Core.Evaluation
         }
 
         [Test]
-        public void M04_RunDetailsNeverOverwrite()
+        public void RunDetailsWithTheSameName_NeverOverwrite()
         {
             var when = new DateTime(2026, 10, 1, 12, 0, 0, 123, DateTimeKind.Utc);
             var details = new JsonObject { { "policy", "cash" }, { "metrics", EvaluationLog.MetricsJson(default) }, { "seeds", new[] { 1, 2 } } };

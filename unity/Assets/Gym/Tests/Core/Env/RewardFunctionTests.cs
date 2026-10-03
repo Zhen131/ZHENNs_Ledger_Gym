@@ -13,7 +13,7 @@ namespace Gym.Tests.Core.Env
         // ---- T-8 reward
 
         [Test]
-        public void T08_RewardFormula()
+        public void Reward_IsTheClippedScaledLogReturn()
         {
             double r = RewardFunction.Compute(10_000, 10_050, out bool clipped);
             Assert.AreEqual(100 * Math.Log(1.005), r, 1e-12);
@@ -28,7 +28,7 @@ namespace Gym.Tests.Core.Env
         }
 
         [Test]
-        public void T08_UnclippedEpisodeRewardsSumToTheLogReturn()
+        public void UnclippedEpisode_RewardsSumToTheLogReturn()
         {
             // Hourly moves of at most 0.3 % keep every step inside ±1.
             CandleSeries s = TestData.RandomWalk(800, 8, 0.003);
@@ -49,7 +49,7 @@ namespace Gym.Tests.Core.Env
         }
 
         [Test]
-        public void T08_ClippedStepsAreCounted()
+        public void ClippedSteps_AreCounted()
         {
             // Price 100, jumps to 105 at 50, back to 100 at 60, to 103 at 70.
             // Fully invested from step 1, each jump moves equity by more than 1 % → 3 clipped steps.

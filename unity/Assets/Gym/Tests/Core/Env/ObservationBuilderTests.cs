@@ -13,7 +13,7 @@ namespace Gym.Tests.Core.Env
         // ---- T-6 observation
 
         [Test]
-        public void T06_HandCheckedValues()
+        public void SyntheticSeries_GivesTheHandCheckedValues()
         {
             // close[k] = 100 + k. At t = 32, close[t] = 132 and close[t − i] = 132 − i, so
             // obs[i − 1] = tanh(10 × ((132 − i) ÷ 132 − 1)) = tanh(−10 i ÷ 132).
@@ -42,7 +42,7 @@ namespace Gym.Tests.Core.Env
         }
 
         [Test]
-        public void T06_EveryValueStaysInsideMinusOneToOne()
+        public void RandomStates_KeepEveryValueInsideMinusOneToOne()
         {
             CandleSeries s = TestData.Btc;
             var obs = new float[ObservationBuilder.Size];
@@ -59,7 +59,7 @@ namespace Gym.Tests.Core.Env
         }
 
         [Test]
-        public void T06_IndexBeforeThirtyTwoThrows()
+        public void IndexBeforeThirtyTwoOrPastTheEnd_Throws()
         {
             CandleSeries s = TestData.Synthetic(40, k => 100);
             var obs = new float[ObservationBuilder.Size];

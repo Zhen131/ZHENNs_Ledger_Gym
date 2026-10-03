@@ -10,7 +10,7 @@ namespace Gym.Tests.Core.Evaluation
         // ---- M-1 hand-checked metrics
 
         [Test]
-        public void M01_MetricsOfAShortCurve()
+        public void ShortCurve_GivesTheHandCheckedMetrics()
         {
             // Curve 100 → 110 → 99 → 121.
             //   return = 121 ÷ 100 − 1 = 0.21
@@ -40,7 +40,7 @@ namespace Gym.Tests.Core.Evaluation
         }
 
         [Test]
-        public void M01_PercentilesInterpolateLinearly()
+        public void Percentiles_InterpolateLinearly()
         {
             double[] values = { 5, 1, 4, 2, 3 };
             Assert.AreEqual(3, Metrics.Median(values));
@@ -53,7 +53,7 @@ namespace Gym.Tests.Core.Evaluation
         // ---- M-2 edge cases
 
         [Test]
-        public void M02_FlatCurveHasZeroSharpeAndOnePointDoesNotCrash()
+        public void FlatOrOnePointCurve_GivesZeroSharpeWithoutCrashing()
         {
             Assert.AreEqual(0, Metrics.SharpeAnnualized(new double[] { 100, 100, 100, 100 }));
             Assert.AreEqual(0, Metrics.SharpeAnnualized(new double[] { 100, 101 }));

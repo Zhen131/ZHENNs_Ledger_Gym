@@ -15,7 +15,7 @@ namespace Gym.Tests.Core.Evaluation
         // ---- M-3 baselines
 
         [Test]
-        public void M03_BuyAndHoldOnARisingMarketEarnsTheMoveLessOneFee()
+        public void BuyAndHoldOnARisingMarket_EarnsTheMoveLessOneFee()
         {
             // close[k] = 100 × 1.001^k, open[k] = close[k − 1]. Evaluation starts at t = 32 and
             // buys at open[33] = close[32]; the account ends at close[199].
@@ -39,7 +39,7 @@ namespace Gym.Tests.Core.Evaluation
         }
 
         [Test]
-        public void M03_RandomBaselineIsReproduciblePerSeed()
+        public void RandomBaseline_IsReproduciblePerSeed()
         {
             CandleSeries s = TestData.RandomWalk(600, 33, 0.01);
             var env = new TradingEnv(s, Btc, 0, 599);
@@ -57,7 +57,7 @@ namespace Gym.Tests.Core.Evaluation
         }
 
         [Test]
-        public void R04_RandomBaselineUsesTheMixedStream()
+        public void RandomBaseline_DrawsFromTheMixedSeedStream()
         {
             // Every filled order of RunRandom(seed 0) carries the fraction drawn at its step
             // from Random(Mix(0)): draw 2k is the choice, draw 2k + 1 the fraction.
