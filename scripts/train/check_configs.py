@@ -3,7 +3,7 @@
 
 Usage, from the repository root, inside the mlagents environment:
 
-    python tools/train/check_configs.py
+    python scripts/train/check_configs.py
 
 Rules (exit code 1 if any fails):
 - every variant differs from the base in exactly one setting, except the two

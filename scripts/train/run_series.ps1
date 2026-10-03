@@ -39,7 +39,7 @@ Option names map one to one onto run_series.sh:
 
 .EXAMPLE
 conda activate mlagents
-.\tools\train\run_series.ps1 -Env Builds\win\Gym.exe -Configs config\ppo_base.yaml,config\variants\fee-0.yaml
+.\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Configs config\ppo_base.yaml,config\variants\fee-0.yaml
 #>
 [CmdletBinding()]
 param(

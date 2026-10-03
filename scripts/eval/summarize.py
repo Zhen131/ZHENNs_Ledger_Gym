@@ -3,7 +3,7 @@
 
 Usage, from the repository root:
 
-    python tools/eval/summarize.py evaluations/log.csv
+    python scripts/eval/summarize.py evaluations/log.csv
 
 Standard library only. Each row of the log becomes one table row: policy, total
 return, max drawdown, Sharpe, trades, fees as a share of the starting equity and

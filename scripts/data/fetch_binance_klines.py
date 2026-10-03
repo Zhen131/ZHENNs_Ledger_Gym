@@ -3,8 +3,8 @@
 
 Standard library only. Typical use, from the repository root:
 
-    python tools/data/fetch_binance_klines.py --symbol BTCUSDT
-    python tools/data/fetch_binance_klines.py --self-test
+    python scripts/data/fetch_binance_klines.py --symbol BTCUSDT
+    python scripts/data/fetch_binance_klines.py --self-test
 
 With no other options the first command rebuilds exactly the committed
 BTCUSDT-1h.csv: it stops at 2026-08 (the end of the test segment) and drops
@@ -75,7 +75,7 @@ KNOWN_LONG_GAPS = {("BTCUSDT", "1h"): {"2018-02-08T01:00:00Z"}}
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_RAW_DIR = REPO_ROOT / "data" / "raw"
-DEFAULT_OUT_DIR = REPO_ROOT / "Assets" / "StreamingAssets" / "Gym" / "data"
+DEFAULT_OUT_DIR = REPO_ROOT / "unity" / "Assets" / "StreamingAssets" / "Gym" / "data"
 
 
 class DataError(Exception):

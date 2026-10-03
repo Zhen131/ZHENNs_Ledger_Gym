@@ -3,7 +3,7 @@
 
 Usage, from the repository root:
 
-    python tools/train/read_scalars.py results/smoke-mac-01
+    python scripts/train/read_scalars.py results/smoke-mac-01
 
 For each tag: number of points, last step and last value. Uses only the
 tensorboard package that mlagents already installs.

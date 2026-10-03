@@ -4,7 +4,7 @@
 #
 # Usage, with the mlagents environment active (or MLAGENTS_LEARN pointing at mlagents-learn):
 #
-#   tools/train/run_series.sh --env Builds/mac/Gym.app [--seeds "1 2 3 4 5"] [--num-envs 1]
+#   scripts/train/run_series.sh --env unity/Builds/mac/Gym.app [--seeds "1 2 3 4 5"] [--num-envs 1]
 #       [--prefix NAME] [--device cpu|cuda] [--smoke] [--smoke-steps 15000] [--dry-run]
 #       CONFIG.yaml [CONFIG.yaml ...]
 #
