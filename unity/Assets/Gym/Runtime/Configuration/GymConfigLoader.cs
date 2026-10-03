@@ -45,7 +45,7 @@ namespace Gym.Runtime.Configuration
         public static GymSettings LoadForRuntime()
         {
             string[] args = Environment.GetCommandLineArgs();
-            string configPath = GetArg(args, ConfigArg) ?? DefaultConfigPath;
+            string configPath = CommandLineArgs.ValueOf(args, ConfigArg) ?? DefaultConfigPath;
             string key = string.Join("\u0001", args);
             lock (Gate)
             {
@@ -147,22 +147,14 @@ namespace Gym.Runtime.Configuration
             return settings;
         }
 
-        public static string GetArg(string[] args, string name)
-        {
-            for (int i = 0; i < args.Length - 1; i++)
-                if (string.Equals(args[i], name, StringComparison.OrdinalIgnoreCase))
-                    return args[i + 1];
-            return null;
-        }
-
         /// <summary>
         /// -gymMode train (default) takes no segment other than train. -gymMode eval takes
         /// -gymSegment validation or test (default test).
         /// </summary>
         static GymMode ReadMode(string[] args, List<string> errors, out EvaluationSegment evalSegment)
         {
-            string mode = GetArg(args, ModeArg)?.ToLowerInvariant();
-            string segment = GetArg(args, SegmentArg)?.ToLowerInvariant();
+            string mode = CommandLineArgs.ValueOf(args, ModeArg)?.ToLowerInvariant();
+            string segment = CommandLineArgs.ValueOf(args, SegmentArg)?.ToLowerInvariant();
             evalSegment = EvaluationSegment.Test;
             if (mode == null || mode == "train")
             {
@@ -183,7 +175,7 @@ namespace Gym.Runtime.Configuration
 
         static double? ReadNumberArg(string[] args, string name, List<string> errors)
         {
-            string text = GetArg(args, name);
+            string text = CommandLineArgs.ValueOf(args, name);
             if (text == null) return null;
             if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double value) &&
                 !double.IsNaN(value) && !double.IsInfinity(value))
@@ -209,7 +201,7 @@ namespace Gym.Runtime.Configuration
             catch (ArgumentOutOfRangeException e)
             {
                 string reason = e.Message.Split('\n')[0].Trim();
-                errors.Add($"{name} {GetArg(args, name)} is out of range: {reason}");
+                errors.Add($"{name} {CommandLineArgs.ValueOf(args, name)} is out of range: {reason}");
                 return null;
             }
         }

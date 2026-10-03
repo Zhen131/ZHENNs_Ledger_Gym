@@ -76,13 +76,13 @@ namespace Gym.Runtime.Evaluation
         public static string CheckArguments(string[] args)
         {
             var missing = new List<string>();
-            if (!string.Equals(GymConfigLoader.GetArg(args, GymConfigLoader.ModeArg), "eval", StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(CommandLineArgs.ValueOf(args, GymConfigLoader.ModeArg), "eval", StringComparison.OrdinalIgnoreCase))
                 missing.Add($"{GymConfigLoader.ModeArg} eval");
-            string segment = GymConfigLoader.GetArg(args, GymConfigLoader.SegmentArg);
+            string segment = CommandLineArgs.ValueOf(args, GymConfigLoader.SegmentArg);
             if (!string.Equals(segment, SegmentNames.Validation, StringComparison.OrdinalIgnoreCase) &&
                 !string.Equals(segment, SegmentNames.Test, StringComparison.OrdinalIgnoreCase))
                 missing.Add($"{GymConfigLoader.SegmentArg} validation|test");
-            if (string.IsNullOrWhiteSpace(GymConfigLoader.GetArg(args, OutArg)))
+            if (string.IsNullOrWhiteSpace(CommandLineArgs.ValueOf(args, OutArg)))
                 missing.Add($"{OutArg} <folder>");
             if (missing.Count == 0) return null;
             string player = args.Length > 0 ? RecordPaths.FileNameOnly(args[0]) : "GymEval";
@@ -186,7 +186,7 @@ namespace Gym.Runtime.Evaluation
 
         void Write(TradingAgent source, EpisodeMetrics metrics)
         {
-            string outDir = Path.GetFullPath(GymConfigLoader.GetArg(Environment.GetCommandLineArgs(), OutArg)); // checked in Start
+            string outDir = Path.GetFullPath(CommandLineArgs.ValueOf(Environment.GetCommandLineArgs(), OutArg)); // checked in Start
             EvalBuildInfo info = ReadBuildInfo();
             GymSettings s = source.Settings;
             TradingEnv env = source.Env;

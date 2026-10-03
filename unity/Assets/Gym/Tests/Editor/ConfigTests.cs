@@ -148,8 +148,8 @@ namespace Gym.Tests.Editor
                 GymConfigLoader.DefaultSymbolsPath, new[] { "x", "-gymMode", "eval", "-gymSegment", "train" }));
             StringAssert.Contains("not an evaluation segment", f.Message);
 
-            Assert.AreEqual("cfg.json", GymConfigLoader.GetArg(new[] { "app", "-gymConfig", "cfg.json" }, "-gymConfig"));
-            Assert.IsNull(GymConfigLoader.GetArg(new[] { "app", "-gymConfig" }, "-gymConfig"));
+            Assert.AreEqual("cfg.json", CommandLineArgs.ValueOf(new[] { "app", "-gymConfig", "cfg.json" }, "-gymConfig"));
+            Assert.IsNull(CommandLineArgs.ValueOf(new[] { "app", "-gymConfig" }, "-gymConfig"));
         }
 
         [TestCase("-gymFeeRate", "1.5")]

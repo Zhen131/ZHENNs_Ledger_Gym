@@ -72,11 +72,11 @@ namespace Gym.Editor
             {
                 RequireModule(target);
                 string[] args = Environment.GetCommandLineArgs();
-                string modelPath = GymConfigLoader.GetArg(args, ModelArg)
+                string modelPath = CommandLineArgs.ValueOf(args, ModelArg)
                     ?? throw new ArgumentException($"{ModelArg} <path to .onnx> is required");
                 modelPath = Path.GetFullPath(modelPath);
                 if (!File.Exists(modelPath)) throw new FileNotFoundException($"model not found: {modelPath}");
-                string runId = GymConfigLoader.GetArg(args, RunIdArg) ?? Path.GetFileName(Path.GetDirectoryName(modelPath));
+                string runId = CommandLineArgs.ValueOf(args, RunIdArg) ?? Path.GetFileName(Path.GetDirectoryName(modelPath));
                 if (string.IsNullOrEmpty(runId) || runId.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
                     throw new ArgumentException($"cannot use '{runId}' as a run id; pass {RunIdArg}");
                 string sha = Sha256(modelPath);

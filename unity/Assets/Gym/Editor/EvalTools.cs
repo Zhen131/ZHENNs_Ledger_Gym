@@ -54,15 +54,15 @@ namespace Gym.Editor
         /// <summary>The work of <see cref="RunBaselines"/> for the given arguments; throws on any problem. Returns the log path.</summary>
         public static string Run(string[] args)
         {
-            string segmentName = GymConfigLoader.GetArg(args, GymConfigLoader.SegmentArg) ?? SegmentNames.Test;
-            double[] feeRates = (GymConfigLoader.GetArg(args, FeeRatesArg) ?? "0,0.001,0.003")
+            string segmentName = CommandLineArgs.ValueOf(args, GymConfigLoader.SegmentArg) ?? SegmentNames.Test;
+            double[] feeRates = (CommandLineArgs.ValueOf(args, FeeRatesArg) ?? "0,0.001,0.003")
                 .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(x => double.Parse(x.Trim(), NumberStyles.Float, Inv)).ToArray();
-            int seeds = int.Parse(GymConfigLoader.GetArg(args, RandomSeedsArg) ?? "100", Inv);
-            string outDir = Path.GetFullPath(GymConfigLoader.GetArg(args, OutArg) ?? Path.Combine(RepositoryRoot(), "evaluations"));
-            string configPath = GymConfigLoader.GetArg(args, GymConfigLoader.ConfigArg) ?? GymConfigLoader.DefaultConfigPath;
+            int seeds = int.Parse(CommandLineArgs.ValueOf(args, RandomSeedsArg) ?? "100", Inv);
+            string outDir = Path.GetFullPath(CommandLineArgs.ValueOf(args, OutArg) ?? Path.Combine(RepositoryRoot(), "evaluations"));
+            string configPath = CommandLineArgs.ValueOf(args, GymConfigLoader.ConfigArg) ?? GymConfigLoader.DefaultConfigPath;
             if (seeds < 1) throw new ArgumentOutOfRangeException(RandomSeedsArg, seeds, "Need at least one seed.");
-            HashSet<string> policies = ParsePolicies(GymConfigLoader.GetArg(args, PoliciesArg));
+            HashSet<string> policies = ParsePolicies(CommandLineArgs.ValueOf(args, PoliciesArg));
 
             GymSettings s = GymConfigLoader.Load(configPath, GymConfigLoader.DefaultSymbolsPath,
                 new[] { GymConfigLoader.ModeArg, "eval", GymConfigLoader.SegmentArg, segmentName });
