@@ -45,7 +45,7 @@ def format_number(text: str, digits: int = 2) -> str:
 
 
 def group_by_costs(rows: list[dict]) -> dict[tuple, list[dict]]:
-    """Rows keyed by (segment, fee rate, fixed fee, slippage)."""
+    """把行按（分段、费率、固定 fee、slippage）分组。"""
     groups: dict[tuple, list[dict]] = defaultdict(list)
     for row in rows:
         key = (row["segment"], float(row["fee_rate"]), float(row["fixed_fee"] or 0), float(row["slippage"] or 0))
@@ -54,7 +54,7 @@ def group_by_costs(rows: list[dict]) -> dict[tuple, list[dict]]:
 
 
 def cost_text(fee: float, fixed_fee: float, slippage: float) -> str:
-    """The fee rate, plus the fixed fee and the slippage when they are not zero."""
+    """费率；固定 fee 和 slippage 不为零时也写上。"""
     costs = f"fee {fee * 100:g} %"
     if fixed_fee:
         costs += f", fixed fee {fixed_fee:g} USDT"
@@ -64,7 +64,7 @@ def cost_text(fee: float, fixed_fee: float, slippage: float) -> str:
 
 
 def table_lines(items: list[dict]) -> list[str]:
-    """One group's Markdown table, policies in a fixed order; sorts items in place."""
+    """一组的 Markdown 表格，policy 按固定顺序排列；会就地排序 items。"""
     lines = [
         "| Policy | Return | Max drawdown | Sharpe | Trades | Fees % of start | Exposure | Logged (UTC) |",
         "| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |",

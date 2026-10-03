@@ -19,7 +19,7 @@ from tensorboard.backend.event_processing.event_accumulator import EventAccumula
 
 
 def find_event_dirs(run_dir: Path) -> list[Path]:
-    """Directories under run_dir that contain TensorBoard event files."""
+    """run_dir 下面含有 TensorBoard event 文件的文件夹。"""
     return sorted({path.parent for path in run_dir.rglob("events.out.tfevents.*")})
 
 
@@ -30,7 +30,7 @@ def read_scalars(event_dir: Path) -> dict[str, list]:
 
 
 def print_scalars(event_dir: Path, run_dir: Path) -> None:
-    """A heading for event_dir, then one line per tag: points, last step, last value."""
+    """先打印 event_dir 的标题，然后每个 tag 一行：点数、最后一个 step、最后一个值。"""
     scalars = read_scalars(event_dir)
     print(f"== {event_dir.relative_to(run_dir.parent) if event_dir != run_dir else event_dir}")
     if not scalars:

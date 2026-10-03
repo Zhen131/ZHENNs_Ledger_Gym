@@ -63,13 +63,12 @@ TERMS = "Binance Vision Terms and Conditions v1.0 (2026-08-26)"
 LICENSE = "CC BY-NC-SA 4.0"
 SUPPORTED_INTERVALS = ("1h",)
 OFF_HOUR_POLICIES = ("error", "drop", "floor")
-DEFAULT_OFF_HOUR = "drop"  # the committed data drops the 43 off-hour candles of 2018-02
-# Last month fetched by default: the end of the test segment (2026-08-31), so the
-# default command always rebuilds the same file. Pass --end to add newer months.
+DEFAULT_OFF_HOUR = "drop"  # 提交的数据丢掉了 2018-02 那 43 根不在整点的 candle
+# 默认取到的最后一个月：测试段的结尾（2026-08-31），这样默认命令每次都重建出同一个文件。
+# 要加更新的月份，传 --end。
 DEFAULT_END_MONTH = (2026, 8)
-# What the committed data is known to contain. Anything else after a rebuild is
-# printed as a warning: dropped candles become flat filler and would otherwise show up
-# only as a count in the manifest.
+# 已知提交的数据里有什么。重建之后出现别的情况就打印警告：被丢掉的 candle 会变成平的填充，
+# 不警告的话，它们只会在 manifest 里显示成一个计数。
 KNOWN_OFF_HOUR_ROWS = {("BTCUSDT", "1h"): 43}
 KNOWN_LONG_GAPS = {("BTCUSDT", "1h"): {"2018-02-08T01:00:00Z"}}
 
@@ -79,10 +78,10 @@ DEFAULT_OUT_DIR = REPO_ROOT / "unity" / "Assets" / "StreamingAssets" / "Gym" / "
 
 
 class DataError(Exception):
-    """Any problem that makes the output untrustworthy. The script stops."""
+    """任何让输出不可信的问题。脚本会停下。"""
 
 
-# ---------------------------------------------------------------- months
+# ---------------------------------------------------------------- 月份
 
 
 def parse_month(text: str) -> tuple[int, int]:
@@ -120,11 +119,11 @@ def archive_url(symbol: str, interval: str, year_month: tuple[int, int]) -> str:
     return f"{BASE_URL}/{symbol}/{interval}/{archive_name(symbol, interval, year_month)}"
 
 
-# ---------------------------------------------------------------- download
+# ---------------------------------------------------------------- 下载
 
 
 def http_get(url: str, attempts: int = 3) -> bytes | None:
-    """Return the body, or None on 404. Other failures are retried, then raised."""
+    """返回响应体；404 时返回 None。其他失败会重试，最后抛出。"""
     request = urllib.request.Request(url, headers={"User-Agent": "ZHENN_Ledger_Gym-data/1.0"})
     for attempt in range(1, attempts + 1):
         try:
@@ -157,7 +156,7 @@ def sha256_hex(data: bytes) -> str:
 
 
 def fetch_month(symbol: str, interval: str, year_month: tuple[int, int], raw_dir: Path):
-    """Return (zip bytes, sha256), or None if Binance Vision has no such month."""
+    """返回（zip 字节，sha256）；Binance Vision 没有这个月时返回 None。"""
     name = archive_name(symbol, interval, year_month)
     zip_path = raw_dir / name
     checksum_path = raw_dir / (name + ".CHECKSUM")
@@ -190,11 +189,11 @@ def fetch_month(symbol: str, interval: str, year_month: tuple[int, int], raw_dir
     return data, actual
 
 
-# ---------------------------------------------------------------- parse / check / fill
+# ---------------------------------------------------------------- 解析 / 检查 / 补齐
 
 
 def parse_archive(data: bytes, label: str) -> list[tuple]:
-    """Rows of (open_time_ms:int, open, high, low, close, volume) as strings."""
+    """若干行 (open_time_ms:int, open, high, low, close, volume)，其余各列是字符串。"""
     with zipfile.ZipFile(io.BytesIO(data)) as archive:
         members = [n for n in archive.namelist() if n.endswith(".csv")]
         if len(members) != 1:
@@ -235,7 +234,7 @@ def check_rows(rows: list[tuple]) -> None:
 
 
 def fill_gaps(rows: list[tuple]) -> tuple[list[tuple], list[tuple[int, int]]]:
-    """Forward-fill missing hours. Returns (rows, [(gap_start_ms, hours), ...])."""
+    """用前一个值补齐缺失的小时。返回 (rows, [(gap_start_ms, hours), ...])。"""
     filled = [rows[0]]
     gaps = []
     for row in rows[1:]:
@@ -252,10 +251,10 @@ def fill_gaps(rows: list[tuple]) -> tuple[list[tuple], list[tuple[int, int]]]:
 
 
 def apply_off_hour_policy(rows: list[tuple], policy: str) -> tuple[list[tuple], list[int]]:
-    """Return (rows, original open times of the off-hour rows that were handled)."""
+    """返回（rows，被处理掉的那些不在整点的行原来的 open time）。"""
     off_hour = [r[0] for r in rows if r[0] % HOUR_MS != 0]
     if not off_hour or policy == "error":
-        return rows, []  # check_rows reports the first one
+        return rows, []  # 由 check_rows 报告第一个
     if policy == "drop":
         return [r for r in rows if r[0] % HOUR_MS == 0], off_hour
     if policy == "floor":
@@ -264,7 +263,7 @@ def apply_off_hour_policy(rows: list[tuple], policy: str) -> tuple[list[tuple], 
 
 
 def build_rows(archives: list[tuple[str, bytes]], off_hour: str = "error"):
-    """Return (rows, gaps, off-hour open times that were dropped or floored)."""
+    """返回（rows，gaps，被丢掉或被向下取整到整点的那些行的 open time）。"""
     rows = []
     for label, data in archives:
         rows.extend(parse_archive(data, label))
@@ -308,7 +307,7 @@ def off_hour_summary(policy: str, handled: list[int]) -> dict:
 
 
 def data_warnings(symbol: str, interval: str, handled: list[int], gaps: list[tuple[int, int]]) -> list[str]:
-    """Off-hour candles or gaps over 24 hours beyond what the committed data has."""
+    """超出提交数据已有情况的、不在整点的 candle，或超过 24 小时的缺口。"""
     warnings = []
     known_off_hour = KNOWN_OFF_HOUR_ROWS.get((symbol, interval), 0)
     if len(handled) != known_off_hour:
@@ -342,7 +341,7 @@ def build_manifest(symbol, interval, months, rows, gaps, csv_bytes, downloaded_a
     }
 
 
-# ---------------------------------------------------------------- main
+# ---------------------------------------------------------------- 主流程
 
 
 def run(args) -> int:
@@ -393,13 +392,13 @@ def run(args) -> int:
 
 
 def archives_saved_at(raw_dir: Path, months: list[tuple[str, str]]) -> str:
-    """UTC time the newest of the archives was saved to raw_dir (downloaded_at_utc)."""
+    """最新的那个压缩包存进 raw_dir 的 UTC 时间（downloaded_at_utc）。"""
     newest = max((raw_dir / name).stat().st_mtime for name, _ in months)
     return utc_seconds_text(newest)
 
 
 def write_outputs(out_dir: Path, stem: str, csv_bytes: bytes, manifest: dict) -> tuple[Path, Path]:
-    """Write {stem}.csv and {stem}.manifest.json into out_dir; return both paths."""
+    """把 {stem}.csv 和 {stem}.manifest.json 写进 out_dir；返回两个路径。"""
     out_dir.mkdir(parents=True, exist_ok=True)
     csv_path = out_dir / f"{stem}.csv"
     manifest_path = out_dir / f"{stem}.manifest.json"
@@ -418,11 +417,11 @@ def print_summary(symbol: str, interval: str, manifest: dict, off_hour: str, han
         print(f"off-hour rows ({off_hour}): {manifest['off_hour_rows']}")
 
 
-# ---------------------------------------------------------------- self-test
+# ---------------------------------------------------------------- 自测
 
 
 def _kline_line(open_time: int, open_price: str, high: str, low: str, close: str, volume: str) -> str:
-    # 12 columns, the last one is Binance's "Ignore" field.
+    # 12 列，最后一列是 Binance 的 "Ignore" 字段。
     return ",".join([str(open_time), open_price, high, low, close, volume, str(open_time + HOUR_MS - 1),
                      "0", "1", "0", "0", "7"])
 
@@ -447,14 +446,14 @@ def self_test() -> int:
             return
         raise AssertionError(f"expected DataError containing {fragment!r}")
 
-    t0 = 1735671600000  # 2024-12-31T19:00:00Z, milliseconds
-    # Archive A: milliseconds, three hours ending 2024-12-31 21:00.
+    t0 = 1735671600000  # 2024-12-31T19:00:00Z，毫秒
+    # 压缩包 A：毫秒，三个小时，到 2024-12-31 21:00 为止。
     zip_ms = _make_zip("X-1h-2024-12.csv", [
         _kline_line(t0 + 0 * HOUR_MS, "100.10", "101.00", "99.00", "100.50", "1.5"),
         _kline_line(t0 + 1 * HOUR_MS, "100.50", "102.00", "100.00", "101.25000000", "2.0"),
         _kline_line(t0 + 2 * HOUR_MS, "101.25", "101.30", "100.90", "101.00000000", "0.25"),
     ])
-    # Archive B: microseconds, starts 2025-01-01 01:00, so 22:00, 23:00, 00:00 are missing.
+    # 压缩包 B：微秒，从 2025-01-01 01:00 开始，所以缺 22:00、23:00、00:00。
     t_b = t0 + 6 * HOUR_MS
     zip_us = _make_zip("X-1h-2025-01.csv", [
         _kline_line(t_b * 1000, "102.00", "103.00", "101.50", "102.50", "3.0"),
@@ -496,7 +495,7 @@ def self_test() -> int:
     expect(summary["count"] == 2 and summary["total_hours"] == 33, f"gap summary {summary}")
     expect(summary["longest"]["hours"] == 30 and len(summary["over_24h"]) == 1, "longest / over_24h")
 
-    # Rejections.
+    # 会被拒绝的情况。
     dup = _make_zip("d.csv", [_kline_line(t0, "1", "1", "1", "1", "1"), _kline_line(t0, "1", "1", "1", "1", "1")])
     expect_error(lambda: build_rows([("dup", dup)]), "duplicate")
     back = _make_zip("b.csv", [_kline_line(t0 + HOUR_MS, "1", "1", "1", "1", "1"), _kline_line(t0, "1", "1", "1", "1", "1")])
@@ -504,8 +503,8 @@ def self_test() -> int:
     odd = _make_zip("o.csv", [_kline_line(t0 + 60_000, "1", "1", "1", "1", "1")])
     expect_error(lambda: build_rows([("odd", odd)]), "not on the hour")
 
-    # Off-hour rows, shaped like BTCUSDT 2018-02: a candle at 00:00, a block
-    # starting at hh:28, then the grid resumes on the hour.
+    # 不在整点的行，形状和 BTCUSDT 2018-02 一样：00:00 一根 candle，然后一段从 hh:28 开始的 candle，
+    # 之后又回到整点。
     shifted = 28 * 60_000 + 14_789
     off = _make_zip("f.csv", [
         _kline_line(t0, "10", "11", "9", "10.5", "1"),
@@ -525,7 +524,7 @@ def self_test() -> int:
     expect(floored_gaps == [(t0 + HOUR_MS, 1), (t0 + 4 * HOUR_MS, 1)], f"floor gaps {floored_gaps}")
     expect(off_hour_summary("drop", dropped_times)["count"] == 2, "off-hour summary")
 
-    # A new block of off-hour candles or a new long gap is flagged; the known ones are not.
+    # 新出现的一段不在整点的 candle，或者新的长缺口，会被标出来；已知的不会。
     known_gap = (1518051600000, 75)  # 2018-02-08T01:00:00Z
     expect(utc_text(known_gap[0]) == "2018-02-08T01:00:00Z", "known gap start")
     expect(data_warnings("BTCUSDT", "1h", list(range(43)), [known_gap, (t0, 3)]) == [], "committed data: no warning")

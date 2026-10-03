@@ -36,11 +36,10 @@ import yaml
 MULTIPLE_MARK = "MULTIPLE CHANGES"
 EXPECTED_MULTIPLE = {"sac-base.yaml", "teacher-style.yaml"}
 ENV_PARAMS = ("fee_rate", "fixed_fee", "slippage")
-# Every config trains on the CPU except the PC's graphics-card speed test, which exists to
-# compare the two. The series scripts' --device only changes their copies in results/_tmp/,
-# never these files.
+# 除了 PC 上的显卡测速配置，每份配置都用 CPU 训练；那份测速配置就是为了比较两者而存在的。
+# 成批训练脚本的 --device 只改它们在 results/_tmp/ 里的副本，从不改这些文件。
 DEVICE_EXCEPTIONS = {"smoke-100k-cuda.yaml": "cuda"}
-# The ranges Gym.Core.CostModel enforces.
+# Gym.Core.Accounting.CostModel 强制的取值范围。
 COST_RANGES = {
     "fee_rate": (lambda value: 0 <= value < 1, "in [0, 1)"),
     "fixed_fee": (lambda value: value >= 0 and math.isfinite(value), ">= 0"),
@@ -98,22 +97,22 @@ def common_problems(path: Path, data: dict, first_line: str) -> list[str]:
 
 
 def mlagents_parse(path: Path):
-    """None if ML-Agents accepts the file, an error message if not, 'skipped' without mlagents."""
+    """ML-Agents 接受这个文件时返回 None，不接受时返回报错信息，没装 mlagents 时返回 'skipped'。"""
     try:
         from mlagents.plugins.trainer_type import register_trainer_plugins
         from mlagents.trainers.settings import RunOptions
     except Exception:
         return "skipped"
     try:
-        register_trainer_plugins()  # mlagents-learn registers ppo/sac/poca this way before parsing
+        register_trainer_plugins()  # mlagents-learn 在解析之前也是这样注册 ppo/sac/poca 的
         RunOptions.from_dict(yaml.safe_load(path.read_text()))
         return None
-    except Exception as error:  # noqa: BLE001 - report whatever ML-Agents rejects
+    except Exception as error:  # noqa: BLE001 - 报告 ML-Agents 拒绝的任何问题
         return f"{type(error).__name__}: {error}"
 
 
 def check_base(base_path: Path, base: dict, base_text: str) -> bool:
-    """Print the base config's checks; True if any failed."""
+    """打印基础配置的各项检查；有任何一项失败时返回 True。"""
     failed = False
     print(f"base: {base_path}")
     for problem in common_problems(base_path, base, base_text.split("\n", 1)[0]):
@@ -126,7 +125,7 @@ def check_base(base_path: Path, base: dict, base_text: str) -> bool:
 
 
 def check_variant(path: Path, base: dict) -> tuple[bool, bool]:
-    """Print one variant's checks; return (failed, marked as multiple changes)."""
+    """打印一个 variant 的各项检查；返回（是否失败，是否标成多处改动）。"""
     text = path.read_text()
     first_line = text.split("\n", 1)[0]
     data = yaml.safe_load(text)
@@ -155,7 +154,7 @@ def check_variant(path: Path, base: dict) -> tuple[bool, bool]:
 
 
 def check_smoke(path: Path) -> bool:
-    """Print one smoke config's checks; True if any failed."""
+    """打印一份冒烟配置的各项检查；有任何一项失败时返回 True。"""
     text = path.read_text()
     problems = common_problems(path, yaml.safe_load(text), text.split("\n", 1)[0])
     parsed = mlagents_parse(path)

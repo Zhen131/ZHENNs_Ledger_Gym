@@ -66,7 +66,7 @@ smoke_text() {
            -e "s/^([[:space:]]*summary_freq:).*/\1 1000/" \
            -e "s/^([[:space:]]*checkpoint_interval:).*/\1 $SMOKE_STEPS/" "$1"
 }
-# The config as the run uses it: shortened with --smoke, torch_settings.device from --device.
+# 这次运行实际用的配置：--smoke 时缩短，torch_settings.device 取自 --device。
 used_text() {
     if [ "$SMOKE" -eq 1 ]; then smoke_text "$1"; else cat "$1"; fi |
         sed -E "s/^([[:space:]]*device:).*/\1 $DEVICE/"
@@ -74,7 +74,7 @@ used_text() {
 config_device() { sed -nE 's/^[[:space:]]*device:[[:space:]]*([^[:space:]#]+).*/\1/p' "$1"; }
 is_int() { case "$1" in ''|*[!0-9]*) return 1 ;; *) return 0 ;; esac; }
 abs_path() { (cd "$(dirname "$1")" && printf '%s/%s\n' "$(pwd)" "$(basename "$1")"); }
-# True when any agent of the run logged its master seed as "(clock)" instead of "(trainer)".
+# 这次运行里任何一个 Agent 把 master seed 记成 "(clock)" 而不是 "(trainer)" 时为真。
 clock_seeded() { grep -qsF '(clock)' "$1"/run_logs/Player-*.log; }
 
 [ -n "$ENV_PATH" ] || fail "--env <path to the training build> is required"
