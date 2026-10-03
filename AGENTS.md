@@ -71,9 +71,9 @@ unity/Builds/mac/GymEval.app/Contents/MacOS/ZHENN_Ledger_Gym -batchmode -nograph
 python scripts/eval/summarize.py evaluations/log.csv
 
 # Regenerate scenes / the Play checklist / a chart snapshot
-"$UNITY" -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.EditorTools.GymSceneBuilder.BuildAll -quit -logFile "$PWD/unity/Logs/build-scenes.log"
-"$UNITY" -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.EditorTools.PlayChecklist.Print -quit -logFile "$PWD/unity/Logs/checklist.log"
-"$UNITY" -batchmode -projectPath "$PWD/unity" -executeMethod Gym.EditorTools.PlaySnapshot.Render -quit -logFile "$PWD/unity/Logs/snapshot.log"
+"$UNITY" -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.GymSceneBuilder.BuildAll -quit -logFile "$PWD/unity/Logs/build-scenes.log"
+"$UNITY" -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.PlayChecklist.Print -quit -logFile "$PWD/unity/Logs/checklist.log"
+"$UNITY" -batchmode -projectPath "$PWD/unity" -executeMethod Gym.Editor.PlaySnapshot.Render -quit -logFile "$PWD/unity/Logs/snapshot.log"
 ```
 
 Windows equivalents are in `docs/pc-training.md`. `GymSceneBuilder.BuildAll` rewrites all scenes; the Training scene usually comes back with the same content in a different order, which can be reverted with `git checkout`.
