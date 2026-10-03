@@ -129,7 +129,7 @@ namespace Gym.Tests.Editor
                      })
             {
                 var info = new EvalBuildInfo { run_id = "run", model_sha256 = "abc", model_file = model, built_at_utc = "2026-10-02T00:00:00Z" };
-                string json = EvaluationLog.Json(EvalRunner.Details(record, info, s, env, Metrics.From(env), "InferenceOnly", true, "Burst"));
+                string json = JsonWriter.Serialize(EvalRunner.Details(record, info, s, env, Metrics.From(env), "InferenceOnly", true, "Burst"));
                 AssertNoMachinePath(json, model);
                 StringAssert.Contains("\"model_file\": \"TradingAgent.onnx\"", json);
                 StringAssert.Contains("\"data_file\": \"data/BTCUSDT-1h.csv\"", json);

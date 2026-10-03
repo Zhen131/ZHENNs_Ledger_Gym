@@ -238,7 +238,7 @@ namespace Gym.Editor
             };
         }
 
-        static string Json(JsonObject o) => EvaluationLog.Json(o).Replace("\n", " ").Replace("  ", "");
+        static string Json(JsonObject o) => JsonWriter.Serialize(o).Replace("\n", " ").Replace("  ", "");
 
         /// <summary>
         /// The repository root: the folder that holds the Unity project (Application.dataPath is
