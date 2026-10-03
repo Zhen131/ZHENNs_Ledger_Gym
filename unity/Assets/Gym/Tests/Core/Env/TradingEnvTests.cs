@@ -7,7 +7,7 @@ using Gym.Core.Env;
 using Gym.Core.Market;
 using NUnit.Framework;
 
-namespace Gym.Tests.EditMode
+namespace Gym.Tests.Core.Env
 {
     public class TradingEnvTests
     {

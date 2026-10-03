@@ -2,7 +2,7 @@ using System;
 using Gym.Core.Accounting;
 using NUnit.Framework;
 
-namespace Gym.Tests.EditMode
+namespace Gym.Tests.Core.Accounting
 {
     public class CostModelTests
     {

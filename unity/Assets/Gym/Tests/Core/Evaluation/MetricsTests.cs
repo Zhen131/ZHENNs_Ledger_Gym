@@ -3,7 +3,7 @@ using System.Linq;
 using Gym.Core.Evaluation;
 using NUnit.Framework;
 
-namespace Gym.Tests.EditMode
+namespace Gym.Tests.Core.Evaluation
 {
     public class MetricsTests
     {

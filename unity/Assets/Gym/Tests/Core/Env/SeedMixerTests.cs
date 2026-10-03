@@ -4,7 +4,7 @@ using System.Linq;
 using Gym.Core.Env;
 using NUnit.Framework;
 
-namespace Gym.Tests.EditMode
+namespace Gym.Tests.Core.Env
 {
     /// <summary>Seed mixing (Q03 / Q07): R-1 to R-4 of 07B.</summary>
     public class SeedMixerTests

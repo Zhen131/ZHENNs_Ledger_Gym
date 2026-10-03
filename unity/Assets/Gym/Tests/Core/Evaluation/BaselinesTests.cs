@@ -6,7 +6,7 @@ using Gym.Core.Evaluation;
 using Gym.Core.Market;
 using NUnit.Framework;
 
-namespace Gym.Tests.EditMode
+namespace Gym.Tests.Core.Evaluation
 {
     public class BaselinesTests
     {

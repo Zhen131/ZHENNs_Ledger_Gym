@@ -6,7 +6,7 @@ using Gym.Core.Env;
 using Gym.Core.Market;
 using UnityEngine;
 
-namespace Gym.Tests.EditMode
+namespace Gym.Tests.Core
 {
     /// <summary>Shared fixtures: the committed BTCUSDT data and small synthetic series.</summary>
     static class TestData

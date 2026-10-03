@@ -6,7 +6,7 @@ using System.Threading;
 using Gym.Core.Market;
 using NUnit.Framework;
 
-namespace Gym.Tests.EditMode
+namespace Gym.Tests.Core.Market
 {
     public class CandleSeriesTests
     {
