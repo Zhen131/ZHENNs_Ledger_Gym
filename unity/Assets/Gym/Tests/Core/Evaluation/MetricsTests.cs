@@ -7,7 +7,7 @@ namespace Gym.Tests.Core.Evaluation
 {
     public class MetricsTests
     {
-        // ---- M-1 hand-checked metrics
+        // ---- hand-checked metrics
 
         [Test]
         public void ShortCurve_GivesTheHandCheckedMetrics()
@@ -50,7 +50,7 @@ namespace Gym.Tests.Core.Evaluation
             Assert.IsNaN(Metrics.Median(new double[0]));
         }
 
-        // ---- M-2 edge cases
+        // ---- edge cases
 
         [Test]
         public void FlatOrOnePointCurve_GivesZeroSharpeWithoutCrashing()

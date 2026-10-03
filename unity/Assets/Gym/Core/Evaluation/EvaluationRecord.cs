@@ -4,7 +4,7 @@ using Gym.Core.Market;
 
 namespace Gym.Core.Evaluation
 {
-    /// <summary>One row of log.csv (04B §3).</summary>
+    /// <summary>One row of log.csv.</summary>
     public sealed class EvaluationRecord
     {
         public const string AgentKind = "agent";

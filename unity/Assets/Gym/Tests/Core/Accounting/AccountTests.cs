@@ -11,7 +11,7 @@ namespace Gym.Tests.Core.Accounting
         static readonly SymbolRules Btc = SymbolRules.BtcUsdt;
         static readonly SymbolRules Ada = new SymbolRules("ADAUSDT", 5.0, 0.1m);
 
-        // ---- T-3 hand-checked bookkeeping
+        // ---- hand-checked bookkeeping
 
         [Test]
         public void BuyAQuarterThenSellHalf_BooksTheHandCheckedValues()
@@ -116,7 +116,7 @@ namespace Gym.Tests.Core.Accounting
             Assert.AreEqual(6.993, a.FeesPaid, Tol);
         }
 
-        // ---- T-4 minimum order and step size
+        // ---- minimum order and step size
 
         [Test]
         public void FourUsdtBudget_IsRejectedAndChangesNothingElse()
@@ -217,8 +217,6 @@ namespace Gym.Tests.Core.Accounting
             Assert.Throws<ArgumentOutOfRangeException>(() => a.Buy(1.5, 50_000));
             Assert.Throws<ArgumentOutOfRangeException>(() => a.Buy(0.5, 0));
         }
-
-        // ---- 01D review
 
         [Test]
         public void FullBuyWithMillionsInCash_DoesNotOverspend()

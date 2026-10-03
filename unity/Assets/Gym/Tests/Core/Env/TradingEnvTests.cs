@@ -13,7 +13,7 @@ namespace Gym.Tests.Core.Env
     {
         static readonly SymbolRules Btc = SymbolRules.BtcUsdt;
 
-        // ---- T-10 one episode
+        // ---- one episode
 
         [Test]
         public void TrainingEpisode_EndsAtStep720()
@@ -57,7 +57,7 @@ namespace Gym.Tests.Core.Env
                 }
             }
             Assert.That(withCoin, Is.InRange(400, 600));
-            TestContext.WriteLine($"T-10: {withCoin} of 1000 training starts held coin");
+            TestContext.WriteLine($"{withCoin} of 1000 training starts held coin");
         }
 
         [Test]
@@ -122,7 +122,7 @@ namespace Gym.Tests.Core.Env
             }
         }
 
-        // ---- T-11 cash and coin never go negative
+        // ---- cash and coin never go negative
 
         [Test]
         public void RandomActions_NeverMakeCashOrCoinNegative()
@@ -152,7 +152,7 @@ namespace Gym.Tests.Core.Env
             Assert.AreEqual(200L * 720, steps);
         }
 
-        // ---- T-12 speed (no hard limit; reported)
+        // ---- speed (no hard limit; reported)
 
         [Test]
         public void HundredThousandSteps_TimingIsReported()
@@ -171,7 +171,7 @@ namespace Gym.Tests.Core.Env
             }
             watch.Stop();
             double ms = watch.Elapsed.TotalMilliseconds;
-            string line = $"T-12: 100000 steps (with observations, {seed} resets) in {ms:F1} ms = {100_000 / (ms / 1000):F0} steps/s";
+            string line = $"100000 steps (with observations, {seed} resets) in {ms:F1} ms = {100_000 / (ms / 1000):F0} steps/s";
             TestContext.WriteLine(line);
             UnityEngine.Debug.Log(line);
             Assert.Pass(line);
@@ -232,7 +232,7 @@ namespace Gym.Tests.Core.Env
             Assert.DoesNotThrow(() => env.ResetForEvaluation(0, new CostModel()));
         }
 
-        // ---- T-7 no look-ahead
+        // ---- no look-ahead
 
         [Test]
         public void FutureCandles_DoNotChangeTheObservation()
@@ -295,7 +295,7 @@ namespace Gym.Tests.Core.Env
             Assert.AreEqual(s.OpenAt(34) * (1 - 0.0005), sell.Price, 1e-9);
         }
 
-        // ---- R-2 training starts for seeds 0..999 are no longer a lattice
+        // ---- training starts for seeds 0..999 are no longer a lattice
 
         [Test]
         public void TrainingStartsForConsecutiveSeeds_AreSpread()
@@ -321,10 +321,10 @@ namespace Gym.Tests.Core.Env
             int distinct = starts.Zip(starts.Skip(1), (a, b) => b - a).Distinct().Count();
             Assert.Greater(distinct, 100, $"adjacent start differences: {distinct} distinct values");
             Assert.That(withCoin, Is.InRange(400, 600));
-            TestContext.WriteLine($"R-2: unmixed {rawDistinct} distinct adjacent differences, mixed {distinct}; {withCoin}/1000 held coin");
+            TestContext.WriteLine($"unmixed {rawDistinct} distinct adjacent differences, mixed {distinct}; {withCoin}/1000 held coin");
         }
 
-        // ---- R-3 same seed, same actions, same bits
+        // ---- same seed, same actions, same bits
 
         [Test]
         public void SameSeedWithCosts_GivesTheSameStartAndEquityCurve()

@@ -6,7 +6,7 @@ namespace Gym.Tests.Core.Market
 {
     public class SplitValidatorTests
     {
-        // ---- T-9 split validation
+        // ---- split validation
 
         static SegmentSpec Seg(string name, string from, string to) => SegmentSpec.Parse(name, from, to);
 
@@ -29,7 +29,7 @@ namespace Gym.Tests.Core.Market
             StringAssert.Contains("overlap", report.Errors[0]);
         }
 
-        // 01D-5: every way two segments can overlap is refused, not only train and validation sharing a day.
+        // Every way two segments can overlap is refused, not only train and validation sharing a day.
 
         static void AssertOverlap(SplitReport report, string first, string second)
         {

@@ -7,7 +7,7 @@ namespace Gym.Core.Evaluation
 {
     /// <summary>
     /// Reference policies run through the same <see cref="TradingEnv"/> in evaluation
-    /// mode, with the same fills and fees as the agent (04B §2).
+    /// mode, with the same fills and fees as the agent.
     /// </summary>
     public static class Baselines
     {
@@ -39,7 +39,7 @@ namespace Gym.Core.Evaluation
         /// </summary>
         public static EpisodeMetrics RunRandom(TradingEnv env, CostModel cost, int seed)
         {
-            // Mixed first: System.Random with seeds 0, 1, 2 … gives shifted copies of one sequence (Q03).
+            // Mixed first: System.Random with seeds 0, 1, 2 … gives shifted copies of one sequence.
             var random = new Random(SeedMixer.Mix(seed));
             var choices = new List<TradeAction>(ActionCodec.BranchSize);
             env.ResetForEvaluation(seed, cost);

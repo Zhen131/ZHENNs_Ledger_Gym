@@ -8,14 +8,14 @@ namespace Gym.Tests.Core.Evaluation
 {
     public class EvaluationLogTests
     {
-        // ---- M-4 append-only log
+        // ---- append-only log
 
         string dir;
 
         [SetUp]
         public void SetUp()
         {
-            dir = Path.Combine(Path.GetTempPath(), "gym-m4-" + Guid.NewGuid().ToString("N"));
+            dir = Path.Combine(Path.GetTempPath(), "gym-evaluation-log-test-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(dir);
         }
 

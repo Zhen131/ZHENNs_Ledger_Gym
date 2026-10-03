@@ -16,7 +16,7 @@ namespace Gym.Tests.Core.Market
         static string Row(long t, string close = "4308.83000000") =>
             $"{t},4261.48000000,4313.62000000,4261.32000000,{close},47.18100900";
 
-        // ---- T-1 CSV parsing
+        // ---- CSV parsing
 
         [Test]
         public void ValidCsv_ParsesTheHeaderAndEveryColumn()
@@ -101,7 +101,7 @@ namespace Gym.Tests.Core.Market
             Assert.AreEqual(-1, s.IndexOfTime(TestData.SyntheticStartMs + 72 * H));
         }
 
-        // ---- T-2 the committed BTCUSDT data
+        // ---- the committed BTCUSDT data
 
         [Test]
         public void CommittedData_MatchesTheManifestRowsAndTimes()

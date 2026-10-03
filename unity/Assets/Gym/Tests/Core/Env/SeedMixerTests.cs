@@ -6,17 +6,17 @@ using NUnit.Framework;
 
 namespace Gym.Tests.Core.Env
 {
-    /// <summary>Seed mixing (Q03 / Q07): R-1 to R-4 of 07B.</summary>
+    /// <summary>Seed mixing.</summary>
     public class SeedMixerTests
     {
         const long Modulus = int.MaxValue; // System.Random's legacy generator works modulo 2^31 − 1
 
-        // ---- R-1 SeedMixer matches the Python reference
+        // ---- SeedMixer matches the Python reference
 
         [Test]
         public void Mix_MatchesThePythonReference()
         {
-            // Reference (07C): z = x + 0x9E3779B97F4A7C15; z = (z ^ z>>30) * 0xBF58476D1CE4E5B9;
+            // Reference: z = x + 0x9E3779B97F4A7C15; z = (z ^ z>>30) * 0xBF58476D1CE4E5B9;
             // z = (z ^ z>>27) * 0x94D049BB133111EB; z ^= z>>31 (all mod 2^64); keep the low 31 bits.
             Assert.AreEqual(2065550767, SeedMixer.Mix(0)); // SplitMix64(0) = 0xE220A8397B1DCDAF
             Assert.AreEqual(151149761, SeedMixer.Mix(1));
@@ -48,7 +48,7 @@ namespace Gym.Tests.Core.Env
             Assert.AreEqual(16, perAgent.Distinct().Count());
         }
 
-        // ---- R-4 the random baseline's draws for seeds 0, 1, 2 are not shifted copies
+        // ---- the random baseline's draws for seeds 0, 1, 2 are not shifted copies
 
         /// <summary>
         /// The first 2 × <paramref name="steps"/> draws of a generator as the integers behind
@@ -86,7 +86,7 @@ namespace Gym.Tests.Core.Env
                 Draws(new Random(SeedMixer.Mix(1)), steps),
                 Draws(new Random(SeedMixer.Mix(2)), steps));
             Assert.AreEqual(0, mixed, "with mixing none of the first 40 draws is");
-            TestContext.WriteLine($"R-4: arithmetic positions among the first {2 * steps} draws: unmixed {raw}, mixed {mixed}");
+            TestContext.WriteLine($"arithmetic positions among the first {2 * steps} draws: unmixed {raw}, mixed {mixed}");
         }
     }
 }

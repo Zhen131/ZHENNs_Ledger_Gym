@@ -4,14 +4,13 @@ using Gym.Core.Market;
 namespace Gym.Core.Accounting
 {
     /// <summary>
-    /// Cash and coin of one trader, with the bookkeeping rules of the contract
-    /// (01B §2.2). Division and rounding of coin amounts use decimal so that
-    /// 0.3 ÷ 0.1 is exactly 3.
+    /// Cash and coin of one trader. Division and rounding of coin amounts use
+    /// decimal so that 0.3 ÷ 0.1 is exactly 3.
     /// </summary>
     public sealed class Account
     {
         const double NegativeCashTolerance = 1e-9;
-        /// <summary>How many step units a buy may give back when rounding left it over the cash (01D-1).</summary>
+        /// <summary>How many step units a buy may give back when rounding left it over the cash.</summary>
         const int MaxUnitStepBacks = 3;
 
         public Account(SymbolRules rules, CostModel cost, double cash, long coinUnits = 0, double avgCost = 0)
@@ -21,7 +20,7 @@ namespace Gym.Core.Accounting
             if (!(cash >= 0) || double.IsInfinity(cash))
                 throw new ArgumentOutOfRangeException(nameof(cash), cash, "Must be a finite value >= 0.");
             if (coinUnits < 0) throw new ArgumentOutOfRangeException(nameof(coinUnits), coinUnits, "Must be >= 0.");
-            // A position needs a cost; with 0 the unrealised return divides by zero (01D-2).
+            // A position needs a cost; with 0 the unrealised return divides by zero.
             if (coinUnits > 0 && (!(avgCost > 0) || double.IsInfinity(avgCost)))
                 throw new ArgumentOutOfRangeException(nameof(avgCost), avgCost, "Must be a finite value > 0 when holding coin.");
             Cash = cash;
@@ -63,7 +62,7 @@ namespace Gym.Core.Accounting
             double notional = Notional(units, fillPrice);
             double fee = notional * Cost.FeeRate + Cost.FixedFee;
             // double → decimal keeps 15 significant digits, so with cash in the millions the floor
-            // can land a unit too high and overspend by a few 1e-9. Give units back (01D-1); only
+            // can land a unit too high and overspend by a few 1e-9. Give units back; only
             // buys the tolerance below would refuse are changed.
             for (int i = 0; i < MaxUnitStepBacks && units > 0 && Cash - (notional + fee) < -NegativeCashTolerance; i++)
             {

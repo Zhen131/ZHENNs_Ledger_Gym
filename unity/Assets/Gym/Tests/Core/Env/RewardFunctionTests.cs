@@ -10,7 +10,7 @@ namespace Gym.Tests.Core.Env
     {
         static readonly SymbolRules Btc = SymbolRules.BtcUsdt;
 
-        // ---- T-8 reward
+        // ---- reward
 
         [Test]
         public void Reward_IsTheClippedScaledLogReturn()

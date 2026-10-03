@@ -1,6 +1,6 @@
 namespace Gym.Core.Market
 {
-    /// <summary>The three segments of PRD D-14.</summary>
+    /// <summary>The default training, validation and test segments.</summary>
     public static class DefaultSplits
     {
         public static readonly SegmentSpec Train = SegmentSpec.Parse("train", "2017-08-17", "2024-08-31");

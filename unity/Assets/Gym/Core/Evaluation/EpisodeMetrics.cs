@@ -1,6 +1,6 @@
 namespace Gym.Core.Evaluation
 {
-    /// <summary>The evaluation numbers of one episode (04B §1).</summary>
+    /// <summary>The evaluation numbers of one episode.</summary>
     public readonly struct EpisodeMetrics
     {
         public readonly double TotalReturn;

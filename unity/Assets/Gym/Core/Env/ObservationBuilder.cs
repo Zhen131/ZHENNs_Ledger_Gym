@@ -5,7 +5,7 @@ using Gym.Core.Market;
 namespace Gym.Core.Env
 {
     /// <summary>
-    /// The 35 numbers the agent sees at decision index t (01B §2.4). Only
+    /// The 35 numbers the agent sees at decision index t. Only
     /// candles up to and including t are read.
     /// </summary>
     public static class ObservationBuilder

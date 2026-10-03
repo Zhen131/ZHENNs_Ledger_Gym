@@ -12,7 +12,7 @@ namespace Gym.Tests.Core.Evaluation
     {
         static readonly SymbolRules Btc = SymbolRules.BtcUsdt;
 
-        // ---- M-3 baselines
+        // ---- baselines
 
         [Test]
         public void BuyAndHoldOnARisingMarket_EarnsTheMoveLessOneFee()

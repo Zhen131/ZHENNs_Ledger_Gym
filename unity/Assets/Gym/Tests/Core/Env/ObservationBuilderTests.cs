@@ -10,7 +10,7 @@ namespace Gym.Tests.Core.Env
     {
         static readonly SymbolRules Btc = SymbolRules.BtcUsdt;
 
-        // ---- T-6 observation
+        // ---- observation
 
         [Test]
         public void SyntheticSeries_GivesTheHandCheckedValues()

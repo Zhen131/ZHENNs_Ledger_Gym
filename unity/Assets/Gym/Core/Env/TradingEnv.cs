@@ -7,7 +7,7 @@ namespace Gym.Core.Env
 {
     /// <summary>
     /// One trading episode over candles [First, Last], in plain C#. The Unity
-    /// agent is only a shell around this class (01B §2.7).
+    /// agent is only a shell around this class.
     ///
     /// At decision index t the agent sees candles up to the close of t; the
     /// order fills at the open of t + 1; the reward compares equity at the
@@ -115,7 +115,7 @@ namespace Gym.Core.Env
             if (hi < lo)
                 throw new InvalidOperationException(
                     $"Segment [{First}, {Last}] is too short for a {EpisodeLength}-step episode.");
-            // Mixed first: System.Random with nearby seeds gives shifted copies of one sequence (Q03).
+            // Mixed first: System.Random with nearby seeds gives shifted copies of one sequence.
             var random = new Random(SeedMixer.Mix(seed));
             int start = random.Next(lo, hi + 1);
             bool holdCoin = random.NextDouble() < RandomInitialPositionShare;
@@ -149,7 +149,7 @@ namespace Gym.Core.Env
 
         /// <summary>
         /// Evaluation-style start at a chosen candle: all cash, no randomness, runs to
-        /// <see cref="Last"/>. Used by the Play scene (02B §2.3).
+        /// <see cref="Last"/>. Used by the Play scene.
         /// </summary>
         public void Reset(CostModel cost, int startIndex)
         {

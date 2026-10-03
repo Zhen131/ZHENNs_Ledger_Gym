@@ -1,7 +1,7 @@
 namespace Gym.Core.Env
 {
     /// <summary>
-    /// Scrambles seeds before they reach <see cref="System.Random"/> (Q03).
+    /// Scrambles seeds before they reach <see cref="System.Random"/>.
     ///
     /// .NET's seeded <c>System.Random</c> is linear in its seed: for seeds s and
     /// s + 1, every output of the sequence differs by the same fixed amount (modulo

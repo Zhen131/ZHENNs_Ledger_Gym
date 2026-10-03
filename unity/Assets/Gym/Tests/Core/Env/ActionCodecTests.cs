@@ -22,7 +22,7 @@ namespace Gym.Tests.Core.Env
             Assert.AreEqual(0.25, ActionCodec.Fraction(ActionCodec.FromFraction(0.25)), 1e-7);
         }
 
-        // ---- T-5 action mask
+        // ---- action mask
 
         [Test]
         public void WhenFlat_SellIsMasked()
