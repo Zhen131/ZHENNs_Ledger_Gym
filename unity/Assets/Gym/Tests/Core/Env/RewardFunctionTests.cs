@@ -30,7 +30,7 @@ namespace Gym.Tests.Core.Env
         [Test]
         public void UnclippedEpisode_RewardsSumToTheLogReturn()
         {
-            // Hourly moves of at most 0.3 % keep every step inside ±1.
+            // 每小时最多变动 0.3 %，所以每个 step 都落在 ±1 以内。
             CandleSeries s = TestData.RandomWalk(800, 8, 0.003);
             var env = new TradingEnv(s, Btc, 0, s.Count - 1);
             env.ResetForEvaluation(0, new CostModel());
@@ -51,8 +51,8 @@ namespace Gym.Tests.Core.Env
         [Test]
         public void ClippedSteps_AreCounted()
         {
-            // Price 100, jumps to 105 at 50, back to 100 at 60, to 103 at 70.
-            // Fully invested from step 1, each jump moves equity by more than 1 % → 3 clipped steps.
+            // 价格 100，在 50 跳到 105，在 60 回到 100，在 70 到 103。
+            // 从第 1 个 step 起满仓，每次跳动都让 equity 变动超过 1 % → 3 个被截断的 step。
             CandleSeries s = TestData.Synthetic(100, k => k < 50 ? 100 : k < 60 ? 105 : k < 70 ? 100 : 103);
             var env = new TradingEnv(s, Btc, 0, 99);
             env.ResetForEvaluation(0, new CostModel());

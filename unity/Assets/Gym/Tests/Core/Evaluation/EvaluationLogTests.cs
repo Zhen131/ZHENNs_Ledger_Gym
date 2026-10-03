@@ -8,7 +8,7 @@ namespace Gym.Tests.Core.Evaluation
 {
     public class EvaluationLogTests
     {
-        // ---- append-only log
+        // ---- 只追加的评估流水
 
         string dir;
 
@@ -73,7 +73,7 @@ namespace Gym.Tests.Core.Evaluation
         {
             string path = Path.Combine(dir, EvaluationLog.FileName);
             string existing = EvaluationLog.Header + "\n" + EvaluationLog.FormatRow(Record("cash", 0));
-            File.WriteAllText(path, existing); // no trailing newline
+            File.WriteAllText(path, existing); // 末尾没有换行
             byte[] before = File.ReadAllBytes(path);
             EvaluationLog.Append(dir, Record("random", 0.05));
             byte[] after = File.ReadAllBytes(path);

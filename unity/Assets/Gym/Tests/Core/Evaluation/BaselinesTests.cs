@@ -12,14 +12,14 @@ namespace Gym.Tests.Core.Evaluation
     {
         static readonly SymbolRules Btc = SymbolRules.BtcUsdt;
 
-        // ---- baselines
+        // ---- 对照组
 
         [Test]
         public void BuyAndHoldOnARisingMarket_EarnsTheMoveLessOneFee()
         {
-            // close[k] = 100 × 1.001^k, open[k] = close[k − 1]. Evaluation starts at t = 32 and
-            // buys at open[33] = close[32]; the account ends at close[199].
-            //   expected = (close[199] ÷ close[32]) ÷ (1 + fee) − 1   (fee 0.1 % paid once on the buy)
+            // close[k] = 100 × 1.001^k，open[k] = close[k − 1]。评估从 t = 32 开始，
+            // 在 open[33] = close[32] 买入；账户在 close[199] 结束。
+            //   预期 = (close[199] ÷ close[32]) ÷ (1 + fee) − 1   （fee 0.1 %，只在买入时付一次）
             CandleSeries s = TestData.Synthetic(200, k => 100 * Math.Pow(1.001, k), k => k == 0 ? 100 : 100 * Math.Pow(1.001, k - 1));
             var env = new TradingEnv(s, Btc, 0, 199);
             var cost = new CostModel(0.001);
@@ -59,8 +59,8 @@ namespace Gym.Tests.Core.Evaluation
         [Test]
         public void RandomBaseline_DrawsFromTheMixedSeedStream()
         {
-            // Every filled order of RunRandom(seed 0) carries the fraction drawn at its step
-            // from Random(Mix(0)): draw 2k is the choice, draw 2k + 1 the fraction.
+            // RunRandom(seed 0) 的每一笔成交的订单，都带着它那个 step 从 Random(Mix(0)) 取到的比例：
+            // 第 2k 次取的是选择，第 2k + 1 次取的是比例。
             CandleSeries s = TestData.RandomWalk(300, 41, 0.01);
             var env = new TradingEnv(s, SymbolRules.BtcUsdt, 0, 299);
             Baselines.RunRandom(env, new CostModel(), 0);

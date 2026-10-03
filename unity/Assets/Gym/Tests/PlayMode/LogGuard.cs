@@ -6,10 +6,9 @@ using UnityEngine.TestTools;
 namespace Gym.Tests.PlayMode
 {
     /// <summary>
-    /// "No error logs" for a PlayMode test. LogAssert.NoUnexpectedReceived() also
-    /// rejects plain Debug.Log lines (ML-Agents prints several), so this guard records
-    /// every log while it is active, marks the Log and Warning ones as expected, and
-    /// then calls NoUnexpectedReceived: any error, assert or exception still fails.
+    /// 给 PlayMode 测试用的「没有错误日志」检查。LogAssert.NoUnexpectedReceived() 连普通的 Debug.Log 行
+    /// 也会拒绝（ML-Agents 会打印好几行），所以这个守卫在生效期间记下每一条日志，把 Log 和 Warning
+    /// 两类标成预期之内，再调用 NoUnexpectedReceived：任何 error、assert 或 exception 仍然会让测试失败。
     /// </summary>
     sealed class LogGuard : IDisposable
     {

@@ -6,7 +6,7 @@ namespace Gym.Tests.Core.Market
 {
     public class SplitValidatorTests
     {
-        // ---- split validation
+        // ---- 检查分段划分
 
         static SegmentSpec Seg(string name, string from, string to) => SegmentSpec.Parse(name, from, to);
 
@@ -29,7 +29,7 @@ namespace Gym.Tests.Core.Market
             StringAssert.Contains("overlap", report.Errors[0]);
         }
 
-        // Every way two segments can overlap is refused, not only train and validation sharing a day.
+        // 两个分段重叠的每一种情况都会被拒绝，不只是训练段和验证段共用一天这一种。
 
         static void AssertOverlap(SplitReport report, string first, string second)
         {
@@ -101,7 +101,7 @@ namespace Gym.Tests.Core.Market
         [Test]
         public void TrainingSegmentShorterThanAnEpisode_IsAnError()
         {
-            // 2024-08-01 00:00 .. 2024-08-30 23:00 = 720 bars; an episode needs 721.
+            // 2024-08-01 00:00 .. 2024-08-30 23:00 = 720 根 bar；一个 episode 需要 721 根。
             SplitReport shortOne = SplitValidator.Validate(Seg("train", "2024-08-01", "2024-08-30"),
                 DefaultSplits.Validation, DefaultSplits.Test, TestData.Btc, 720);
             Assert.IsFalse(shortOne.IsValid);

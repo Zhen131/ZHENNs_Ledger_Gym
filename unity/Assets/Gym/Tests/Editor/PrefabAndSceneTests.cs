@@ -52,7 +52,7 @@ namespace Gym.Tests.Editor
             Assert.AreEqual(0.0, agent.DefaultSlippage);
         }
 
-        // ---- scenes
+        // ---- 各个 scene
 
         [Test]
         public void TrainingScene_HasSixteenDefaultAgents()

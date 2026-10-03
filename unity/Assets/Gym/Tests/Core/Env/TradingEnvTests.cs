@@ -13,7 +13,7 @@ namespace Gym.Tests.Core.Env
     {
         static readonly SymbolRules Btc = SymbolRules.BtcUsdt;
 
-        // ---- one episode
+        // ---- 一个 episode
 
         [Test]
         public void TrainingEpisode_EndsAtStep720()
@@ -122,7 +122,7 @@ namespace Gym.Tests.Core.Env
             }
         }
 
-        // ---- cash and coin never go negative
+        // ---- 现金和 coin 永远不会变成负数
 
         [Test]
         public void RandomActions_NeverMakeCashOrCoinNegative()
@@ -152,7 +152,7 @@ namespace Gym.Tests.Core.Env
             Assert.AreEqual(200L * 720, steps);
         }
 
-        // ---- speed (no hard limit; reported)
+        // ---- 速度（没有硬性上限；只报告）
 
         [Test]
         public void HundredThousandSteps_TimingIsReported()
@@ -198,7 +198,7 @@ namespace Gym.Tests.Core.Env
             Assert.AreEqual(150, steps);
             Assert.AreEqual(EndReason.SegmentEnd, env.EndReason);
 
-            // Same start and actions as an evaluation episode that happens to start there.
+            // 和恰好从那里开始的评估 episode 相比，起点和 action 都一样。
             var a = new TradingEnv(s, Btc, 100, 250);
             var b = new TradingEnv(s, Btc, 10, 250);
             a.ResetForEvaluation(0, new CostModel());
@@ -232,7 +232,7 @@ namespace Gym.Tests.Core.Env
             Assert.DoesNotThrow(() => env.ResetForEvaluation(0, new CostModel()));
         }
 
-        // ---- no look-ahead
+        // ---- 不偷看未来
 
         [Test]
         public void FutureCandles_DoNotChangeTheObservation()
@@ -277,7 +277,7 @@ namespace Gym.Tests.Core.Env
         [Test]
         public void Orders_FillAtTheNextOpen()
         {
-            // open[k] = close[k − 1] × 1.01, so open[t + 1] differs from close[t].
+            // open[k] = close[k − 1] × 1.01，所以 open[t + 1] 和 close[t] 不同。
             CandleSeries s = TestData.Synthetic(80, k => 100 + k, k => k == 0 ? 100 : (100 + k - 1) * 1.01);
             var env = new TradingEnv(s, Btc, 0, 79);
             env.ResetForEvaluation(0, new CostModel(0.001, 0, 0.0005));
@@ -295,7 +295,7 @@ namespace Gym.Tests.Core.Env
             Assert.AreEqual(s.OpenAt(34) * (1 - 0.0005), sell.Price, 1e-9);
         }
 
-        // ---- training starts for seeds 0..999 are no longer a lattice
+        // ---- seed 0..999 的训练起点打散后不是格点
 
         [Test]
         public void TrainingStartsForConsecutiveSeeds_AreSpread()
@@ -303,8 +303,8 @@ namespace Gym.Tests.Core.Env
             TradingEnv env = TestData.TrainEnv();
             int lo = Math.Max(env.First, ObservationBuilder.Lookback), hi = env.Last - TradingEnv.TrainingEpisodeLength;
 
-            // Premise: without mixing, the start for seed s is a lattice in s; adjacent starts differ
-            // by one of a handful of values (two step sizes, ±1 from rounding).
+            // 前提：不打散时，seed s 的起点随 s 排成格点；相邻起点之差只有少数几种值
+            // （两种步长，加上取整带来的 ±1）。
             var rawStarts = Enumerable.Range(0, 1000).Select(s => new Random(s).Next(lo, hi + 1)).ToList();
             int rawDistinct = rawStarts.Zip(rawStarts.Skip(1), (a, b) => b - a).Distinct().Count();
             Assert.LessOrEqual(rawDistinct, 4, "premise: unmixed seeds give a lattice");
@@ -324,7 +324,7 @@ namespace Gym.Tests.Core.Env
             TestContext.WriteLine($"unmixed {rawDistinct} distinct adjacent differences, mixed {distinct}; {withCoin}/1000 held coin");
         }
 
-        // ---- same seed, same actions, same bits
+        // ---- 同样的 seed、同样的 action，得到逐位相同的结果
 
         [Test]
         public void SameSeedWithCosts_GivesTheSameStartAndEquityCurve()

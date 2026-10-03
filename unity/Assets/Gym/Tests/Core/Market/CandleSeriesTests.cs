@@ -16,7 +16,7 @@ namespace Gym.Tests.Core.Market
         static string Row(long t, string close = "4308.83000000") =>
             $"{t},4261.48000000,4313.62000000,4261.32000000,{close},47.18100900";
 
-        // ---- CSV parsing
+        // ---- 解析 CSV
 
         [Test]
         public void ValidCsv_ParsesTheHeaderAndEveryColumn()
@@ -101,7 +101,7 @@ namespace Gym.Tests.Core.Market
             Assert.AreEqual(-1, s.IndexOfTime(TestData.SyntheticStartMs + 72 * H));
         }
 
-        // ---- the committed BTCUSDT data
+        // ---- 仓库里提交的 BTCUSDT 数据
 
         [Test]
         public void CommittedData_MatchesTheManifestRowsAndTimes()

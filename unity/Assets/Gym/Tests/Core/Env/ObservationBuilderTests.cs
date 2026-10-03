@@ -15,8 +15,8 @@ namespace Gym.Tests.Core.Env
         [Test]
         public void SyntheticSeries_GivesTheHandCheckedValues()
         {
-            // close[k] = 100 + k. At t = 32, close[t] = 132 and close[t − i] = 132 − i, so
-            // obs[i − 1] = tanh(10 × ((132 − i) ÷ 132 − 1)) = tanh(−10 i ÷ 132).
+            // close[k] = 100 + k。在 t = 32 时，close[t] = 132，close[t − i] = 132 − i，所以
+            // obs[i − 1] = tanh(10 × ((132 − i) ÷ 132 − 1)) = tanh(−10 i ÷ 132)。
             CandleSeries s = TestData.Synthetic(41, k => 100 + k);
             var obs = new float[ObservationBuilder.Size];
             var flat = new Account(Btc, new CostModel(), 10_000);
@@ -28,10 +28,10 @@ namespace Gym.Tests.Core.Env
             Assert.AreEqual(0f, obs[33]);
             Assert.AreEqual(0f, obs[34]);
 
-            // 10 BTC (1,000,000 units) bought at 120, 5,000 cash, price 132, fee 0.1 %:
-            //   position ratio = 1320 ÷ (5000 + 1320)
-            //   unrealised = (10 × 132 × 0.999 − 10 × 120) ÷ (10 × 120) = 0.0989
-            //   steps since trade 360 → 360 ÷ 720 = 0.5
+            // 在 120 买入的 10 BTC（1,000,000 个单位），现金 5,000，价格 132，fee 0.1 %：
+            //   持仓比例 = 1320 ÷ (5000 + 1320)
+            //   未实现收益率 = (10 × 132 × 0.999 − 10 × 120) ÷ (10 × 120) = 0.0989
+            //   距上次交易 360 个 step → 360 ÷ 720 = 0.5
             var held = new Account(Btc, new CostModel(), 5_000, coinUnits: 1_000_000, avgCost: 120);
             ObservationBuilder.Write(s, 32, held, 360, obs);
             Assert.AreEqual((float)(1320.0 / 6320.0), obs[32], 1e-7);

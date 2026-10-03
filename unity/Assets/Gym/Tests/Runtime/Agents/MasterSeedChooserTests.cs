@@ -5,7 +5,7 @@ using NUnit.Framework;
 
 namespace Gym.Tests.Runtime.Agents
 {
-    /// <summary>Where an agent's master seed comes from.</summary>
+    /// <summary>Agent 的 master seed 从哪里来。</summary>
     public class MasterSeedChooserTests
     {
         [Test]
@@ -20,7 +20,7 @@ namespace Gym.Tests.Runtime.Agents
             var perAgent = Enumerable.Range(0, 16).Select(i => MasterSeedChooser.Choose(true, 7, 0, i).seed).ToList();
             Assert.AreEqual(16, perAgent.Distinct().Count(), "16 agents, 16 different master seeds");
 
-            // mlagents gives environment k the seed --seed + k: the two environments differ.
+            // mlagents 给第 k 个环境的 seed 是 --seed + k：这两个环境不同。
             Assert.AreNotEqual(MasterSeedChooser.Choose(true, 7000, 0, 0).seed,
                 MasterSeedChooser.Choose(true, 7001, 0, 0).seed);
         }
@@ -28,8 +28,8 @@ namespace Gym.Tests.Runtime.Agents
         [Test]
         public void PinnedMlAgents_StillHasTheTrainerSeedField()
         {
-            // Academy.InferenceSeed has no getter in ML-Agents 4.0.3; MasterSeedChooser reads the
-            // private field it sets. An ML-Agents upgrade that renames it must fail here.
+            // ML-Agents 4.0.3 里 Academy.InferenceSeed 没有 getter；MasterSeedChooser 读的是它写入的那个私有字段。
+            // 哪次升级 ML-Agents 把这个字段改了名，这里就必须失败。
             Assert.IsTrue(MasterSeedChooser.CanReadTrainerSeed, "Academy.m_InferenceSeed (int) not found");
             Assert.IsFalse(MasterSeedChooser.TryReadTrainerSeed(null, out _));
         }

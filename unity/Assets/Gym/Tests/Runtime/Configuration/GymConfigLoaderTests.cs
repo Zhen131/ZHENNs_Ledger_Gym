@@ -78,7 +78,7 @@ namespace Gym.Tests.Runtime.Configuration
         {
             GymConfig config = DefaultConfig();
             config.initialCash = 0;
-            config.playStart = "2025-01-01"; // validation segment, not training
+            config.playStart = "2025-01-01"; // 在验证段里，不在训练段里
             config.validation = new DateRange { start = "2024-09-01", end = "bad" };
             var e = Assert.Throws<GymConfigException>(() =>
                 GymConfigLoader.Load(WriteConfig(config), GymConfigLoader.DefaultSymbolsPath));
@@ -131,7 +131,7 @@ namespace Gym.Tests.Runtime.Configuration
 
             var e = Assert.Throws<GymConfigException>(() => GymConfigLoader.Load(GymConfigLoader.DefaultConfigPath,
                 GymConfigLoader.DefaultSymbolsPath, new[] { "x", "-gymMode", "play", "-gymSegment", "test", "-gymFeeRate", "abc" }));
-            Assert.AreEqual(2, e.Errors.Count, string.Join("; ", e.Errors)); // unknown mode, bad number
+            Assert.AreEqual(2, e.Errors.Count, string.Join("; ", e.Errors)); // 未知的模式，加一个不合法的数字
             var f = Assert.Throws<GymConfigException>(() => GymConfigLoader.Load(GymConfigLoader.DefaultConfigPath,
                 GymConfigLoader.DefaultSymbolsPath, new[] { "x", "-gymMode", "eval", "-gymSegment", "train" }));
             StringAssert.Contains("not an evaluation segment", f.Message);
@@ -146,8 +146,8 @@ namespace Gym.Tests.Runtime.Configuration
         [TestCase("-gymFixedFee", "-1")]
         public void CostArgumentOutsideTheCostModelRange_IsAConfigError(string name, string value)
         {
-            // The evaluation player hung on -gymFeeRate 1.5 because CostModel threw
-            // only when the agent reset. Now the loader reports it like any other config error.
+            // 如果只靠 CostModel，异常要等 Agent 重置时才抛出，评估 player 遇到 -gymFeeRate 1.5 就会卡住；
+            // 所以 loader 在载入时就像其他配置错误一样报告它。
             var e = Assert.Throws<GymConfigException>(() => GymConfigLoader.Load(GymConfigLoader.DefaultConfigPath,
                 GymConfigLoader.DefaultSymbolsPath, new[] { "x", "-gymMode", "eval", name, value }));
             Assert.AreEqual(1, e.Errors.Count, string.Join("; ", e.Errors));
@@ -167,7 +167,7 @@ namespace Gym.Tests.Runtime.Configuration
         [Test]
         public void InitialCashAboveTheLimit_IsAConfigError()
         {
-            // From about 1e12 USDT on, an all-in buy could round past the cash and throw.
+            // 从大约 1e12 USDT 起，全仓买入取整时可能超出现金并抛异常。
             GymConfig config = DefaultConfig();
             config.initialCash = 1e13;
             var e = Assert.Throws<GymConfigException>(() =>

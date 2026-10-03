@@ -37,7 +37,7 @@ namespace Gym.Tests.Editor
         {
             EvalTools.Run(new[] { "x", "-gymSegment", "validation", "-gymFeeRates", "0.001", "-gymRandomSeeds", "2", "-gymOut", tempDir });
             string[] files = Directory.GetFiles(tempDir, "*", SearchOption.AllDirectories);
-            Assert.AreEqual(4, files.Length, "log.csv and one JSON per policy"); // buy-and-hold, cash, random
+            Assert.AreEqual(4, files.Length, "log.csv and one JSON per policy"); // 买入持有、一直拿现金、随机
             foreach (string file in files)
             {
                 string text = File.ReadAllText(file);

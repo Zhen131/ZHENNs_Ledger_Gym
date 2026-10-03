@@ -18,7 +18,7 @@ namespace Gym.Tests.PlayMode
             if (Academy.IsInitialized) Academy.Instance.AutomaticSteppingEnabled = true;
         }
 
-        // ---- sixteen agents, one full episode each
+        // ---- 十六个 Agent，每个完整跑一个 episode
 
         [UnityTest]
         public IEnumerator SixteenAgents_EachFinishAnEpisodeWithin750Steps()

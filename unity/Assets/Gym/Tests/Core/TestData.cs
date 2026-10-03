@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace Gym.Tests.Core
 {
-    /// <summary>Shared fixtures: the committed BTCUSDT data and small synthetic series.</summary>
+    /// <summary>共用的测试数据：仓库里提交的 BTCUSDT 数据，和几段小的合成序列。</summary>
     static class TestData
     {
         public static string DataDir => Path.Combine(Application.streamingAssetsPath, "Gym", "data");
@@ -20,7 +20,7 @@ namespace Gym.Tests.Core
 
         static CandleSeries btc;
 
-        /// <summary>The committed BTCUSDT series, parsed once per test run.</summary>
+        /// <summary>仓库里提交的 BTCUSDT 序列，每次跑测试只解析一次。</summary>
         public static CandleSeries Btc => btc ??= CandleSeries.Parse(File.ReadAllText(BtcCsvPath));
 
         public static long ManifestLong(string key)
@@ -37,7 +37,7 @@ namespace Gym.Tests.Core
             return m.Groups[1].Value;
         }
 
-        /// <summary>Hourly series whose open and close come from the given functions.</summary>
+        /// <summary>小时序列，open 和 close 由传入的函数给出。</summary>
         public static CandleSeries Synthetic(int count, Func<int, double> close, Func<int, double> open = null)
         {
             var candles = new List<Candle>(count);
@@ -50,7 +50,7 @@ namespace Gym.Tests.Core
             return CandleSeries.FromCandles(candles);
         }
 
-        /// <summary>Random walk with steps of at most ±<paramref name="maxMove"/> per hour.</summary>
+        /// <summary>随机游走，每小时的步幅最多 ±<paramref name="maxMove"/>。</summary>
         public static CandleSeries RandomWalk(int count, int seed, double maxMove, double start = 100)
         {
             var random = new System.Random(seed);

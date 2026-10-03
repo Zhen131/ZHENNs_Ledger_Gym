@@ -7,17 +7,17 @@ namespace Gym.Tests.Core.Evaluation
 {
     public class MetricsTests
     {
-        // ---- hand-checked metrics
+        // ---- 手算核对过的指标
 
         [Test]
         public void ShortCurve_GivesTheHandCheckedMetrics()
         {
-            // Curve 100 → 110 → 99 → 121.
-            //   return = 121 ÷ 100 − 1 = 0.21
-            //   max drawdown: peak 110, later low 99 → (110 − 99) ÷ 110 = 0.1
-            //   log returns r = [ln 1.1, ln 0.9, ln(121/99)] = [0.0953102, −0.1053605, 0.2006707]
-            //   mean = ln(1.21) ÷ 3 = 0.0635401
-            //   sample std = √(Σ(r − mean)² ÷ 2) = 0.1554695
+            // 曲线 100 → 110 → 99 → 121。
+            //   收益率 = 121 ÷ 100 − 1 = 0.21
+            //   最大 drawdown：高点 110，之后的低点 99 → (110 − 99) ÷ 110 = 0.1
+            //   对数收益率 r = [ln 1.1, ln 0.9, ln(121/99)] = [0.0953102, −0.1053605, 0.2006707]
+            //   均值 mean = ln(1.21) ÷ 3 = 0.0635401
+            //   样本标准差 = √(Σ(r − mean)² ÷ 2) = 0.1554695
             //   Sharpe = 0.0635401 ÷ 0.1554695 × √8760 = 38.252055
             double[] curve = { 100, 110, 99, 121 };
             Assert.AreEqual(0.21, Metrics.TotalReturn(curve), 1e-12);
@@ -50,7 +50,7 @@ namespace Gym.Tests.Core.Evaluation
             Assert.IsNaN(Metrics.Median(new double[0]));
         }
 
-        // ---- edge cases
+        // ---- 边界情况
 
         [Test]
         public void FlatOrOnePointCurve_GivesZeroSharpeWithoutCrashing()

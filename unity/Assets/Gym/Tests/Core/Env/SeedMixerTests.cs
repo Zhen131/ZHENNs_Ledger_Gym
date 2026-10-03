@@ -6,18 +6,18 @@ using NUnit.Framework;
 
 namespace Gym.Tests.Core.Env
 {
-    /// <summary>Seed mixing.</summary>
+    /// <summary>seed 的打散。</summary>
     public class SeedMixerTests
     {
-        const long Modulus = int.MaxValue; // System.Random's legacy generator works modulo 2^31 − 1
+        const long Modulus = int.MaxValue; // System.Random 的旧版生成器按模 2^31 − 1 运算
 
-        // ---- SeedMixer matches the Python reference
+        // ---- SeedMixer 和 Python 参考实现一致
 
         [Test]
         public void Mix_MatchesThePythonReference()
         {
-            // Reference: z = x + 0x9E3779B97F4A7C15; z = (z ^ z>>30) * 0xBF58476D1CE4E5B9;
-            // z = (z ^ z>>27) * 0x94D049BB133111EB; z ^= z>>31 (all mod 2^64); keep the low 31 bits.
+            // 参考实现：z = x + 0x9E3779B97F4A7C15; z = (z ^ z>>30) * 0xBF58476D1CE4E5B9;
+            // z = (z ^ z>>27) * 0x94D049BB133111EB; z ^= z>>31（全部 mod 2^64）；取低 31 位。
             Assert.AreEqual(2065550767, SeedMixer.Mix(0)); // SplitMix64(0) = 0xE220A8397B1DCDAF
             Assert.AreEqual(151149761, SeedMixer.Mix(1));
             Assert.AreEqual(479680206, SeedMixer.Mix(2));
@@ -48,19 +48,18 @@ namespace Gym.Tests.Core.Env
             Assert.AreEqual(16, perAgent.Distinct().Count());
         }
 
-        // ---- the random baseline's draws for seeds 0, 1, 2 are not shifted copies
+        // ---- 随机对照组用 seed 0、1、2 取到的数不是彼此平移的副本
 
         /// <summary>
-        /// The first 2 × <paramref name="steps"/> draws of a generator as the integers behind
-        /// NextDouble (Sample × (2^31 − 1)). The random baseline draws exactly two per step:
-        /// the choice, then the fraction.
+        /// 一个生成器的前 2 × <paramref name="steps"/> 次取数，换成 NextDouble 背后的整数
+        /// （Sample × (2^31 − 1)）。随机对照组每个 step 正好取两个数：先取选择，再取比例。
         /// </summary>
         static long[] Draws(Random random, int steps) =>
             Enumerable.Range(0, 2 * steps).Select(_ => (long)Math.Round(random.NextDouble() * Modulus)).ToArray();
 
         /// <summary>
-        /// Criterion: seeds 0, 1, 2 are "shifted copies" at draw k when
-        /// draw₂[k] − draw₁[k] ≡ draw₁[k] − draw₀[k] (mod 2^31 − 1). Counts such k.
+        /// 判据：当 draw₂[k] − draw₁[k] ≡ draw₁[k] − draw₀[k] (mod 2^31 − 1) 时，seed 0、1、2 在第 k 次取数上
+        /// 是「平移副本」。数出这样的 k 有几个。
         /// </summary>
         static int ArithmeticPositions(long[] d0, long[] d1, long[] d2)
         {

@@ -11,12 +11,12 @@ namespace Gym.Tests.Core.Accounting
         static readonly SymbolRules Btc = SymbolRules.BtcUsdt;
         static readonly SymbolRules Ada = new SymbolRules("ADAUSDT", 5.0, 0.1m);
 
-        // ---- hand-checked bookkeeping
+        // ---- 手算核对过的记账
 
         [Test]
         public void BuyAQuarterThenSellHalf_BooksTheHandCheckedValues()
         {
-            // Buy 25 % of 10,000 USDT at 50,000, fee 0.1 %, no slippage, no fixed fee:
+            // 在 50,000 买入 10,000 USDT 的 25 %，fee 0.1 %，没有 slippage，没有固定 fee：
             //   B = 10000 × 0.25 = 2500, p = 50000
             //   units = floor(2500 ÷ (50000 × 1.001) ÷ 0.00001) = floor(4995.004995…) = 4995  → 0.04995 BTC
             //   N = 0.04995 × 50000 = 2497.5
@@ -36,14 +36,14 @@ namespace Gym.Tests.Core.Accounting
             Assert.AreEqual(0, a.Rejected);
             Assert.AreEqual(2.4975, a.FeesPaid, Tol);
             Assert.AreEqual(2497.5, a.TurnoverNotional, Tol);
-            // Unrealised return at the average cost is exactly −FeeRate.
+            // 按平均成本算，未实现收益率正好是 −FeeRate。
             Assert.AreEqual(-0.001, a.UnrealizedReturn(50_050), 1e-12);
 
-            // Sell 50 % at 52,000:
+            // 在 52,000 卖出 50 %：
             //   units = floor(4995 × 0.5) = 2497  → 0.02497 BTC
             //   N = 0.02497 × 52000 = 1298.44,  F = 1.29844
             //   Cash = 7500.0025 + 1298.44 − 1.29844 = 8797.14406
-            //   CoinUnits = 2498, AvgCost unchanged = 50050
+            //   CoinUnits = 2498, AvgCost 不变 = 50050
             //   Equity(52000) = 8797.14406 + 0.02498 × 52000 = 10096.10406
             Assert.IsTrue(a.TrySell(0.5, 52_000, out Fill sell));
             Assert.AreEqual(2497, sell.Units);
@@ -64,7 +64,7 @@ namespace Gym.Tests.Core.Accounting
         [Test]
         public void FiveBasisPointsOfSlippage_MoveBothFillsAgainstTheTrader()
         {
-            // Fee 0.1 %, slippage 0.0005, buy 25 % of 10,000 at base price 50,000:
+            // fee 0.1 %，slippage 0.0005，按基准价格 50,000 买入 10,000 的 25 %：
             //   p = 50000 × 1.0005 = 50025
             //   units = floor(2500 ÷ (50025 × 1.001) ÷ 0.00001) = floor(4992.508…) = 4992  → 0.04992 BTC
             //   N = 0.04992 × 50025 = 2497.248,  F = 2.497248
@@ -79,7 +79,7 @@ namespace Gym.Tests.Core.Accounting
             Assert.AreEqual(7500.254752, a.Cash, Tol);
             Assert.AreEqual(50_075.025, a.AvgCost, 1e-7);
 
-            // Sell everything at base 50,000: p = 50000 × 0.9995 = 49975
+            // 按基准价格 50,000 全部卖出：p = 50000 × 0.9995 = 49975
             //   N = 0.04992 × 49975 = 2494.752,  F = 2.494752
             //   Cash = 7500.254752 + 2494.752 − 2.494752 = 9992.512
             Assert.IsTrue(a.TrySell(1, 50_000, out Fill sell));
@@ -94,7 +94,7 @@ namespace Gym.Tests.Core.Accounting
         [Test]
         public void FixedFeeOfOneUsdt_IsChargedOnEveryFill()
         {
-            // Fee 0.1 % + 1 USDT per order, buy 25 % of 10,000 at 50,000:
+            // fee 0.1 % 加每笔订单 1 USDT，在 50,000 买入 10,000 的 25 %：
             //   B − FixedFee = 2500 − 1 = 2499
             //   units = floor(2499 ÷ 50050 ÷ 0.00001) = floor(4993.0069…) = 4993  → 0.04993 BTC
             //   N = 0.04993 × 50000 = 2496.5,  F = 2.4965 + 1 = 3.4965
@@ -107,21 +107,21 @@ namespace Gym.Tests.Core.Accounting
             Assert.AreEqual(3.4965, buy.Fee, Tol);
             Assert.AreEqual(7500.0035, a.Cash, Tol);
             Assert.AreEqual(2499.9965 / 0.04993, a.AvgCost, 1e-7);
-            // Unrealised at 50,000: (0.04993 × 50000 × 0.999 − 1 − 2499.9965) ÷ 2499.9965
+            // 在 50,000 时的未实现收益率：(0.04993 × 50000 × 0.999 − 1 − 2499.9965) ÷ 2499.9965
             Assert.AreEqual((2496.5 * 0.999 - 1 - 2499.9965) / 2499.9965, a.UnrealizedReturn(50_000), 1e-12);
 
-            // Sell everything at 50,000: N = 2496.5, F = 3.4965, Cash = 7500.0035 + 2493.0035 = 9993.007
+            // 在 50,000 全部卖出：N = 2496.5, F = 3.4965, Cash = 7500.0035 + 2493.0035 = 9993.007
             Assert.IsTrue(a.TrySell(1, 50_000, out _));
             Assert.AreEqual(9993.007, a.Cash, Tol);
             Assert.AreEqual(6.993, a.FeesPaid, Tol);
         }
 
-        // ---- minimum order and step size
+        // ---- 最小订单和数量步长
 
         [Test]
         public void FourUsdtBudget_IsRejectedAndChangesNothingElse()
         {
-            // B = 16 × 0.25 = 4 → units = floor(4 ÷ 50050 ÷ 0.00001) = 7 → N = 3.5 < 5 → rejected.
+            // B = 16 × 0.25 = 4 → units = floor(4 ÷ 50050 ÷ 0.00001) = 7 → N = 3.5 < 5 → 被拒绝。
             var a = new Account(Btc, new CostModel(), 16);
             Assert.IsFalse(a.Buy(0.25, 50_000));
             Assert.AreEqual(1, a.Rejected);
@@ -136,14 +136,14 @@ namespace Gym.Tests.Core.Accounting
         [Test]
         public void SellBelowTheMinimumOrder_IsRejected()
         {
-            // 0.0001 BTC at 40,000 = 4 USDT < 5.
+            // 0.0001 BTC 在 40,000 时值 4 USDT < 5。
             var a = new Account(Btc, new CostModel(), 0, coinUnits: 10, avgCost: 40_000);
             Assert.IsFalse(a.Sell(1, 40_000));
             Assert.AreEqual(1, a.Rejected);
             Assert.AreEqual(10, a.CoinUnits);
             Assert.AreEqual(0, a.Cash);
             Assert.AreEqual(40_000, a.AvgCost);
-            // Selling a fraction that rounds to zero units is rejected too.
+            // 卖出的比例取整后是零个单位时，也会被拒绝。
             var b = new Account(Btc, new CostModel(), 0, coinUnits: 1000, avgCost: 40_000);
             Assert.IsFalse(b.Sell(0.0005, 40_000));
             Assert.AreEqual(1000, b.CoinUnits);
@@ -152,7 +152,7 @@ namespace Gym.Tests.Core.Accounting
         [Test]
         public void FixedFeeEatingTheProceeds_RejectsTheSell()
         {
-            // N = 0.0002 × 50000 = 10 ≥ 5, but F = 0.01 + 10 = 10.01 → N − F ≤ 0 → rejected.
+            // N = 0.0002 × 50000 = 10 ≥ 5，但 F = 0.01 + 10 = 10.01 → N − F ≤ 0 → 被拒绝。
             var a = new Account(Btc, new CostModel(0.001, 10), 0, coinUnits: 20, avgCost: 50_000);
             Assert.IsFalse(a.Sell(1, 50_000));
             Assert.AreEqual(20, a.CoinUnits);
@@ -175,9 +175,9 @@ namespace Gym.Tests.Core.Accounting
         [Test]
         public void StepOfPointOne_UsesExactDecimalDivision()
         {
-            // ADA, step 0.1, fee 0.1 %, all of 30.03 USDT at 0.3:
+            // ADA，步长 0.1，fee 0.1 %，在 0.3 用掉全部 30.03 USDT：
             //   units = floor(30.03 ÷ (0.3 × 1.001) ÷ 0.1) = floor(30.03 ÷ 0.3003 ÷ 0.1) = floor(1000) = 1000
-            //   N = 100 × 0.3 = 30, F = 0.03, Cash = 30.03 − 30 − 0.03 = 0 (within 1e-9, clamped at 0)
+            //   N = 100 × 0.3 = 30, F = 0.03, Cash = 30.03 − 30 − 0.03 = 0（在 1e-9 以内，截到 0）
             var a = new Account(Ada, new CostModel(0.001), 30.03);
             Assert.IsTrue(a.TryBuy(1, 0.3, out Fill fill));
             Assert.AreEqual(1000, fill.Units);
@@ -187,7 +187,7 @@ namespace Gym.Tests.Core.Accounting
             Assert.AreEqual(0, a.Cash, Tol);
             Assert.GreaterOrEqual(a.Cash, 0);
 
-            // Sell 0.25 of 1000 units = 250 units = 25 ADA at 0.4 → N = 10.
+            // 在 0.4 卖出 1000 个单位的 0.25 = 250 个单位 = 25 ADA → N = 10。
             Assert.IsTrue(a.TrySell(0.25, 0.4, out Fill sell));
             Assert.AreEqual(250, sell.Units);
             Assert.AreEqual(10.0, sell.Notional, Tol);
@@ -197,9 +197,9 @@ namespace Gym.Tests.Core.Accounting
         [Test]
         public void WhereDoubleWouldLoseAUnit_DecimalFloorKeepsIt()
         {
-            // ADA at 0.1, fee 0.1 %, all of 5.62562 USDT:
-            //   exact: 5.62562 ÷ (0.1 × 1.001) ÷ 0.1 = 5.62562 ÷ 0.1001 ÷ 0.1 = 562
-            //   double: 5.62562 / (0.1 * 1.001) / 0.1 = 561.999…  → floor would give 561
+            // ADA 价格 0.1，fee 0.1 %，用掉全部 5.62562 USDT：
+            //   精确值：5.62562 ÷ (0.1 × 1.001) ÷ 0.1 = 5.62562 ÷ 0.1001 ÷ 0.1 = 562
+            //   double：5.62562 / (0.1 * 1.001) / 0.1 = 561.999…  → 向下取整会得到 561
             Assert.AreEqual(561, Math.Floor(5.62562 / (0.1 * 1.001) / 0.1), "premise: double loses a unit here");
             var a = new Account(Ada, new CostModel(0.001), 5.62562);
             Assert.IsTrue(a.TryBuy(1, 0.1, out Fill fill));
@@ -221,9 +221,9 @@ namespace Gym.Tests.Core.Accounting
         [Test]
         public void FullBuyWithMillionsInCash_DoesNotOverspend()
         {
-            // (decimal)12345678.999999998 keeps 15 significant digits and rounds up to 12345679,
-            // so without a fee the floor gave 1,234,567,900 units of 0.1 ADA at 0.1 = 12345679 USDT
-            // and left cash at −1.9e-9: the buy threw. Now it gives one unit back.
+            // (decimal)12345678.999999998 只保留 15 位有效数字，会进位成 12345679。所以不收 fee 时，
+            // 向下取整会得到 1,234,567,900 个 0.1 ADA 的单位，按 0.1 算 = 12345679 USDT，现金会剩 −1.9e-9，
+            // 买入就会抛异常。Account 会退回一个单位，避免这种情况。
             foreach (var cost in new[] { new CostModel(0), new CostModel(0, 1, 0), new CostModel(0.001) })
             {
                 var a = new Account(Ada, cost, 12_345_678.999999998);

@@ -30,8 +30,8 @@ namespace Gym.Tests.Runtime.Evaluation
         [Test]
         public void WithoutAnEvaluationSegment_TheArgumentsAreRefused()
         {
-            // Without -gymSegment the player fell back to the test segment and wrote to -gymOut,
-            // which on the PC is the append-only log.
+            // 如果放行没有 -gymSegment 的命令行，player 会退回到测试段并写进 -gymOut，
+            // 而在 PC 上 -gymOut 就是只追加的评估流水。
             string noSegment = EvalRunner.CheckArguments(new[] { "GymEval", "-gymMode", "eval", "-gymOut", "x" });
             Assert.IsNotNull(noSegment);
             StringAssert.Contains("missing -gymSegment validation|test.", noSegment);
