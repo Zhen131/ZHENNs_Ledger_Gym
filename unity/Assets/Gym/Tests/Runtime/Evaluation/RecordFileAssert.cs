@@ -1,7 +1,7 @@
 using System.IO;
 using NUnit.Framework;
 
-namespace Gym.Tests.Editor
+namespace Gym.Tests.Runtime.Evaluation
 {
     public static class RecordFileAssert
     {

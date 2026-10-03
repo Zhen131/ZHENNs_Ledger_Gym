@@ -3,7 +3,7 @@ using Gym.Core.Market;
 using Gym.Runtime.Configuration;
 using NUnit.Framework;
 
-namespace Gym.Tests.Editor
+namespace Gym.Tests.Runtime.Configuration
 {
     public class GymDataCacheTests
     {

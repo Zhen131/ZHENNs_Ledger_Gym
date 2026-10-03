@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Gym.Editor;
+using Gym.Tests.Runtime.Evaluation;
 using NUnit.Framework;
 
 namespace Gym.Tests.Editor

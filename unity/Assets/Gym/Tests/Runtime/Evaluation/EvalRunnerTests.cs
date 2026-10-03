@@ -6,7 +6,7 @@ using Gym.Runtime.Configuration;
 using Gym.Runtime.Evaluation;
 using NUnit.Framework;
 
-namespace Gym.Tests.Editor
+namespace Gym.Tests.Runtime.Evaluation
 {
     public class EvalRunnerTests
     {

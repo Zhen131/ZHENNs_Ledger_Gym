@@ -5,7 +5,7 @@ using Gym.Runtime.Configuration;
 using NUnit.Framework;
 using UnityEngine;
 
-namespace Gym.Tests.Editor
+namespace Gym.Tests.Runtime.Configuration
 {
     public class GymConfigLoaderTests
     {
