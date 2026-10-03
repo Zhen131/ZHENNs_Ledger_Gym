@@ -85,7 +85,7 @@ namespace Gym.Runtime.Configuration
             settings.Config = config;
 
             args = args ?? Array.Empty<string>();
-            settings.Mode = ReadMode(args, errors, out string evalSegmentName);
+            settings.Mode = ReadMode(args, errors, out EvaluationSegment evalSegment);
             settings.FeeRateArg = ReadCostArg(args, FeeRateArg, errors, v => new CostModel(v, 0, 0));
             settings.FixedFeeArg = ReadCostArg(args, FixedFeeArg, errors, v => new CostModel(0, v, 0));
             settings.SlippageArg = ReadCostArg(args, SlippageArg, errors, v => new CostModel(0, 0, v));
@@ -99,9 +99,9 @@ namespace Gym.Runtime.Configuration
             if (!(config.randomInitialPositionShare >= 0 && config.randomInitialPositionShare <= 1))
                 errors.Add($"randomInitialPositionShare must be in [0, 1] (got {config.randomInitialPositionShare})");
 
-            bool datesOk = TryRange("train", config.train, errors, out settings.Train)
-                & TryRange("validation", config.validation, errors, out settings.Validation)
-                & TryRange("test", config.test, errors, out settings.Test)
+            bool datesOk = TryRange(SegmentNames.Train, config.train, errors, out settings.Train)
+                & TryRange(SegmentNames.Validation, config.validation, errors, out settings.Validation)
+                & TryRange(SegmentNames.Test, config.test, errors, out settings.Test)
                 & TryDate("playStart", config.playStart, errors, out settings.PlayStart);
 
             if (string.IsNullOrEmpty(config.dataFile))
@@ -132,7 +132,7 @@ namespace Gym.Runtime.Configuration
                     settings.Series, Math.Max(config.episodeLength, 0));
                 errors.AddRange(report.Errors);
                 warnings.AddRange(report.Warnings);
-                settings.EvalSegment = evalSegmentName == "validation" ? settings.Validation : settings.Test;
+                settings.EvalSegment = evalSegment == EvaluationSegment.Validation ? settings.Validation : settings.Test;
 
                 int trainLast = settings.Train.LastIndex(settings.Series);
                 settings.PlayStartIndex = settings.Series.FirstIndexOnOrAfter(settings.PlayStart);
@@ -175,21 +175,22 @@ namespace Gym.Runtime.Configuration
         /// -gymMode train (default) takes no segment other than train. -gymMode eval takes
         /// -gymSegment validation or test (default test).
         /// </summary>
-        static GymMode ReadMode(string[] args, List<string> errors, out string evalSegment)
+        static GymMode ReadMode(string[] args, List<string> errors, out EvaluationSegment evalSegment)
         {
             string mode = GetArg(args, ModeArg)?.ToLowerInvariant();
             string segment = GetArg(args, SegmentArg)?.ToLowerInvariant();
-            evalSegment = "test";
+            evalSegment = EvaluationSegment.Test;
             if (mode == null || mode == "train")
             {
-                if (segment != null && segment != "train")
+                if (segment != null && segment != SegmentNames.Train)
                     errors.Add($"{SegmentArg} {segment} needs {ModeArg} eval; training always uses the train segment");
                 return GymMode.Train;
             }
             if (mode == "eval")
             {
-                if (segment == null || segment == "test" || segment == "validation") evalSegment = segment ?? "test";
-                else errors.Add($"{SegmentArg} {segment} is not an evaluation segment; use validation or test");
+                if (segment == SegmentNames.Validation) evalSegment = EvaluationSegment.Validation;
+                else if (segment != null && segment != SegmentNames.Test)
+                    errors.Add($"{SegmentArg} {segment} is not an evaluation segment; use validation or test");
                 return GymMode.Eval;
             }
             errors.Add($"{ModeArg} {mode} is not a mode; use train or eval");

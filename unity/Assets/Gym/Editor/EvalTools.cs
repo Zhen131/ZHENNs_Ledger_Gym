@@ -53,7 +53,7 @@ namespace Gym.Editor
         /// <summary>The work of <see cref="RunBaselines"/> for the given arguments; throws on any problem. Returns the log path.</summary>
         public static string Run(string[] args)
         {
-            string segmentName = GymConfigLoader.GetArg(args, GymConfigLoader.SegmentArg) ?? "test";
+            string segmentName = GymConfigLoader.GetArg(args, GymConfigLoader.SegmentArg) ?? SegmentNames.Test;
             double[] feeRates = (GymConfigLoader.GetArg(args, FeeRatesArg) ?? "0,0.001,0.003")
                 .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(x => double.Parse(x.Trim(), NumberStyles.Float, Inv)).ToArray();

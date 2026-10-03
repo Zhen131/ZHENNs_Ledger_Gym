@@ -79,8 +79,8 @@ namespace Gym.Runtime.Evaluation
             if (!string.Equals(GymConfigLoader.GetArg(args, GymConfigLoader.ModeArg), "eval", StringComparison.OrdinalIgnoreCase))
                 missing.Add($"{GymConfigLoader.ModeArg} eval");
             string segment = GymConfigLoader.GetArg(args, GymConfigLoader.SegmentArg);
-            if (!string.Equals(segment, "validation", StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(segment, "test", StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(segment, SegmentNames.Validation, StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(segment, SegmentNames.Test, StringComparison.OrdinalIgnoreCase))
                 missing.Add($"{GymConfigLoader.SegmentArg} validation|test");
             if (string.IsNullOrWhiteSpace(GymConfigLoader.GetArg(args, OutArg)))
                 missing.Add($"{OutArg} <folder>");
