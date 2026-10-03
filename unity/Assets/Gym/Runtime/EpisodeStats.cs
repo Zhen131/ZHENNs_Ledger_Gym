@@ -1,4 +1,5 @@
-using Gym.Core;
+using Gym.Core.Accounting;
+using Gym.Core.Env;
 
 namespace Gym.Runtime
 {

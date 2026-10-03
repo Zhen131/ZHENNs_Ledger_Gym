@@ -1,4 +1,4 @@
-using Gym.Core;
+using Gym.Core.Env;
 using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
 using UnityEngine;

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
-using Gym.Core;
+using Gym.Core.Accounting;
+using Gym.Core.Env;
+using Gym.Core.Market;
 using NUnit.Framework;
 
 namespace Gym.Tests.EditMode

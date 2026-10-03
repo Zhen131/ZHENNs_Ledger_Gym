@@ -1,6 +1,8 @@
 using System;
 using System.IO;
-using Gym.Core;
+using Gym.Core.Accounting;
+using Gym.Core.Env;
+using Gym.Core.Evaluation;
 using Gym.Editor;
 using Gym.Runtime;
 using NUnit.Framework;

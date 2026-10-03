@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 
-namespace Gym.Core
+namespace Gym.Core.Market
 {
     /// <summary>
     /// A contiguous run of hourly candles: every candle starts on the hour and

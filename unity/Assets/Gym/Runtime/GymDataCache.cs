@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
-using Gym.Core;
+using Gym.Core.Market;
 
 namespace Gym.Runtime
 {

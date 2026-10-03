@@ -1,7 +1,7 @@
 using System;
 using System.Globalization;
 
-namespace Gym.Core
+namespace Gym.Core.Market
 {
     /// <summary>
     /// A date range in UTC, both days included: from the first candle at or

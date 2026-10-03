@@ -3,7 +3,7 @@ using System.Globalization;
 using System.IO;
 using System.Security.Cryptography;
 using System.Threading;
-using Gym.Core;
+using Gym.Core.Market;
 using NUnit.Framework;
 
 namespace Gym.Tests.EditMode

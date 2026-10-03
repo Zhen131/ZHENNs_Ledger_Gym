@@ -1,4 +1,4 @@
-namespace Gym.Core
+namespace Gym.Core.Market
 {
     /// <summary>One hourly candle. Times are milliseconds since the Unix epoch, UTC.</summary>
     public readonly struct Candle

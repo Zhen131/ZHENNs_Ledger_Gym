@@ -1,4 +1,4 @@
-namespace Gym.Core
+namespace Gym.Core.Env
 {
     /// <summary>Why an episode stopped. Both are time limits, not a real terminal state.</summary>
     public enum EndReason

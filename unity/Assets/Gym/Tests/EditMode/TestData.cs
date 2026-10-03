@@ -2,7 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
-using Gym.Core;
+using Gym.Core.Env;
+using Gym.Core.Market;
 using UnityEngine;
 
 namespace Gym.Tests.EditMode

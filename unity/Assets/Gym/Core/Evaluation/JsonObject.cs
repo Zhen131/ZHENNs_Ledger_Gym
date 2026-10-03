@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 
-namespace Gym.Core
+namespace Gym.Core.Evaluation
 {
     /// <summary>A JSON object that keeps its keys in insertion order.</summary>
     public sealed class JsonObject : IEnumerable<KeyValuePair<string, object>>

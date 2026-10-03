@@ -1,6 +1,7 @@
 using System;
+using Gym.Core.Env;
 
-namespace Gym.Core
+namespace Gym.Core.Market
 {
     public static class SplitValidator
     {

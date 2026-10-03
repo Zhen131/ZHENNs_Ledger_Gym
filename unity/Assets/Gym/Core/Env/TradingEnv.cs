@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using Gym.Core.Accounting;
+using Gym.Core.Market;
 
-namespace Gym.Core
+namespace Gym.Core.Env
 {
     /// <summary>
     /// One trading episode over candles [First, Last], in plain C#. The Unity

@@ -1,5 +1,6 @@
 using System.IO;
-using Gym.Core;
+using Gym.Core.Accounting;
+using Gym.Core.Env;
 using Gym.Runtime;
 using UnityEditor;
 using UnityEditor.SceneManagement;

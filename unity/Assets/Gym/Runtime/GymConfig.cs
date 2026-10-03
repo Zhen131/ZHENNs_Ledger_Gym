@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using Gym.Core;
+using Gym.Core.Accounting;
+using Gym.Core.Env;
+using Gym.Core.Market;
 using UnityEngine;
 
 namespace Gym.Runtime

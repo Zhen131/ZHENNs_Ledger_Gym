@@ -1,5 +1,5 @@
 using System.Linq;
-using Gym.Core;
+using Gym.Core.Env;
 using Gym.Runtime;
 using NUnit.Framework;
 

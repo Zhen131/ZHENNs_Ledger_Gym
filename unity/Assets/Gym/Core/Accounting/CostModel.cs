@@ -1,6 +1,6 @@
 using System;
 
-namespace Gym.Core
+namespace Gym.Core.Accounting
 {
     /// <summary>What a trade costs: a proportional fee, a fixed fee per order and price slippage.</summary>
     public sealed class CostModel

@@ -1,4 +1,4 @@
-namespace Gym.Core
+namespace Gym.Core.Env
 {
     public readonly struct StepResult
     {

@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Gym.Core
+namespace Gym.Core.Market
 {
     public sealed class SplitReport
     {

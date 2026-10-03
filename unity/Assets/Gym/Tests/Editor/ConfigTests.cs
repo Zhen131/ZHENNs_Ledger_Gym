@@ -1,6 +1,6 @@
 using System;
 using System.IO;
-using Gym.Core;
+using Gym.Core.Market;
 using Gym.Runtime;
 using NUnit.Framework;
 using UnityEngine;

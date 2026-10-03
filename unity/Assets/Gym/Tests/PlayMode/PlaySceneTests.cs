@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
-using Gym.Core;
+using Gym.Core.Accounting;
+using Gym.Core.Env;
 using Gym.Runtime;
 using NUnit.Framework;
 using Unity.MLAgents;

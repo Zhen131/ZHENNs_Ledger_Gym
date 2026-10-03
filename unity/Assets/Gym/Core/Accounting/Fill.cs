@@ -1,4 +1,4 @@
-namespace Gym.Core
+namespace Gym.Core.Accounting
 {
     /// <summary>A filled order as the account booked it.</summary>
     public readonly struct Fill

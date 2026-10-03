@@ -1,6 +1,6 @@
 using System;
 
-namespace Gym.Core
+namespace Gym.Core.Market
 {
     /// <summary>
     /// Exchange rules for one symbol. Coin amounts are always stored as a whole

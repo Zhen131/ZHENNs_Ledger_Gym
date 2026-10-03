@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using Gym.Core.Accounting;
+using Gym.Core.Env;
 
-namespace Gym.Core
+namespace Gym.Core.Evaluation
 {
     /// <summary>
     /// Metrics over an equity curve (the start plus one value per step, at closes)

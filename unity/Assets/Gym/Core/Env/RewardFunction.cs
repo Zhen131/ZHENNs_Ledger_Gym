@@ -1,6 +1,6 @@
 using System;
 
-namespace Gym.Core
+namespace Gym.Core.Env
 {
     /// <summary>
     /// r = clamp(100 × ln(E₁ ÷ E₀), −1, 1). Fees are already out of the

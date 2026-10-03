@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
-using Gym.Core;
+using Gym.Core.Env;
+using Gym.Core.Market;
 using UnityEngine;
 
 namespace Gym.Runtime

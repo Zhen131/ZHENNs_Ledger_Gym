@@ -1,7 +1,9 @@
 using System.Globalization;
 using System.IO;
 using System.Text;
-using Gym.Core;
+using Gym.Core.Accounting;
+using Gym.Core.Env;
+using Gym.Core.Market;
 using Gym.Runtime;
 using UnityEditor;
 using UnityEngine;

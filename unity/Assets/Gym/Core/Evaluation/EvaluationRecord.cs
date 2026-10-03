@@ -1,6 +1,8 @@
 using System;
+using Gym.Core.Accounting;
+using Gym.Core.Market;
 
-namespace Gym.Core
+namespace Gym.Core.Evaluation
 {
     /// <summary>One row of log.csv (04B §3).</summary>
     public sealed class EvaluationRecord

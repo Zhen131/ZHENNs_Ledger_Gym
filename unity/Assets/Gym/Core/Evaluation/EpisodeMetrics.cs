@@ -1,4 +1,4 @@
-namespace Gym.Core
+namespace Gym.Core.Evaluation
 {
     /// <summary>The evaluation numbers of one episode (04B §1).</summary>
     public readonly struct EpisodeMetrics

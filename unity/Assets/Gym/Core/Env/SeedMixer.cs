@@ -1,4 +1,4 @@
-namespace Gym.Core
+namespace Gym.Core.Env
 {
     /// <summary>
     /// Scrambles seeds before they reach <see cref="System.Random"/> (Q03).

@@ -1,6 +1,7 @@
 using System;
+using Gym.Core.Accounting;
 
-namespace Gym.Core
+namespace Gym.Core.Env
 {
     /// <summary>
     /// The hybrid action: a discrete choice (hold / buy / sell) plus one

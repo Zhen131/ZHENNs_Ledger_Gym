@@ -1,6 +1,7 @@
 using System;
+using Gym.Core.Market;
 
-namespace Gym.Core
+namespace Gym.Core.Accounting
 {
     /// <summary>
     /// Cash and coin of one trader, with the bookkeeping rules of the contract

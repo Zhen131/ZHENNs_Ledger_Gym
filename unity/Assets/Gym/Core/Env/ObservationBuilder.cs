@@ -1,6 +1,8 @@
 using System;
+using Gym.Core.Accounting;
+using Gym.Core.Market;
 
-namespace Gym.Core
+namespace Gym.Core.Env
 {
     /// <summary>
     /// The 35 numbers the agent sees at decision index t (01B §2.4). Only

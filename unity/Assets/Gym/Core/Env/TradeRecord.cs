@@ -1,4 +1,6 @@
-namespace Gym.Core
+using Gym.Core.Accounting;
+
+namespace Gym.Core.Env
 {
     public readonly struct TradeRecord
     {

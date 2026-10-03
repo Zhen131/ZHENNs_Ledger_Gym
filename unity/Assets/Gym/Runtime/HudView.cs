@@ -1,7 +1,8 @@
 using System;
 using System.Globalization;
 using System.Text;
-using Gym.Core;
+using Gym.Core.Accounting;
+using Gym.Core.Env;
 using UnityEngine;
 
 namespace Gym.Runtime

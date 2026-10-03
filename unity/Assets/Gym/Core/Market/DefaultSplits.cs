@@ -1,4 +1,4 @@
-namespace Gym.Core
+namespace Gym.Core.Market
 {
     /// <summary>The three segments of PRD D-14.</summary>
     public static class DefaultSplits

@@ -5,7 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 
-namespace Gym.Core
+namespace Gym.Core.Evaluation
 {
     /// <summary>
     /// The append-only evaluation log and the per-run detail files:

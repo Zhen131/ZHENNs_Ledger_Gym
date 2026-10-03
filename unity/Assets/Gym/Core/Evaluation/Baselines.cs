@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using Gym.Core.Accounting;
+using Gym.Core.Env;
 
-namespace Gym.Core
+namespace Gym.Core.Evaluation
 {
     /// <summary>
     /// Reference policies run through the same <see cref="TradingEnv"/> in evaluation
