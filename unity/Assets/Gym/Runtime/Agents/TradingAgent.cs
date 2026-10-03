@@ -12,8 +12,7 @@ using UnityEngine;
 namespace Gym.Runtime.Agents
 {
     /// <summary>
-    /// ML-Agents shell around <see cref="TradingEnv"/>. No bookkeeping, observation
-    /// or reward logic lives here.
+    /// 包在 <see cref="TradingEnv"/> 外面的 ML-Agents 外壳。记账、observation 和 reward 的逻辑都不在这里。
     /// </summary>
     public class TradingAgent : Agent
     {
@@ -49,13 +48,13 @@ namespace Gym.Runtime.Agents
         public double DefaultFixedFee => defaultFixedFee;
         public double DefaultSlippage => defaultSlippage;
 
-        /// <summary>Set by the Play scene's PlayController; null means "hold" on heuristics.</summary>
+        /// <summary>由 Play scene 的 PlayController 设置；为 null 时，heuristic 一律不动。</summary>
         public IActionSource ActionSource { get; set; }
 
         public GymSettings Settings { get; private set; }
         public TradingEnv Env { get; private set; }
         public int MasterSeed { get; private set; }
-        /// <summary>Trainer when the seed came from mlagents-learn (--seed), Clock otherwise.</summary>
+        /// <summary>seed 来自 mlagents-learn（--seed）时为 Trainer，否则为 Clock。</summary>
         public SeedSource MasterSeedSource { get; private set; }
         public int EpisodeSeed { get; private set; }
         public int FinishedEpisodes { get; private set; }
@@ -68,13 +67,13 @@ namespace Gym.Runtime.Agents
 
         public EpisodeMetrics LastEpisodeMetrics { get; private set; }
 
-        /// <summary>How this agent actually starts episodes: Evaluation when -gymMode eval was given.</summary>
+        /// <summary>这个 Agent 实际怎样开始 episode：给了 -gymMode eval 时就是 Evaluation。</summary>
         public AgentStartMode EffectiveMode =>
             Settings != null && Settings.Mode == GymMode.Eval ? AgentStartMode.Evaluation : startMode;
 
         public event Action<TradingAgent> EpisodeStarted;
         public event Action<TradingAgent> Stepped;
-        /// <summary>Raised when an episode ends, before the next one is reset.</summary>
+        /// <summary>一个 episode 结束时触发，在下一个 episode 重置之前。</summary>
         public event Action<TradingAgent, EpisodeMetrics> EpisodeFinished;
 
         public override void Initialize()
@@ -85,7 +84,7 @@ namespace Gym.Runtime.Agents
             SegmentSpec segment = mode == AgentStartMode.Evaluation ? Settings.EvalSegment : Settings.Train;
             Env = TradingEnv.ForSegment(Settings.Series, Settings.Rules, segment,
                 c.initialCash, c.episodeLength, c.randomInitialPositionShare);
-            Academy academy = Academy.Instance; // connects to the trainer first, which sends the seed
+            Academy academy = Academy.Instance; // 先连上 trainer，seed 由 trainer 发来
             int trainerSeed = 0;
             bool fromTrainer = academy.IsCommunicatorOn && MasterSeedChooser.TryReadTrainerSeed(academy, out trainerSeed);
             if (academy.IsCommunicatorOn && !fromTrainer)
@@ -93,7 +92,7 @@ namespace Gym.Runtime.Agents
             (MasterSeed, MasterSeedSource) = MasterSeedChooser.Choose(fromTrainer, trainerSeed, DateTime.UtcNow.Ticks, agentIndex);
             seedSource = new System.Random(MasterSeed);
             Debug.Log($"[Gym] {name}: index {agentIndex}, mode {mode}, segment {segment}, master seed {MasterSeed} ({MasterSeedChooser.LogName(MasterSeedSource)})");
-            if (mode != AgentStartMode.Training) ResetEnv(); // views and runners can read the start before the first step
+            if (mode != AgentStartMode.Training) ResetEnv(); // 这样 view 和 runner 在第一个 step 之前就能读到起点
         }
 
         public override void OnEpisodeBegin() => ResetEnv();
@@ -129,7 +128,7 @@ namespace Gym.Runtime.Agents
                 LastEpisodeMetrics = Metrics.From(Env);
                 FinishedEpisodes++;
                 EpisodeFinished?.Invoke(this, LastEpisodeMetrics);
-                EpisodeInterrupted(); // a time limit, not a terminal state
+                EpisodeInterrupted(); // 是时间上限，不是终止状态
             }
         }
 
@@ -178,8 +177,8 @@ namespace Gym.Runtime.Agents
         }
 
         /// <summary>
-        /// Trainer's environment parameter if set, else -gymFeeRate / -gymFixedFee /
-        /// -gymSlippage from the command line, else the Inspector default.
+        /// trainer 设了环境参数就用环境参数；否则用命令行里的 -gymFeeRate / -gymFixedFee /
+        /// -gymSlippage；再没有就用 Inspector 里的默认值。
         /// </summary>
         CostModel ReadCost()
         {
@@ -191,8 +190,7 @@ namespace Gym.Runtime.Agents
         }
 
         /// <summary>
-        /// Environment parameters arrive as float. Going through decimal turns 0.001f
-        /// into 0.001 instead of 0.0010000000474974513.
+        /// 环境参数传过来是 float。先转成 decimal，0.001f 就变成 0.001，而不是 0.0010000000474974513。
         /// </summary>
         static double ReadParameter(EnvironmentParameters parameters, string key, double fallback)
         {

@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace Gym.Runtime.Play
 {
-    /// <summary>IMGUI read-out for the Play scene.</summary>
+    /// <summary>Play scene 的 IMGUI 读数面板。</summary>
     public class HudView : MonoBehaviour
     {
         [SerializeField] TradingAgent agent;

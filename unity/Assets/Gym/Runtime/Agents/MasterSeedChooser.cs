@@ -5,19 +5,18 @@ using Unity.MLAgents;
 namespace Gym.Runtime.Agents
 {
     /// <summary>
-    /// Chooses the agent's master seed. With a trainer attached it derives from the seed
-    /// mlagents-learn sends (--seed, plus the environment's worker index), mixed with the
-    /// agent index, so a run can be repeated; without one it comes from the clock.
-    /// Both pass through <see cref="SeedMixer"/>.
+    /// 选出 Agent 的 master seed。接了 trainer 时，它由 mlagents-learn 发来的 seed（--seed 加上环境的
+    /// worker 编号）和 Agent 的编号混合得到，所以一次训练可以重复；没接 trainer 时，它取自时钟。
+    /// 两种都要经过 <see cref="SeedMixer"/>。
     /// </summary>
     public static class MasterSeedChooser
     {
-        // Academy.InferenceSeed is set-only in ML-Agents 4.0.3, so the seed the trainer sent
-        // (stored in m_InferenceSeed during the handshake) is read by reflection.
+        // ML-Agents 4.0.3 里 Academy.InferenceSeed 只能写、不能读，所以 trainer 发来的 seed
+        // （握手时存进 m_InferenceSeed）要用反射来读。
         static readonly FieldInfo InferenceSeedField =
             typeof(Academy).GetField("m_InferenceSeed", BindingFlags.Instance | BindingFlags.NonPublic);
 
-        /// <summary>The seed mlagents-learn sent to this player, if it can be read.</summary>
+        /// <summary>mlagents-learn 发给这个 player 的 seed，前提是能读到。</summary>
         public static bool TryReadTrainerSeed(Academy academy, out int seed)
         {
             seed = 0;
@@ -35,8 +34,8 @@ namespace Gym.Runtime.Agents
         }
 
         /// <summary>
-        /// The word the agent's log line shows in brackets: "trainer" or "clock", lower case
-        /// (not the enum's name), because the training scripts search the player log for "(clock)".
+        /// Agent 的日志行在括号里显示的词："trainer" 或 "clock"，小写（不是枚举成员的名字），
+        /// 因为训练脚本会在 player 日志里搜 "(clock)"。
         /// </summary>
         public static string LogName(SeedSource source) => source == SeedSource.Trainer ? "trainer" : "clock";
     }

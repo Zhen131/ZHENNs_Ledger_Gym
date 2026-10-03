@@ -4,7 +4,7 @@ using Gym.Core.Market;
 
 namespace Gym.Runtime.Configuration
 {
-    /// <summary>A loaded and validated configuration, with its data.</summary>
+    /// <summary>载入并检查过的配置，连同它的数据。</summary>
     public sealed class GymSettings
     {
         public GymConfig Config;
@@ -19,9 +19,9 @@ namespace Gym.Runtime.Configuration
         public DateTime PlayStart;
         public int PlayStartIndex;
         public GymMode Mode;
-        /// <summary>The segment -gymSegment picks for evaluation (validation or test; test by default).</summary>
+        /// <summary>-gymSegment 为评估选的分段（validation 或 test；默认 test）。</summary>
         public SegmentSpec EvalSegment;
-        /// <summary>Costs from -gymFeeRate / -gymFixedFee / -gymSlippage; null when not given.</summary>
+        /// <summary>来自 -gymFeeRate / -gymFixedFee / -gymSlippage 的成本；没给时为 null。</summary>
         public double? FeeRateArg;
         public double? FixedFeeArg;
         public double? SlippageArg;

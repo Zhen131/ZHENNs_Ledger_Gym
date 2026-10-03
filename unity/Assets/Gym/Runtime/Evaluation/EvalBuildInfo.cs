@@ -2,7 +2,7 @@ using System;
 
 namespace Gym.Runtime.Evaluation
 {
-    /// <summary>What BuildScript.BuildMacEval writes next to the data as StreamingAssets/Gym/build-info.json.</summary>
+    /// <summary>BuildScript.BuildMacEval 写在数据旁边的 StreamingAssets/Gym/build-info.json 的内容。</summary>
     [Serializable]
     public class EvalBuildInfo
     {

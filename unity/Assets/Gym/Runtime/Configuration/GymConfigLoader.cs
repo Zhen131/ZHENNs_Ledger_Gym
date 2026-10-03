@@ -10,8 +10,8 @@ using UnityEngine;
 namespace Gym.Runtime.Configuration
 {
     /// <summary>
-    /// Reads gym-config.json and symbols.json from StreamingAssets/Gym (or the file
-    /// given by -gymConfig), loads the data and validates the split.
+    /// 从 StreamingAssets/Gym（或者 -gymConfig 给的文件）读 gym-config.json 和 symbols.json，
+    /// 载入数据，并检查分段的划分。
     /// </summary>
     public static class GymConfigLoader
     {
@@ -23,9 +23,8 @@ namespace Gym.Runtime.Configuration
         public const string SlippageArg = "-gymSlippage";
 
         /// <summary>
-        /// The largest initialCash accepted. From about 1e12 on, a double cannot tell
-        /// apart amounts 0.0001 USDT or more apart, far above the 1e-9 tolerance of an all-in buy,
-        /// so rounding its quantity can overshoot the cash and the buy throws. 1e9 leaves room.
+        /// 能接受的最大 initialCash。从大约 1e12 起，double 能分辨的最小金额差达到 0.0001 USDT 甚至更大，
+        /// 远大于全仓买入的 1e-9 容差，所以给买入数量取整时可能超出现金，买入就会抛异常。1e9 留足了余地。
         /// </summary>
         public const double MaxInitialCash = 1e9;
 
@@ -38,9 +37,8 @@ namespace Gym.Runtime.Configuration
         public static string DefaultSymbolsPath => Path.Combine(DefaultDirectory, "symbols.json");
 
         /// <summary>
-        /// Settings for this process, loaded once from the command line and shared by
-        /// every agent. On error: in a player build the error is logged and the
-        /// application quits with code 1; in the editor the exception is thrown.
+        /// 本进程的设置：按命令行载入一次，所有 Agent 共用。出错时：在 player 里把错误写进日志，
+        /// 程序以退出码 1 退出；在 editor 里抛出异常。
         /// </summary>
         public static GymSettings LoadForRuntime()
         {
@@ -68,7 +66,7 @@ namespace Gym.Runtime.Configuration
             }
         }
 
-        /// <summary>Load and validate. Throws <see cref="GymConfigException"/> listing every problem found.</summary>
+        /// <summary>载入并检查。有问题时抛出 <see cref="GymConfigException"/>，列出找到的每一个问题。</summary>
         public static GymSettings Load(string configPath, string symbolsPath, string[] args = null)
         {
             var errors = new List<string>();
@@ -117,14 +115,14 @@ namespace Gym.Runtime.Configuration
                 errors.Add($"randomInitialPositionShare must be in [0, 1] (got {config.randomInitialPositionShare})");
         }
 
-        /// <summary>The three segments and playStart. False when any of them is missing or malformed; each one is still checked.</summary>
+        /// <summary>读三个分段和 playStart。任何一个缺失或格式不对时返回 false；但每一个都照样检查。</summary>
         static bool ReadDates(GymConfig config, GymSettings settings, List<string> errors) =>
             TryRange(SegmentNames.Train, config.train, errors, out settings.Train)
             & TryRange(SegmentNames.Validation, config.validation, errors, out settings.Validation)
             & TryRange(SegmentNames.Test, config.test, errors, out settings.Test)
             & TryDate("playStart", config.playStart, errors, out settings.PlayStart);
 
-        /// <summary>Sets DataPath and Series, or adds the reason the candle file cannot be used.</summary>
+        /// <summary>设置 DataPath 和 Series；或者加上 candle 文件用不了的原因。</summary>
         static void LoadData(GymConfig config, GymSettings settings, List<string> errors)
         {
             if (string.IsNullOrEmpty(config.dataFile))
@@ -156,7 +154,7 @@ namespace Gym.Runtime.Configuration
             warnings.AddRange(report.Warnings);
         }
 
-        /// <summary>Sets PlayStartIndex and checks that playStart falls inside the training segment.</summary>
+        /// <summary>设置 PlayStartIndex，并检查 playStart 落在训练段里。</summary>
         static void CheckPlayStart(GymConfig config, GymSettings settings, List<string> errors)
         {
             int trainLast = settings.Train.LastIndex(settings.Series);
@@ -168,8 +166,8 @@ namespace Gym.Runtime.Configuration
         }
 
         /// <summary>
-        /// -gymMode train (default) takes no segment other than train. -gymMode eval takes
-        /// -gymSegment validation or test (default test).
+        /// -gymMode train（默认）只接受 train 这一个分段。-gymMode eval 接受
+        /// -gymSegment validation 或 test（默认 test）。
         /// </summary>
         static GymMode ReadMode(string[] args, List<string> errors, out EvaluationSegment evalSegment)
         {
@@ -205,9 +203,8 @@ namespace Gym.Runtime.Configuration
         }
 
         /// <summary>
-        /// A cost argument, checked by the same ranges CostModel enforces: a value
-        /// CostModel would reject is a configuration error here, not an exception when the
-        /// agent first resets.
+        /// 一个成本参数，用 CostModel 强制的同一套范围来检查：CostModel 会拒绝的值，在这里就算配置错误，
+        /// 而不是等到 Agent 第一次重置时才抛异常。
         /// </summary>
         static double? ReadCostArg(string[] args, string name, List<string> errors, Func<double, CostModel> check)
         {
@@ -301,7 +298,7 @@ namespace Gym.Runtime.Configuration
             return false;
         }
 
-        /// <summary>Absolute paths as given; relative ones next to the config file, else in StreamingAssets/Gym.</summary>
+        /// <summary>绝对路径照原样用；相对路径先找配置文件旁边，找不到再找 StreamingAssets/Gym。</summary>
         static string ResolveDataPath(string dataFile, string configDir)
         {
             if (Path.IsPathRooted(dataFile)) return Path.GetFullPath(dataFile);

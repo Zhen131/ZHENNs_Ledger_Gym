@@ -7,12 +7,11 @@ using UnityEngine;
 namespace Gym.Runtime.Play
 {
     /// <summary>
-    /// Keyboard play: one key press moves one candle. Automatic Academy stepping is
-    /// switched off; every action key calls <see cref="Academy.EnvironmentStep"/> once.
+    /// 键盘试玩：按一次键走一根 candle。Academy 的自动 step 关掉了；每个 action 键调用一次
+    /// <see cref="Academy.EnvironmentStep"/>。
     ///
-    /// 1 / 2 / 3 / 4 pick 10 % / 25 % / 50 % / 100 % (no step). B buys, S sells,
-    /// H or Space holds (each one step). P toggles auto-play (5 holds per second).
-    /// R restarts the episode.
+    /// 1 / 2 / 3 / 4 选 10 % / 25 % / 50 % / 100 %（不走 step）。B 买入，S 卖出，H 或 Space 不动
+    /// （各走一个 step）。P 开关自动播放（每秒 5 次不动）。R 重新开始 episode。
     /// </summary>
     public class PlayController : MonoBehaviour, IActionSource
     {
@@ -85,7 +84,7 @@ namespace Gym.Runtime.Play
         public void PressSell(float fraction) => Act(TradeAction.Sell, fraction);
         public void PressHold() => Act(TradeAction.Hold, (float)SelectedFraction);
 
-        /// <summary>Back to playStart, all cash.</summary>
+        /// <summary>回到 playStart，全是现金。</summary>
         public void Restart()
         {
             if (agent != null) agent.EpisodeInterrupted();

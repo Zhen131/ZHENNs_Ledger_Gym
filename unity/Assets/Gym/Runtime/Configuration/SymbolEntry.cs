@@ -7,7 +7,7 @@ namespace Gym.Runtime.Configuration
     {
         public string symbol;
         public double minNotional;
-        /// <summary>A string so that the step keeps its exact decimal value.</summary>
+        /// <summary>用字符串，这样步长能保留精确的十进制值。</summary>
         public string stepSize;
     }
 }

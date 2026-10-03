@@ -5,8 +5,7 @@ using Gym.Core.Market;
 namespace Gym.Runtime.Configuration
 {
     /// <summary>
-    /// Parsed candle files keyed by full path. Every agent in the process shares
-    /// the same read-only <see cref="CandleSeries"/>.
+    /// 解析好的 candle 文件，按完整路径存放。进程里的每个 Agent 共用同一份只读的 <see cref="CandleSeries"/>。
     /// </summary>
     public static class GymDataCache
     {

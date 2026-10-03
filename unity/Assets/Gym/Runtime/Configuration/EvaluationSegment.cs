@@ -1,6 +1,6 @@
 namespace Gym.Runtime.Configuration
 {
-    /// <summary>The segment an evaluation runs on (-gymSegment validation or test).</summary>
+    /// <summary>评估在哪个分段上运行（-gymSegment validation 或 test）。</summary>
     public enum EvaluationSegment
     {
         Validation,

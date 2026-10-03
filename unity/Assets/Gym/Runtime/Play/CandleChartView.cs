@@ -8,9 +8,8 @@ using UnityEngine;
 namespace Gym.Runtime.Play
 {
     /// <summary>
-    /// Draws the last 64 candles ending at the current one as a single vertex-coloured
-    /// mesh: bodies and wicks, green up and red down, with ▲ under a buy and ▼ over a
-    /// sell on the candle where the order filled.
+    /// 把截止到当前这根的最后 64 根 candle 画成一个按顶点着色的 mesh：实体和影线，涨为绿、跌为红；
+    /// 在订单成交的那根 candle 上，买入在下方画 ▲，卖出在上方画 ▼。
     /// </summary>
     [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
     public class CandleChartView : MonoBehaviour
@@ -67,7 +66,7 @@ namespace Gym.Runtime.Play
 
         public void Redraw(TradingAgent source) => Draw(source != null ? source.Env : null);
 
-        /// <summary>Draw straight from an environment (also used by the editor snapshot tool).</summary>
+        /// <summary>直接按一个环境画图（editor 的快照工具也用它）。</summary>
         public void Draw(TradingEnv env)
         {
             if (env == null || env.Account == null) return;
@@ -89,7 +88,7 @@ namespace Gym.Runtime.Play
         float SlotWidth => width / VisibleCandles;
         float LeftEdge => -width / 2;
 
-        /// <summary>The lowest low and highest high of the visible candles, with a margin above and below.</summary>
+        /// <summary>可见 candle 里最低的 low 和最高的 high，上下各留一点边距。</summary>
         static (double low, double high) PriceRange(CandleSeries series, int first, int last)
         {
             double low = double.MaxValue, high = double.MinValue;
@@ -123,7 +122,7 @@ namespace Gym.Runtime.Play
             }
         }
 
-        /// <summary>▲ under each visible buy and ▼ over each visible sell; counts them in DrawnMarkers.</summary>
+        /// <summary>每笔可见的买入在下方画 ▲，每笔可见的卖出在上方画 ▼；个数记在 DrawnMarkers 里。</summary>
         void AddTradeMarkers(TradingEnv env, int first, int last, double low, double high)
         {
             float slot = SlotWidth;

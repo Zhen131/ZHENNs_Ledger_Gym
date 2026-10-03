@@ -2,7 +2,7 @@ using System;
 
 namespace Gym.Runtime.Configuration
 {
-    /// <summary>The shape of gym-config.json.</summary>
+    /// <summary>gym-config.json 的结构。</summary>
     [Serializable]
     public class GymConfig
     {

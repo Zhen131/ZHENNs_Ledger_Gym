@@ -2,7 +2,7 @@ using System;
 
 namespace Gym.Runtime.Configuration
 {
-    /// <summary>The shape of symbols.json.</summary>
+    /// <summary>symbols.json 的结构。</summary>
     [Serializable]
     public class SymbolTable
     {

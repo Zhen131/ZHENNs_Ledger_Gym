@@ -1,11 +1,11 @@
 namespace Gym.Runtime.Agents
 {
-    /// <summary>Where an agent's master seed came from. <see cref="MasterSeedChooser.LogName"/> gives the word the log shows.</summary>
+    /// <summary>Agent 的 master seed 从哪里来。日志里显示的词由 <see cref="MasterSeedChooser.LogName"/> 给出。</summary>
     public enum SeedSource
     {
-        /// <summary>The seed mlagents-learn sent (--seed).</summary>
+        /// <summary>mlagents-learn 发来的 seed（--seed）。</summary>
         Trainer,
-        /// <summary>The clock, when no trainer is attached or its seed cannot be read.</summary>
+        /// <summary>时钟：没接 trainer，或者读不到 trainer 的 seed 时用它。</summary>
         Clock,
     }
 }

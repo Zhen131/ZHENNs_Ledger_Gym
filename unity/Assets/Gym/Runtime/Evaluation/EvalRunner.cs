@@ -15,18 +15,17 @@ using Debug = UnityEngine.Debug;
 namespace Gym.Runtime.Evaluation
 {
     /// <summary>
-    /// Drives one evaluation episode in the Eval scene: turns off automatic
-    /// stepping, calls Academy.EnvironmentStep in batches each frame until the agent's
-    /// episode ends, appends the result to &lt;-gymOut&gt;/log.csv with a JSON detail file,
-    /// and quits (0 on success, 1 on failure). It runs only when started with
-    /// -gymMode eval, -gymSegment validation|test and -gymOut &lt;folder&gt;.
+    /// 在 Eval scene 里驱动一个评估 episode：关掉自动 step，每帧成批调用 Academy.EnvironmentStep，
+    /// 直到 Agent 的 episode 结束；把结果追加到 &lt;-gymOut&gt;/log.csv，另写一份 JSON 明细文件；
+    /// 然后退出（成功为 0，失败为 1）。只有带着 -gymMode eval、-gymSegment validation|test 和
+    /// -gymOut &lt;folder&gt; 启动时才运行。
     /// </summary>
     public class EvalRunner : MonoBehaviour
     {
         public const string BuildInfoFile = "build-info.json";
         public const string OutArg = "-gymOut";
 
-        /// <summary>Environment steps allowed beyond the segment's candle count before the run counts as stuck.</summary>
+        /// <summary>超出分段的 candle 数之后，还允许多走几个环境 step；再多就算这次运行卡住了。</summary>
         public const int StepMargin = 100;
 
         [SerializeField] TradingAgent agent;
@@ -67,11 +66,9 @@ namespace Gym.Runtime.Evaluation
         }
 
         /// <summary>
-        /// Null when the command line asks for an evaluation run, else what is missing.
-        /// Without -gymMode eval the player would quietly evaluate the test segment, without
-        /// -gymSegment it would fall back to the test segment too (kept for the final numbers,
-        /// and the log cannot be undone), and without -gymOut it would write next to wherever
-        /// it was started.
+        /// 命令行确实要求一次评估时返回 null，否则返回缺了什么。
+        /// 没有 -gymMode eval，player 会悄悄地评估测试段；没有 -gymSegment，它也会退回到测试段
+        /// （测试段留给最终数字，而评估流水撤不回）；没有 -gymOut，它会写到启动它的位置旁边。
         /// </summary>
         public static string CheckArguments(string[] args)
         {
@@ -91,7 +88,7 @@ namespace Gym.Runtime.Evaluation
                    $"{player} -batchmode -nographics -gymMode eval -gymSegment validation -gymFeeRate 0.001 -gymOut evaluations/smoke";
         }
 
-        /// <summary>"a", "a and b", "a, b and c".</summary>
+        /// <summary>拼成 "a"、"a and b"、"a, b and c" 这样。</summary>
         static string JoinWithAnd(List<string> items) =>
             items.Count < 2 ? string.Join("", items)
                 : string.Join(", ", items.GetRange(0, items.Count - 1)) + " and " + items[items.Count - 1];
@@ -118,7 +115,7 @@ namespace Gym.Runtime.Evaluation
                 Quit(1);
                 yield break;
             }
-            // One pass needs about one step per candle; far more means the episode never ends.
+            // 走一遍大约每根 candle 一个 step；远多于这个数，说明 episode 永远不会结束。
             stepLimit = agent.Env.Last - agent.Env.First + 1 + StepMargin;
             watch = Stopwatch.StartNew();
             steps = 0;
@@ -136,7 +133,7 @@ namespace Gym.Runtime.Evaluation
             Quit(exitCode);
         }
 
-        /// <summary>One frame's worth of steps. False, with the reason logged, on an exception or past the step limit.</summary>
+        /// <summary>一帧要走的那批 step。出现异常或超过 step 上限时返回 false，并把原因写进日志。</summary>
         bool StepBatch()
         {
             try
@@ -186,11 +183,11 @@ namespace Gym.Runtime.Evaluation
 
         void Write(TradingAgent source, EpisodeMetrics metrics)
         {
-            string outDir = Path.GetFullPath(CommandLineArgs.ValueOf(Environment.GetCommandLineArgs(), OutArg)); // checked in Start
+            string outDir = Path.GetFullPath(CommandLineArgs.ValueOf(Environment.GetCommandLineArgs(), OutArg)); // 已在 Start 里检查过
             EvalBuildInfo info = ReadBuildInfo();
             GymSettings s = source.Settings;
             TradingEnv env = source.Env;
-            SegmentSpec segment = s.EvalSegment; // the Eval scene's agent always runs this segment
+            SegmentSpec segment = s.EvalSegment; // Eval scene 的 Agent 总是运行这个分段
             DateTime now = DateTime.UtcNow;
             var behavior = source.GetComponent<Unity.MLAgents.Policies.BehaviorParameters>();
 
@@ -216,9 +213,8 @@ namespace Gym.Runtime.Evaluation
         }
 
         /// <summary>
-        /// The detail JSON of one agent evaluation. The data file is written as the config
-        /// names it and the model only by its file name (the SHA-256 identifies it), so the
-        /// committed file carries no machine's folders or user name.
+        /// 一次 Agent 评估的明细 JSON。数据文件按配置里的写法记录，模型只记文件名（靠 SHA-256 识别），
+        /// 这样提交进仓库的文件里不带任何机器的文件夹或用户名。
         /// </summary>
         public static JsonObject Details(EvaluationRecord record, EvalBuildInfo info, GymSettings settings, TradingEnv env,
             EpisodeMetrics metrics, string behaviorType, bool deterministicInference, string inferenceDevice)

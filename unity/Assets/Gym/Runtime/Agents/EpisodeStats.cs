@@ -3,7 +3,7 @@ using Gym.Core.Env;
 
 namespace Gym.Runtime.Agents
 {
-    /// <summary>End-of-episode numbers sent to TensorBoard under Trading/….</summary>
+    /// <summary>episode 结束时发给 TensorBoard 的数字，放在 Trading/… 下面。</summary>
     public readonly struct EpisodeStats
     {
         /// <summary>Final equity ÷ initial equity − 1.</summary>
@@ -12,7 +12,7 @@ namespace Gym.Runtime.Agents
         public readonly int Rejected;
         /// <summary>Fees paid ÷ initial equity × 100.</summary>
         public readonly double FeesPaidPct;
-        /// <summary>Share of steps that ended holding coin.</summary>
+        /// <summary>走完时仍持有 coin 的 step 所占的比例。</summary>
         public readonly double Exposure;
         /// <summary>Traded notional ÷ initial equity.</summary>
         public readonly double Turnover;

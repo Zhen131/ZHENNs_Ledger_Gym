@@ -2,7 +2,7 @@ using System;
 
 namespace Gym.Runtime.Play
 {
-    /// <summary>The numbers the HUD shows, captured right after each step.</summary>
+    /// <summary>HUD 显示的数字，每个 step 之后立刻抓取。</summary>
     public struct HudSnapshot
     {
         public bool Ready;
