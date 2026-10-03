@@ -15,17 +15,17 @@
 # A run whose results/<run-id> already exists is skipped; --force is never used.
 # Seeds are whole numbers >= 0. --dry-run prints the commands and writes nothing.
 # Seeds: mlagents-learn gets --seed <seed x 1000>, because ML-Agents gives environment k
-# the seed + k and seeds 1, 2, 3 ... would collide when --num-envs > 1 (Q03). The run id
+# the seed + k and seeds 1, 2, 3 ... would collide when --num-envs > 1. The run id
 # keeps the plain seed (-s3); results/<run-id>/seed-used.txt records what was passed.
 # One series uses one --num-envs value for every run, so the runs stay comparable.
 # After each run the Player logs are searched for "(clock)": an agent that could not read
-# the trainer's seed seeds itself from the clock and the run cannot be repeated (Q08). Such
+# the trainer's seed seeds itself from the clock and the run cannot be repeated. Such
 # a run gets a loud warning and the line "WARNING: some agents seeded from the clock" in
 # seed-used.txt.
 # --smoke copies each config to results/_tmp/ with max_steps 15000 (or --smoke-steps),
 # summary_freq 1000 and checkpoint_interval = max_steps; it only proves the script works.
 # 15000 steps is just past the end of the first episodes (16 agents x 720 steps =
-# 11,520 steps); Trading/* statistics only appear from then on (Q06).
+# 11,520 steps); Trading/* statistics only appear from then on.
 # --device (default cpu) sets torch_settings.device. When a config says something else,
 # it is copied to results/_tmp/ with the device changed; the files in config/ are never
 # edited. config-used.yaml records the device each run really used.
@@ -74,7 +74,7 @@ used_text() {
 config_device() { sed -nE 's/^[[:space:]]*device:[[:space:]]*([^[:space:]#]+).*/\1/p' "$1"; }
 is_int() { case "$1" in ''|*[!0-9]*) return 1 ;; *) return 0 ;; esac; }
 abs_path() { (cd "$(dirname "$1")" && printf '%s/%s\n' "$(pwd)" "$(basename "$1")"); }
-# True when any agent of the run logged its master seed as "(clock)" instead of "(trainer)" (Q08).
+# True when any agent of the run logged its master seed as "(clock)" instead of "(trainer)".
 clock_seeded() { grep -qsF '(clock)' "$1"/run_logs/Player-*.log; }
 
 [ -n "$ENV_PATH" ] || fail "--env <path to the training build> is required"
@@ -153,7 +153,7 @@ for cfg in "${ABS_CONFIGS[@]}"; do
                 {
                     echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
                     echo "!!! WARNING: in $run_id some agents seeded from the clock, not from --seed"
-                    echo "!!! $learn_seed; this run cannot be repeated. See results/$run_id/run_logs (Q08)."
+                    echo "!!! $learn_seed; this run cannot be repeated. See results/$run_id/run_logs."
                     echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
                 } >&2
             fi
@@ -169,5 +169,5 @@ for cfg in "${ABS_CONFIGS[@]}"; do
 done
 
 echo "series finished: $ran ran, $skipped skipped, $failed failed"
-[ "$clocked" -eq 0 ] || echo "WARNING: $clocked run(s) had agents seeded from the clock; see the warnings above (Q08)" >&2
+[ "$clocked" -eq 0 ] || echo "WARNING: $clocked run(s) had agents seeded from the clock; see the warnings above" >&2
 [ "$failed" -eq 0 ]
