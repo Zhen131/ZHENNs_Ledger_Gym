@@ -44,7 +44,7 @@ Test-Path $unity
 
    Answer `Y` when it asks whether to change the policy. This only affects your user: scripts written on this machine (conda's, the repository's `run_series.ps1`) may run, while unsigned scripts downloaded from the internet are still blocked.
 3. Open **Miniforge Prompt** once and run `conda init powershell`, then close every PowerShell window and open a new one. **The new window must not start with red text.** If it does, go back to step 2.
-4. Create the environment as in the README's Windows section. This installs the **CUDA build** of PyTorch, which can use the graphics card as well as the CPU:
+4. Create the environment as in the [Windows section of setup.md](setup.md#windows). This installs the **CUDA build** of PyTorch, which can use the graphics card as well as the CPU:
 
 ```powershell
 conda create -n mlagents python=3.10.12
@@ -119,7 +119,7 @@ The first time `mlagents-learn` runs, Windows Firewall may ask whether **Python*
 - If the graphics card is faster, add `-Device cuda` to the series in step 8; for the CPU add nothing.
 - 2M steps take `2000000 ÷ (steps/s)` seconds. For comparison, the Mac (Apple M5, 10 cores, CPU) did about 2,000–2,900 steps/s with one environment, so 2M steps take 12–16 minutes there. The faster speed decides how many steps and seeds each group gets in the real series.
 
-`read_scalars.py` should list `Environment/Cumulative Reward`, `Policy/Entropy` and the `Trading/*` tags, with `Trading/FeeRate` = 0.001. `Trading/*` only appears once the first episodes have ended: 16 agents × 720 steps = 11,520 steps. The README's "Training curves" table explains each `Trading/*` tag.
+`read_scalars.py` should list `Environment/Cumulative Reward`, `Policy/Entropy` and the `Trading/*` tags, with `Trading/FeeRate` = 0.001. `Trading/*` only appears once the first episodes have ended: 16 agents × 720 steps = 11,520 steps. The "Training curves" table in [training.md](training.md#training-curves-trading-in-tensorboard) explains each `Trading/*` tag.
 
 ## 8. The comparison series
 
@@ -167,7 +167,7 @@ Run ids are `<config>-s<seed>-<yyyyMMdd>` (UTC date). A run whose `results\<run-
 
 The script passes `--seed <seed × 1000>` to mlagents-learn and writes it to `results\<run-id>\seed-used.txt`. ML-Agents gives environment k the seed + k, so plain seeds 1, 2, 3 would collide with `-NumEnvs` above 1; multiplying by 1000 keeps them apart. Every agent derives its random episode starts from that seed, so the same config, seed and `-NumEnvs` replay the same episodes. The trainer's own numbers are seeded as well, but PyTorch does not promise bit-identical results, so curves may still differ slightly.
 
-After every run the script checks the Player logs for agents that seeded themselves from the clock. If a block of `!!! WARNING: ... seeded from the clock` appears (yellow on red), and `seed-used.txt` ends with `WARNING: some agents seeded from the clock`, that run did not use the seed and cannot be replayed exactly. Its results are still usable, but note it and report it in the discussion session (issue Q08).
+After every run the script checks the Player logs for agents that seeded themselves from the clock. If a block of `!!! WARNING: ... seeded from the clock` appears (yellow on red), and `seed-used.txt` ends with `WARNING: some agents seeded from the clock`, that run did not use the seed and cannot be replayed exactly. Its results are still usable, but note it and report it in the discussion session.
 
 ## 9. TensorBoard
 

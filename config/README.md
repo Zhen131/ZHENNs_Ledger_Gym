@@ -2,7 +2,7 @@
 
 All configs train the behavior `TradingAgent` on the CPU (the one exception is `smoke-100k-cuda.yaml`, below) and pass the costs to the environment as `environment_parameters` (`fee_rate`, `fixed_fee`, `slippage`). The first line of every file says how it differs from `ppo_base.yaml`.
 
-What the `Trading/*` curves in TensorBoard mean is in the README's [Training curves](../README.md#training-curves-trading-in-tensorboard) table. Note that `Trading/Turnover` divides the traded value by the **starting** equity of the episode, while `turnover` in the evaluation log divides by the **average** equity.
+What the `Trading/*` curves in TensorBoard mean is in the [Training curves](../docs/training.md#training-curves-trading-in-tensorboard) table of `docs/training.md`. Note that `Trading/Turnover` divides the traded value by the **starting** equity of the episode, while `turnover` in the evaluation log divides by the **average** equity.
 
 ## Base and smoke runs
 
@@ -38,4 +38,4 @@ python scripts/train/check_configs.py
 
 It fails unless every single-change variant differs from the base in exactly one setting, every file (smoke configs included) has the `TradingAgent` behavior, the three cost parameters inside the ranges the environment accepts (`fee_rate` in [0, 1), `slippage` in [0, 0.1), `fixed_fee` ≥ 0) and the CPU device (cuda in `smoke-100k-cuda.yaml`), and ML-Agents itself accepts the file.
 
-Run a series (every config × every seed) with `scripts/train/run_series.sh` on macOS or `scripts/train/run_series.ps1` on Windows; see `docs/pc-training.md`.
+Run a series (every config × every seed) with `scripts/train/run_series.sh` on macOS or `scripts/train/run_series.ps1` on Windows; see [docs/training.md](../docs/training.md) and [docs/pc-training.md](../docs/pc-training.md).
