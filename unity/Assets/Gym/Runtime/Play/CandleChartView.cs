@@ -75,7 +75,23 @@ namespace Gym.Runtime.Play
             CandleSeries series = env.Series;
             int last = env.CurrentIndex;
             int first = Math.Max(0, last - VisibleCandles + 1);
+            (double low, double high) = PriceRange(series, first, last);
 
+            vertices.Clear();
+            colors.Clear();
+            triangles.Clear();
+            AddCandles(series, first, last, low, high);
+            DrawnCandles = last - first + 1;
+            AddTradeMarkers(env, first, last, low, high);
+            UploadMesh();
+        }
+
+        float SlotWidth => width / VisibleCandles;
+        float LeftEdge => -width / 2;
+
+        /// <summary>The lowest low and highest high of the visible candles, with a margin above and below.</summary>
+        static (double low, double high) PriceRange(CandleSeries series, int first, int last)
+        {
             double low = double.MaxValue, high = double.MinValue;
             for (int i = first; i <= last; i++)
             {
@@ -85,27 +101,34 @@ namespace Gym.Runtime.Play
             double pad = Math.Max((high - low) * 0.08, high * 1e-4);
             low -= pad;
             high += pad;
+            return (low, high);
+        }
 
-            vertices.Clear();
-            colors.Clear();
-            triangles.Clear();
-            float slot = width / VisibleCandles;
-            float left = -width / 2;
-            float Y(double price) => (float)((price - low) / (high - low) * height - height / 2);
+        float PriceToY(double price, double low, double high) => (float)((price - low) / (high - low) * height - height / 2);
 
+        void AddCandles(CandleSeries series, int first, int last, double low, double high)
+        {
+            float slot = SlotWidth;
+            float left = LeftEdge;
             for (int i = first; i <= last; i++)
             {
                 Candle c = series[i];
                 float x = left + (i - first + 0.5f) * slot;
                 Color color = c.Close >= c.Open ? upColor : downColor;
-                float top = Y(Math.Max(c.Open, c.Close));
-                float bottom = Y(Math.Min(c.Open, c.Close));
+                float top = PriceToY(Math.Max(c.Open, c.Close), low, high);
+                float bottom = PriceToY(Math.Min(c.Open, c.Close), low, high);
                 if (top - bottom < 0.02f) top = bottom + 0.02f;
-                AddQuad(x - slot * 0.06f, Y(c.Low), x + slot * 0.06f, Y(c.High), color);
+                AddQuad(x - slot * 0.06f, PriceToY(c.Low, low, high), x + slot * 0.06f, PriceToY(c.High, low, high), color);
                 AddQuad(x - slot * 0.32f, bottom, x + slot * 0.32f, top, color);
             }
-            DrawnCandles = last - first + 1;
+        }
 
+        /// <summary>▲ under each visible buy and ▼ over each visible sell; counts them in DrawnMarkers.</summary>
+        void AddTradeMarkers(TradingEnv env, int first, int last, double low, double high)
+        {
+            float slot = SlotWidth;
+            float left = LeftEdge;
+            CandleSeries series = env.Series;
             DrawnMarkers = 0;
             foreach (TradeRecord trade in env.Trades)
             {
@@ -114,17 +137,20 @@ namespace Gym.Runtime.Play
                 float size = slot * 0.45f;
                 if (trade.Side == TradeAction.Buy)
                 {
-                    float tip = Y(series[trade.CandleIndex].Low) - 0.08f;
+                    float tip = PriceToY(series[trade.CandleIndex].Low, low, high) - 0.08f;
                     AddTriangle(new Vector3(x, tip), new Vector3(x - size, tip - size * 1.4f), new Vector3(x + size, tip - size * 1.4f), buyColor);
                 }
                 else
                 {
-                    float tip = Y(series[trade.CandleIndex].High) + 0.08f;
+                    float tip = PriceToY(series[trade.CandleIndex].High, low, high) + 0.08f;
                     AddTriangle(new Vector3(x, tip), new Vector3(x + size, tip + size * 1.4f), new Vector3(x - size, tip + size * 1.4f), sellColor);
                 }
                 DrawnMarkers++;
             }
+        }
 
+        void UploadMesh()
+        {
             mesh.Clear();
             mesh.SetVertices(vertices);
             mesh.SetColors(colors);
