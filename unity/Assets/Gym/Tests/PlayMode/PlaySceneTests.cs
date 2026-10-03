@@ -57,7 +57,7 @@ namespace Gym.Tests.PlayMode
         // ---- P-2 the HUD equals a standalone TradingEnv, bit for bit
 
         [UnityTest]
-        public IEnumerator P02_HudMatchesAStandaloneEnvAfterBuyHoldSell()
+        public IEnumerator BuyHoldSell_HudMatchesAStandaloneEnvBitForBit()
         {
             using var logs = new LogGuard();
             yield return LoadPlayScene();
@@ -95,7 +95,7 @@ namespace Gym.Tests.PlayMode
         // ---- P-3 selling with no coin is rejected, nothing else changes
 
         [UnityTest]
-        public IEnumerator P03_SellWhileFlatIsRejected()
+        public IEnumerator SellWhileFlat_IsRejected()
         {
             using var logs = new LogGuard();
             yield return LoadPlayScene();
@@ -115,7 +115,7 @@ namespace Gym.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator P03_RestartGoesBackToPlayStart()
+        public IEnumerator Restart_GoesBackToPlayStart()
         {
             using var logs = new LogGuard();
             yield return LoadPlayScene();

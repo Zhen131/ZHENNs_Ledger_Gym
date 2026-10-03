@@ -38,7 +38,7 @@ namespace Gym.Tests.Runtime.Configuration
         // ---- E-1 configuration
 
         [Test]
-        public void E01_DefaultFilesLoadWithoutErrorsOrWarnings()
+        public void DefaultFiles_LoadWithoutErrorsOrWarnings()
         {
             GymSettings s = GymConfigLoader.Load(GymConfigLoader.DefaultConfigPath, GymConfigLoader.DefaultSymbolsPath);
             Assert.AreEqual("BTCUSDT", s.Config.symbol);
@@ -56,7 +56,7 @@ namespace Gym.Tests.Runtime.Configuration
         }
 
         [Test]
-        public void E01_TestSegmentOverlappingTrainingIsAnError()
+        public void TestSegmentOverlappingTraining_IsAnError()
         {
             GymConfig config = DefaultConfig();
             config.test = new DateRange { start = "2024-06-01", end = "2026-08-31" };
@@ -66,7 +66,7 @@ namespace Gym.Tests.Runtime.Configuration
         }
 
         [Test]
-        public void E01_UnknownSymbolIsAnError()
+        public void UnknownSymbol_IsAnError()
         {
             GymConfig config = DefaultConfig();
             config.symbol = "BTCUSD";
@@ -76,7 +76,7 @@ namespace Gym.Tests.Runtime.Configuration
         }
 
         [Test]
-        public void E01_OtherProblemsAreReportedTogether()
+        public void SeveralProblems_AreReportedTogether()
         {
             GymConfig config = DefaultConfig();
             config.initialCash = 0;
@@ -90,7 +90,7 @@ namespace Gym.Tests.Runtime.Configuration
         }
 
         [Test]
-        public void E01_PlayStartOutsideTrainingIsAnError()
+        public void PlayStartOutsideTraining_IsAnError()
         {
             GymConfig config = DefaultConfig();
             config.playStart = "2025-01-01";
@@ -100,7 +100,7 @@ namespace Gym.Tests.Runtime.Configuration
         }
 
         [Test]
-        public void E01_BackwardTestIsOnlyAWarning()
+        public void TestBeforeTraining_IsOnlyAWarning()
         {
             GymConfig config = DefaultConfig();
             config.train = new DateRange { start = "2019-01-01", end = "2024-08-31" };
@@ -111,7 +111,7 @@ namespace Gym.Tests.Runtime.Configuration
         }
 
         [Test]
-        public void E01_ModeAndSegmentArguments()
+        public void ModeSegmentAndCostArguments_AreReadAndChecked()
         {
             GymSettings train = GymConfigLoader.Load(GymConfigLoader.DefaultConfigPath,
                 GymConfigLoader.DefaultSymbolsPath, new[] { "x", "-gymMode", "train", "-gymSegment", "train" });
@@ -146,7 +146,7 @@ namespace Gym.Tests.Runtime.Configuration
         [TestCase("-gymFeeRate", "-0.001")]
         [TestCase("-gymSlippage", "0.1")]
         [TestCase("-gymFixedFee", "-1")]
-        public void M1_CostArgumentsOutsideTheCostModelRangesAreConfigErrors(string name, string value)
+        public void CostArgumentOutsideTheCostModelRange_IsAConfigError(string name, string value)
         {
             // 05D M-1: the evaluation player hung on -gymFeeRate 1.5 because CostModel threw
             // only when the agent reset. Now the loader reports it like any other config error.
@@ -157,7 +157,7 @@ namespace Gym.Tests.Runtime.Configuration
         }
 
         [Test]
-        public void M1_CostArgumentsAtTheEdgesOfTheRangesAreAccepted()
+        public void CostArgumentsAtTheEdgesOfTheRanges_AreAccepted()
         {
             GymSettings s = GymConfigLoader.Load(GymConfigLoader.DefaultConfigPath, GymConfigLoader.DefaultSymbolsPath,
                 new[] { "x", "-gymMode", "eval", "-gymFeeRate", "0.999", "-gymSlippage", "0.0999", "-gymFixedFee", "0" });
@@ -167,7 +167,7 @@ namespace Gym.Tests.Runtime.Configuration
         }
 
         [Test]
-        public void N2_InitialCashAboveTheLimitIsAConfigError()
+        public void InitialCashAboveTheLimit_IsAConfigError()
         {
             // 08D N-2: from about 1e12 USDT on, an all-in buy could round past the cash and throw.
             GymConfig config = DefaultConfig();

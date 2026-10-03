@@ -23,7 +23,7 @@ namespace Gym.Tests.Editor
         }
 
         [Test]
-        public void Q03_PoliciesArgumentDefaultsToAllThreeAndRejectsUnknownNames()
+        public void PoliciesArgument_DefaultsToAllThreeAndRejectsUnknownNames()
         {
             CollectionAssert.AreEquivalent(new[] { "buyhold", "cash", "random" }, EvalTools.ParsePolicies(null));
             CollectionAssert.AreEquivalent(new[] { "random" }, EvalTools.ParsePolicies("random"));
@@ -33,7 +33,7 @@ namespace Gym.Tests.Editor
         }
 
         [Test]
-        public void M2_BaselineFilesCarryNoMachinePaths()
+        public void BaselineFiles_CarryNoMachinePaths()
         {
             EvalTools.Run(new[] { "x", "-gymSegment", "validation", "-gymFeeRates", "0.001", "-gymRandomSeeds", "2", "-gymOut", tempDir });
             string[] files = Directory.GetFiles(tempDir, "*", SearchOption.AllDirectories);

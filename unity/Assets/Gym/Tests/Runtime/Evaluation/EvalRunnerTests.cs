@@ -11,7 +11,7 @@ namespace Gym.Tests.Runtime.Evaluation
     public class EvalRunnerTests
     {
         [Test]
-        public void S1_TheEvaluationPlayerNeedsEvalModeAndAnOutputFolder()
+        public void WithoutEvalModeOrOutputFolder_TheArgumentsAreRefused()
         {
             string none = EvalRunner.CheckArguments(new[] { "GymEval" });
             StringAssert.Contains("missing -gymMode eval, -gymSegment validation|test and -gymOut <folder>", none);
@@ -28,7 +28,7 @@ namespace Gym.Tests.Runtime.Evaluation
         }
 
         [Test]
-        public void N1_TheEvaluationPlayerNeedsTheSegmentToo()
+        public void WithoutAnEvaluationSegment_TheArgumentsAreRefused()
         {
             // 08D N-1: without -gymSegment the player fell back to the test segment and wrote to -gymOut,
             // which on the PC is the append-only log.
@@ -44,7 +44,7 @@ namespace Gym.Tests.Runtime.Evaluation
         }
 
         [Test]
-        public void M2_AgentDetailsCarryNoMachinePaths()
+        public void AgentDetails_CarryNoMachinePaths()
         {
             GymSettings s = GymConfigLoader.Load(GymConfigLoader.DefaultConfigPath, GymConfigLoader.DefaultSymbolsPath,
                 new[] { "x", "-gymMode", "eval", "-gymSegment", "validation" });

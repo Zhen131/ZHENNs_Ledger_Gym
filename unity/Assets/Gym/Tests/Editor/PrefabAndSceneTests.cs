@@ -26,7 +26,7 @@ namespace Gym.Tests.Editor
         // ---- E-2 prefab
 
         [Test]
-        public void E02_PrefabHasTheContractedBehaviour()
+        public void AgentPrefab_HasTheExpectedBehaviourAndActions()
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
             Assert.IsNotNull(prefab, PrefabPath);
@@ -55,7 +55,7 @@ namespace Gym.Tests.Editor
         // ---- E-3 scenes
 
         [Test]
-        public void E03_TrainingSceneHasSixteenDefaultAgents()
+        public void TrainingScene_HasSixteenDefaultAgents()
         {
             Scene scene = EditorSceneManager.OpenScene(TrainingScenePath, OpenSceneMode.Additive);
             try
@@ -77,7 +77,7 @@ namespace Gym.Tests.Editor
         }
 
         [Test]
-        public void E03_PlaySceneHasOneHeuristicAgentWithItsViews()
+        public void PlayScene_HasOneHeuristicAgentWithItsViews()
         {
             Scene scene = EditorSceneManager.OpenScene(PlayScenePath, OpenSceneMode.Additive);
             try
@@ -113,7 +113,7 @@ namespace Gym.Tests.Editor
         }
 
         [Test]
-        public void E03_EvalSceneHasOneEvaluationAgentAndItsRunner()
+        public void EvalScene_HasOneEvaluationAgentAndItsRunner()
         {
             Scene scene = EditorSceneManager.OpenScene(EvalScenePath, OpenSceneMode.Additive);
             try
@@ -136,7 +136,7 @@ namespace Gym.Tests.Editor
         }
 
         [Test]
-        public void E03_ScenesAreInBuildSettingsInOrder()
+        public void BuildSettings_ListTheThreeScenesInOrder()
         {
             EditorBuildSettingsScene[] scenes = EditorBuildSettings.scenes;
             Assert.AreEqual(3, scenes.Length);

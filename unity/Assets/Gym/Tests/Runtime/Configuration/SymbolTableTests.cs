@@ -8,7 +8,7 @@ namespace Gym.Tests.Runtime.Configuration
     public class SymbolTableTests
     {
         [Test]
-        public void E01_SymbolTableListsThreeSymbols()
+        public void DefaultSymbolsFile_ListsThreeSymbols()
         {
             SymbolTable table = JsonUtility.FromJson<SymbolTable>(File.ReadAllText(GymConfigLoader.DefaultSymbolsPath));
             Assert.AreEqual(3, table.symbols.Length);

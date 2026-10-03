@@ -6,7 +6,7 @@ namespace Gym.Tests.Runtime.Evaluation
     public class RecordPathsTests
     {
         [Test]
-        public void M2_PathsForRecordsDropMachineFolders()
+        public void PathsForRecords_DropMachineFolders()
         {
             Assert.AreEqual("data/BTCUSDT-1h.csv", RecordPaths.PathForRecords("data/BTCUSDT-1h.csv"));
             Assert.AreEqual("data/BTCUSDT-1h.csv", RecordPaths.PathForRecords(@"data\BTCUSDT-1h.csv"));

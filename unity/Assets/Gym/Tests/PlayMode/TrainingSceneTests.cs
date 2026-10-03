@@ -21,7 +21,7 @@ namespace Gym.Tests.PlayMode
         // ---- P-1 sixteen agents, one full episode each
 
         [UnityTest]
-        public IEnumerator P01_EveryAgentFinishesAnEpisodeIn750Steps()
+        public IEnumerator SixteenAgents_EachFinishAnEpisodeWithin750Steps()
         {
             using var logs = new LogGuard();
             yield return SceneManager.LoadSceneAsync(TrainingScenePath, LoadSceneMode.Single);

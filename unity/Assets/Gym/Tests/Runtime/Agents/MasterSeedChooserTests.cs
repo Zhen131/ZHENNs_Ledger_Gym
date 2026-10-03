@@ -9,7 +9,7 @@ namespace Gym.Tests.Runtime.Agents
     public class MasterSeedChooserTests
     {
         [Test]
-        public void Q07_WithATrainerTheMasterSeedFollowsTheTrainerSeed()
+        public void WithATrainer_TheMasterSeedFollowsTheTrainerSeed()
         {
             var a = MasterSeedChooser.Choose(true, 7, clockTicks: 111, agentIndex: 3);
             var b = MasterSeedChooser.Choose(true, 7, clockTicks: 999_999, agentIndex: 3);
@@ -26,7 +26,7 @@ namespace Gym.Tests.Runtime.Agents
         }
 
         [Test]
-        public void Q08_TheTrainerSeedFieldExistsInThePinnedMlAgents()
+        public void PinnedMlAgents_StillHasTheTrainerSeedField()
         {
             // Academy.InferenceSeed has no getter in ML-Agents 4.0.3; MasterSeedChooser reads the
             // private field it sets. An ML-Agents upgrade that renames it must fail here.
@@ -35,7 +35,7 @@ namespace Gym.Tests.Runtime.Agents
         }
 
         [Test]
-        public void Q07_WithoutATrainerTheClockIsUsedAndMixed()
+        public void WithoutATrainer_TheSeedComesFromTheMixedClock()
         {
             var a = MasterSeedChooser.Choose(false, 7, clockTicks: 111, agentIndex: 3);
             var b = MasterSeedChooser.Choose(false, 7, clockTicks: 112, agentIndex: 3);
