@@ -6,7 +6,7 @@ using System.Text;
 
 namespace Gym.Core.Evaluation
 {
-    /// <summary>Minimal JSON writer for the evaluation detail files.</summary>
+    /// <summary>给评估明细文件用的最小 JSON 输出器。</summary>
     public static class JsonWriter
     {
         static readonly CultureInfo Inv = CultureInfo.InvariantCulture;

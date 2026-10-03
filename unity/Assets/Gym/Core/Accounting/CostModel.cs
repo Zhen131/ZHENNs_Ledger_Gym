@@ -2,7 +2,7 @@ using System;
 
 namespace Gym.Core.Accounting
 {
-    /// <summary>What a trade costs: a proportional fee, a fixed fee per order and price slippage.</summary>
+    /// <summary>一笔交易的成本：按比例收的 fee、每笔订单的固定 fee，以及价格 slippage。</summary>
     public sealed class CostModel
     {
         public const double DefaultFeeRate = 0.001;
@@ -20,13 +20,13 @@ namespace Gym.Core.Accounting
             Slippage = slippage;
         }
 
-        /// <summary>Fraction of the order value charged as fee (0.001 = 0.1 %).</summary>
+        /// <summary>订单金额里作为 fee 收取的比例（0.001 = 0.1 %）。</summary>
         public double FeeRate { get; }
 
-        /// <summary>USDT charged on every filled order.</summary>
+        /// <summary>每笔成交的订单收取的 USDT。</summary>
         public double FixedFee { get; }
 
-        /// <summary>Fraction the fill price moves against the trader (0.0005 = 5 bp).</summary>
+        /// <summary>fill 价格朝不利于交易者的方向偏移的比例（0.0005 = 5 bp）。</summary>
         public double Slippage { get; }
 
         public override string ToString() => $"fee={FeeRate}, fixed={FixedFee}, slippage={Slippage}";

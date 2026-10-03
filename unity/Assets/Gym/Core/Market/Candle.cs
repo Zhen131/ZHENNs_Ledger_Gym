@@ -1,6 +1,6 @@
 namespace Gym.Core.Market
 {
-    /// <summary>One hourly candle. Times are milliseconds since the Unix epoch, UTC.</summary>
+    /// <summary>一根小时 candle。时间是从 Unix 纪元起算的毫秒数，UTC。</summary>
     public readonly struct Candle
     {
         public readonly long OpenTimeMs;

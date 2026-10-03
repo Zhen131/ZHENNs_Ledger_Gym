@@ -1,26 +1,24 @@
 namespace Gym.Core.Env
 {
     /// <summary>
-    /// Scrambles seeds before they reach <see cref="System.Random"/>.
+    /// 在 seed 交给 <see cref="System.Random"/> 之前，先把它打散。
     ///
-    /// .NET's seeded <c>System.Random</c> is linear in its seed: for seeds s and
-    /// s + 1, every output of the sequence differs by the same fixed amount (modulo
-    /// 2³¹ − 1). Consecutive seeds therefore give shifted copies of one sequence,
-    /// not independent ones. Passing each seed through SplitMix64 first removes
-    /// that structure while keeping every seed reproducible.
+    /// .NET 里带 seed 的 <c>System.Random</c> 对 seed 是线性的：seed 为 s 和 s + 1 时，
+    /// 序列里每个输出都相差同一个固定值（模 2³¹ − 1）。所以相邻的 seed 给出的是同一个序列
+    /// 平移后的副本，不是互相独立的序列。先让每个 seed 过一遍 SplitMix64，就去掉了这种结构，
+    /// 同时每个 seed 仍然能复现。
     /// </summary>
     public static class SeedMixer
     {
         /// <summary>
-        /// SplitMix64 of the seed taken as a 64-bit unsigned integer (negative seeds
-        /// sign-extended, as <c>unchecked((ulong)seed)</c> does); returns the low 31 bits,
-        /// a non-negative int.
+        /// 把 seed 当成 64 位无符号整数做 SplitMix64（负的 seed 做符号扩展，和
+        /// <c>unchecked((ulong)seed)</c> 一样）；返回低 31 位，是一个非负的 int。
         /// </summary>
         public static int Mix(int seed) => Low31(SplitMix64(unchecked((ulong)seed)));
 
         /// <summary>
-        /// A seed for item <paramref name="index"/> of base seed <paramref name="seed"/>: Mix(seed) in the
-        /// high 32 bits and index's 32-bit pattern in the low 32 bits, through SplitMix64 again.
+        /// 第 <paramref name="index"/> 项的 seed，基础 seed 是 <paramref name="seed"/>：高 32 位放 Mix(seed)，
+        /// 低 32 位放 index 的 32 位二进制，再过一遍 SplitMix64。
         /// </summary>
         public static int Mix(int seed, int index) =>
             Low31(SplitMix64(((ulong)(uint)Mix(seed) << 32) | (uint)index));

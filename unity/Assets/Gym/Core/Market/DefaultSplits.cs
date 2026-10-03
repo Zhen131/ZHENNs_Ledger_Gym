@@ -1,6 +1,6 @@
 namespace Gym.Core.Market
 {
-    /// <summary>The default training, validation and test segments.</summary>
+    /// <summary>默认的训练段、验证段和测试段。</summary>
     public static class DefaultSplits
     {
         public static readonly SegmentSpec Train = SegmentSpec.Parse("train", "2017-08-17", "2024-08-31");

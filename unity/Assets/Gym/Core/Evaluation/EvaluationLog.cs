@@ -6,9 +6,9 @@ using System.Text;
 namespace Gym.Core.Evaluation
 {
     /// <summary>
-    /// The append-only evaluation log and the per-run detail files:
-    /// <c>&lt;dir&gt;/log.csv</c> and <c>&lt;dir&gt;/runs/&lt;UTC time&gt;-&lt;policy&gt;-&lt;segment&gt;.json</c>.
-    /// The log is only ever appended to; a file whose header differs is refused.
+    /// 只追加的评估流水，和每次评估一份的明细文件：
+    /// <c>&lt;dir&gt;/log.csv</c> 和 <c>&lt;dir&gt;/runs/&lt;UTC time&gt;-&lt;policy&gt;-&lt;segment&gt;.json</c>。
+    /// 评估流水只会被追加；表头不一样的文件会被拒绝。
     /// </summary>
     public static class EvaluationLog
     {
@@ -27,7 +27,7 @@ namespace Gym.Core.Evaluation
         static readonly UTF8Encoding Utf8 = new UTF8Encoding(false);
         static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
-        /// <summary>Append one row; creates the file with its header if it does not exist. Returns the path.</summary>
+        /// <summary>追加一行；文件不存在时连同表头一起新建。返回文件路径。</summary>
         public static string Append(string directory, EvaluationRecord record)
         {
             if (record == null) throw new ArgumentNullException(nameof(record));
@@ -54,7 +54,7 @@ namespace Gym.Core.Evaluation
             return path;
         }
 
-        /// <summary>Write the detail file for one evaluation. Never overwrites; returns the path.</summary>
+        /// <summary>写一次评估的明细文件。从不覆盖；返回文件路径。</summary>
         public static string WriteRunDetails(string directory, DateTime timestampUtc, string policy, string segment, JsonObject details)
         {
             string runs = Path.Combine(directory, RunsFolder);
@@ -87,7 +87,7 @@ namespace Gym.Core.Evaluation
             return sb.ToString();
         }
 
-        /// <summary>The metrics of one episode as a JSON object.</summary>
+        /// <summary>把一个 episode 的指标做成一个 JSON 对象。</summary>
         public static JsonObject MetricsJson(EpisodeMetrics metrics) => new JsonObject
         {
             { "total_return", metrics.TotalReturn },

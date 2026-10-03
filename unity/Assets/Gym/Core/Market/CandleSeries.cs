@@ -5,9 +5,8 @@ using System.Globalization;
 namespace Gym.Core.Market
 {
     /// <summary>
-    /// A contiguous run of hourly candles: every candle starts on the hour and
-    /// the next one starts exactly one hour later. Built by <see cref="Parse"/>
-    /// from the CSV written by scripts/data/fetch_binance_klines.py.
+    /// 一段连续的小时 candle：每根都从整点开始，下一根正好晚一小时开始。由 <see cref="Parse"/>
+    /// 从 scripts/data/fetch_binance_klines.py 写出的 CSV 构建。
     /// </summary>
     public sealed class CandleSeries
     {
@@ -46,7 +45,7 @@ namespace Gym.Core.Market
 
         public DateTime OpenTimeUtc(int index) => ToUtc(candles[index].OpenTimeMs);
 
-        /// <summary>Index of the candle that opens at <paramref name="openTimeMs"/>, or -1.</summary>
+        /// <summary>从 <paramref name="openTimeMs"/> 开始的那根 candle 的下标；没有时为 -1。</summary>
         public int IndexOfTime(long openTimeMs)
         {
             long offset = openTimeMs - FirstOpenTimeMs;
@@ -55,7 +54,7 @@ namespace Gym.Core.Market
             return index < Count ? (int)index : -1;
         }
 
-        /// <summary>First candle at or after 00:00 UTC of <paramref name="utcDate"/>, or -1 if none.</summary>
+        /// <summary><paramref name="utcDate"/> 当天 00:00 UTC 或之后的第一根 candle；没有时为 -1。</summary>
         public int FirstIndexOnOrAfter(DateTime utcDate)
         {
             long target = ToMs(utcDate.Date);
@@ -64,7 +63,7 @@ namespace Gym.Core.Market
             return index < Count ? (int)index : -1;
         }
 
-        /// <summary>Last candle at or before 23:00 UTC of <paramref name="utcDate"/>, or -1 if none.</summary>
+        /// <summary><paramref name="utcDate"/> 当天 23:00 UTC 或之前的最后一根 candle；没有时为 -1。</summary>
         public int LastIndexOnOrBefore(DateTime utcDate)
         {
             long target = ToMs(utcDate.Date.AddHours(23));

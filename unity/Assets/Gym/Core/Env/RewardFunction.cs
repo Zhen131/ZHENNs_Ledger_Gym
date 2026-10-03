@@ -3,8 +3,7 @@ using System;
 namespace Gym.Core.Env
 {
     /// <summary>
-    /// r = clamp(100 × ln(E₁ ÷ E₀), −1, 1). Fees are already out of the
-    /// equity, so there is no separate fee penalty.
+    /// r = clamp(100 × ln(E₁ ÷ E₀), −1, 1)。fee 已经从 equity 里扣掉了，所以没有单独的 fee 惩罚。
     /// </summary>
     public static class RewardFunction
     {

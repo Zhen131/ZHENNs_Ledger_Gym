@@ -6,13 +6,11 @@ using Gym.Core.Market;
 namespace Gym.Core.Env
 {
     /// <summary>
-    /// One trading episode over candles [First, Last], in plain C#. The Unity
-    /// agent is only a shell around this class.
+    /// 在 candle [First, Last] 上走的一个交易 episode，纯 C#。Unity 里的 Agent 只是包在这个类外面的一层壳。
     ///
-    /// At decision index t the agent sees candles up to the close of t; the
-    /// order fills at the open of t + 1; the reward compares equity at the
-    /// close of t and the close of t + 1. Randomness comes only from the seed
-    /// passed to <see cref="ResetForTraining"/>.
+    /// 在决策下标 t，Agent 看到的 candle 截止到第 t 根的 close；订单在第 t + 1 根的 open 成交；
+    /// reward 比较第 t 根 close 时和第 t + 1 根 close 时的 equity。随机性只来自传给
+    /// <see cref="ResetForTraining"/> 的 seed。
     /// </summary>
     public sealed class TradingEnv
     {
@@ -46,7 +44,7 @@ namespace Gym.Core.Env
             RandomInitialPositionShare = randomInitialPositionShare;
         }
 
-        /// <summary>Environment over the candles of a date segment.</summary>
+        /// <summary>建在一个日期分段的 candle 上的环境。</summary>
         public static TradingEnv ForSegment(CandleSeries series, SymbolRules rules, SegmentSpec segment,
             double initialCash = DefaultInitialCash, int episodeLength = TrainingEpisodeLength,
             double randomInitialPositionShare = DefaultRandomInitialPositionShare)
@@ -63,7 +61,7 @@ namespace Gym.Core.Env
         public int First { get; }
         public int Last { get; }
         public double InitialCash { get; }
-        /// <summary>Steps per training episode; 0 runs to the end of the segment.</summary>
+        /// <summary>每个训练 episode 的 step 数；为 0 时一直运行到分段结束。</summary>
         public int EpisodeLength { get; }
         public double RandomInitialPositionShare { get; }
 
@@ -72,7 +70,7 @@ namespace Gym.Core.Env
         public int Seed { get; private set; }
         public bool Evaluation { get; private set; }
 
-        /// <summary>Index of the candle whose close the agent has just seen.</summary>
+        /// <summary>Agent 刚刚看到 close 的那根 candle 的下标。</summary>
         public int CurrentIndex { get; private set; }
         public int StartIndex { get; private set; }
         public int StepCount { get; private set; }
@@ -81,10 +79,10 @@ namespace Gym.Core.Env
         public bool Done { get; private set; }
         public EndReason EndReason { get; private set; }
 
-        /// <summary>Equity at the close of the start candle, then after every step.</summary>
+        /// <summary>起始 candle close 时的 equity，然后是每个 step 之后的 equity。</summary>
         public IReadOnlyList<double> EquityCurve => equityCurve;
         public IReadOnlyList<TradeRecord> Trades => trades;
-        /// <summary>Steps after which the account still held coin.</summary>
+        /// <summary>走完之后账户仍然持有 coin 的 step 个数。</summary>
         public int HoldingSteps { get; private set; }
         public int ClippedRewards { get; private set; }
         public double RewardSum { get; private set; }
@@ -96,9 +94,9 @@ namespace Gym.Core.Env
         public bool SellEnabled => ActionCodec.SellEnabled(RequireAccount(), Series.CloseAt(CurrentIndex));
 
         /// <summary>
-        /// Start a training episode: random start in [max(First, 32), Last − EpisodeLength]
-        /// and, with probability <see cref="RandomInitialPositionShare"/>, a random part of
-        /// the equity already in coin (no fee).
+        /// 开始一个训练 episode：起点在 [max(First, 32), Last − EpisodeLength] 里随机取
+        /// （EpisodeLength 为 0 时上限是 Last − 1）；并且以 <see cref="RandomInitialPositionShare"/> 的概率，
+        /// 让 equity 里随机的一部分一开始就是 coin（不收 fee）。
         /// </summary>
         public void ResetForTraining(int seed, CostModel cost)
         {
@@ -115,7 +113,7 @@ namespace Gym.Core.Env
             if (hi < lo)
                 throw new InvalidOperationException(
                     $"Segment [{First}, {Last}] is too short for a {EpisodeLength}-step episode.");
-            // Mixed first: System.Random with nearby seeds gives shifted copies of one sequence.
+            // 先打散：System.Random 用相近的 seed，会给出同一个序列平移后的副本。
             var random = new Random(SeedMixer.Mix(seed));
             int start = random.Next(lo, hi + 1);
             bool holdCoin = random.NextDouble() < RandomInitialPositionShare;
@@ -136,8 +134,8 @@ namespace Gym.Core.Env
         }
 
         /// <summary>
-        /// Start an evaluation episode: start at max(First, 32) in cash and run to Last.
-        /// Nothing is random; the seed is only stored in <see cref="Seed"/>.
+        /// 开始一个评估 episode：从 max(First, 32) 开始，全是现金，一直运行到 Last。
+        /// 没有任何随机；seed 只记在 <see cref="Seed"/> 里。
         /// </summary>
         public void ResetForEvaluation(int seed, CostModel cost)
         {
@@ -148,8 +146,8 @@ namespace Gym.Core.Env
         }
 
         /// <summary>
-        /// Evaluation-style start at a chosen candle: all cash, no randomness, runs to
-        /// <see cref="Last"/>. Used by the Play scene.
+        /// 按评估的方式从选定的 candle 开始：全是现金，没有随机，一直运行到 <see cref="Last"/>。
+        /// Play scene 用它。
         /// </summary>
         public void Reset(CostModel cost, int startIndex)
         {
@@ -162,7 +160,7 @@ namespace Gym.Core.Env
             StartEpisode(startIndex, InitialCash, 0, 0);
         }
 
-        /// <summary>Opens the account with <see cref="Cost"/> and clears every per-episode counter.</summary>
+        /// <summary>用 <see cref="Cost"/> 开户，并把每个按 episode 计数的计数器清零。</summary>
         void StartEpisode(int startIndex, double cash, long coinUnits, double avgCost)
         {
             Account = new Account(Rules, Cost, cash, coinUnits, avgCost);
@@ -185,8 +183,7 @@ namespace Gym.Core.Env
             ObservationBuilder.Write(Series, CurrentIndex, RequireAccount(), StepsSinceTrade, dst, offset);
 
         /// <summary>
-        /// Apply one action. A masked choice that is sent anyway (e.g. from the
-        /// keyboard) is booked as a rejected order.
+        /// 执行一个 action。被 action mask 挡掉、却仍然发过来的选择（例如来自键盘），记为一笔被拒绝的订单。
         /// </summary>
         public StepResult Step(TradeAction action, float continuousAction)
         {
@@ -228,9 +225,8 @@ namespace Gym.Core.Env
         }
 
         /// <summary>
-        /// Send a buy or sell to the account, filled from <paramref name="fillBase"/>. A choice
-        /// the mask forbids at <paramref name="closeNow"/> never reaches the account and is
-        /// booked as rejected. Returns whether an order filled.
+        /// 把买入或卖出发给账户，以 <paramref name="fillBase"/> 为基准成交。按 <paramref name="closeNow"/>
+        /// 被 action mask 禁止的选择不会到达账户，记为被拒绝。返回有没有订单成交。
         /// </summary>
         bool PlaceOrder(Account account, TradeAction action, double fraction, double closeNow, double fillBase,
             out bool rejected, out Fill fill)
@@ -251,7 +247,7 @@ namespace Gym.Core.Env
             return traded;
         }
 
-        /// <summary>Why the episode ends after the step just taken, or <see cref="EndReason.None"/>.</summary>
+        /// <summary>刚走完的这个 step 之后 episode 为什么结束；不结束时为 <see cref="EndReason.None"/>。</summary>
         EndReason EndReasonAfterStep()
         {
             if (!Evaluation && EpisodeLength > 0 && StepCount >= EpisodeLength) return EndReason.EpisodeLength;

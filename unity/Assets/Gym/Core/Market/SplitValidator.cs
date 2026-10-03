@@ -42,9 +42,8 @@ namespace Gym.Core.Market
         }
 
         /// <summary>
-        /// Bars from the first index that has a full look-back window
-        /// (max(first, 32)) to the last bar, inclusive. An episode of L steps
-        /// needs L + 1 of them.
+        /// 从第一个有完整 lookback 窗口的下标（max(first, 32)）到最后一根 bar，一共几根 bar，首尾都算。
+        /// 一个 L 个 step 的 episode 需要 L + 1 根。
         /// </summary>
         public static int TrainingDecisionBars(SegmentSpec segment, CandleSeries series)
         {

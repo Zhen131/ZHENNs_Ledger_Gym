@@ -6,22 +6,21 @@ using Gym.Core.Env;
 namespace Gym.Core.Evaluation
 {
     /// <summary>
-    /// Metrics over an equity curve (the start plus one value per step, at closes)
-    /// and the account counters.
+    /// 根据 equity 曲线（起点加上每个 step 一个值，都取 close 时的值）和账户计数器算出的指标。
     /// </summary>
     public static class Metrics
     {
-        /// <summary>Hourly candles: 24 × 365 steps per year.</summary>
+        /// <summary>每小时一根 candle：一年 24 × 365 个 step。</summary>
         public const double StepsPerYear = 8760;
 
-        /// <summary>Final ÷ initial − 1. 0 for an empty curve.</summary>
+        /// <summary>Final ÷ initial − 1。曲线为空时为 0。</summary>
         public static double TotalReturn(IReadOnlyList<double> curve)
         {
             if (curve == null || curve.Count == 0) return 0;
             return curve[curve.Count - 1] / curve[0] - 1;
         }
 
-        /// <summary>Largest fall from any peak to a later low, as a positive fraction in [0, 1].</summary>
+        /// <summary>从任一高点到之后低点的最大跌幅，表示成 [0, 1] 里的正比例。</summary>
         public static double MaxDrawdown(IReadOnlyList<double> curve)
         {
             if (curve == null || curve.Count == 0) return 0;
@@ -37,8 +36,8 @@ namespace Gym.Core.Evaluation
         }
 
         /// <summary>
-        /// Mean of the per-step log returns ÷ their sample standard deviation × √8760.
-        /// 0 when there are fewer than two returns or the deviation is 0.
+        /// 每个 step 的对数收益率的均值 ÷ 它们的样本标准差 × √8760。
+        /// 收益率少于两个，或者标准差为 0 时，结果为 0。
         /// </summary>
         public static double SharpeAnnualized(IReadOnlyList<double> curve)
         {
@@ -58,7 +57,7 @@ namespace Gym.Core.Evaluation
             return mean / std * Math.Sqrt(StepsPerYear);
         }
 
-        /// <summary>Mean of the curve, for turnover. 0 for an empty curve.</summary>
+        /// <summary>曲线的均值，算 turnover 用。曲线为空时为 0。</summary>
         public static double MeanEquity(IReadOnlyList<double> curve)
         {
             if (curve == null || curve.Count == 0) return 0;
@@ -68,8 +67,8 @@ namespace Gym.Core.Evaluation
         }
 
         /// <summary>
-        /// Percentile with linear interpolation between the closest ranks
-        /// (rank = p ÷ 100 × (n − 1), as numpy's default). NaN for no values.
+        /// 百分位数，在最近的两个名次之间线性插值（rank = p ÷ 100 × (n − 1)，和 numpy 的默认做法一样）。
+        /// 没有值时为 NaN。
         /// </summary>
         public static double Percentile(IEnumerable<double> values, double percent)
         {
@@ -86,7 +85,7 @@ namespace Gym.Core.Evaluation
 
         public static double Median(IEnumerable<double> values) => Percentile(values, 50);
 
-        /// <summary>All metrics for a curve and the counters of the account that produced it.</summary>
+        /// <summary>一条曲线，加上产生它的账户的计数器，对应的全部指标。</summary>
         public static EpisodeMetrics Compute(IReadOnlyList<double> curve, int trades, int rejected,
             double turnoverNotional, double feesPaid, int holdingSteps, int steps)
         {
@@ -109,7 +108,7 @@ namespace Gym.Core.Evaluation
                 final);
         }
 
-        /// <summary>Metrics of the episode an environment has just run.</summary>
+        /// <summary>环境刚运行完的那个 episode 的指标。</summary>
         public static EpisodeMetrics From(TradingEnv env)
         {
             if (env == null) throw new ArgumentNullException(nameof(env));

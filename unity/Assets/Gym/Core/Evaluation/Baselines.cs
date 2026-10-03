@@ -6,8 +6,7 @@ using Gym.Core.Env;
 namespace Gym.Core.Evaluation
 {
     /// <summary>
-    /// Reference policies run through the same <see cref="TradingEnv"/> in evaluation
-    /// mode, with the same fills and fees as the agent.
+    /// 对照组的几个 policy：在评估模式下走同一个 <see cref="TradingEnv"/>，fill 和 fee 都和 Agent 一样。
     /// </summary>
     public static class Baselines
     {
@@ -15,7 +14,7 @@ namespace Gym.Core.Evaluation
         public const string CashName = "cash";
         public const string RandomName = "random";
 
-        /// <summary>Buy with fraction 1 on the first step, then hold to the end.</summary>
+        /// <summary>第一个 step 以比例 1 买入，然后一直不动到结束。</summary>
         public static EpisodeMetrics RunBuyAndHold(TradingEnv env, CostModel cost)
         {
             env.ResetForEvaluation(0, cost);
@@ -24,7 +23,7 @@ namespace Gym.Core.Evaluation
             return Metrics.From(env);
         }
 
-        /// <summary>Hold cash the whole segment.</summary>
+        /// <summary>整个分段都拿着现金。</summary>
         public static EpisodeMetrics RunCash(TradingEnv env, CostModel cost)
         {
             env.ResetForEvaluation(0, cost);
@@ -33,13 +32,12 @@ namespace Gym.Core.Evaluation
         }
 
         /// <summary>
-        /// Every step: pick uniformly among the choices the mask allows right now, and a
-        /// fraction uniformly in [0, 1], from <c>System.Random(SeedMixer.Mix(seed))</c>.
-        /// Each step draws exactly two numbers: the choice, then the fraction.
+        /// 每个 step：在 action mask 此刻允许的选择里均匀地挑一个，再在 [0, 1] 里均匀地取一个比例，
+        /// 随机数来自 <c>System.Random(SeedMixer.Mix(seed))</c>。每个 step 正好取两个数：先取选择，再取比例。
         /// </summary>
         public static EpisodeMetrics RunRandom(TradingEnv env, CostModel cost, int seed)
         {
-            // Mixed first: System.Random with seeds 0, 1, 2 … gives shifted copies of one sequence.
+            // 先打散：System.Random 用 seed 0、1、2 …，会给出同一个序列平移后的副本。
             var random = new Random(SeedMixer.Mix(seed));
             var choices = new List<TradeAction>(ActionCodec.BranchSize);
             env.ResetForEvaluation(seed, cost);

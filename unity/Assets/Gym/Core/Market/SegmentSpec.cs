@@ -4,9 +4,8 @@ using System.Globalization;
 namespace Gym.Core.Market
 {
     /// <summary>
-    /// A date range in UTC, both days included: from the first candle at or
-    /// after 00:00 of <see cref="StartDate"/> to the last one at or before
-    /// 23:00 of <see cref="EndDate"/>.
+    /// 一段 UTC 日期范围，首尾两天都包括：从 <see cref="StartDate"/> 00:00 或之后的第一根 candle，
+    /// 到 <see cref="EndDate"/> 23:00 或之前的最后一根。
     /// </summary>
     public readonly struct SegmentSpec
     {
@@ -37,7 +36,7 @@ namespace Gym.Core.Market
         public int FirstIndex(CandleSeries series) => series.FirstIndexOnOrAfter(StartDate);
         public int LastIndex(CandleSeries series) => series.LastIndexOnOrBefore(EndDate);
 
-        /// <summary>True when both dates fall inside the days the series covers.</summary>
+        /// <summary>两个日期都落在这段 candle 覆盖的日子里时为 true。</summary>
         public bool IsInside(CandleSeries series) =>
             StartDate >= series.OpenTimeUtc(0).Date && EndDate <= series.OpenTimeUtc(series.Count - 1).Date;
 

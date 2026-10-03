@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Gym.Core.Evaluation
 {
-    /// <summary>A JSON object that keeps its keys in insertion order.</summary>
+    /// <summary>按插入顺序保存键的 JSON 对象。</summary>
     public sealed class JsonObject : IEnumerable<KeyValuePair<string, object>>
     {
         readonly List<KeyValuePair<string, object>> items = new List<KeyValuePair<string, object>>();
