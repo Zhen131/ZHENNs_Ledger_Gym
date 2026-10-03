@@ -22,7 +22,7 @@ namespace Gym.Runtime.Play
         [SerializeField] float autoPlayStepsPerSecond = 5f;
         [SerializeField] int selectedIndex = 1;
 
-        int pendingBranch = (int)TradeAction.Hold;
+        TradeAction pendingAction = TradeAction.Hold;
         float pendingContinuous;
         float autoPlayTimer;
 
@@ -81,9 +81,9 @@ namespace Gym.Runtime.Play
 
         public void SelectFraction(int index) => selectedIndex = Mathf.Clamp(index, 0, FractionChoices.Length - 1);
 
-        public void PressBuy(float fraction) => Act((int)TradeAction.Buy, fraction);
-        public void PressSell(float fraction) => Act((int)TradeAction.Sell, fraction);
-        public void PressHold() => Act((int)TradeAction.Hold, (float)SelectedFraction);
+        public void PressBuy(float fraction) => Act(TradeAction.Buy, fraction);
+        public void PressSell(float fraction) => Act(TradeAction.Sell, fraction);
+        public void PressHold() => Act(TradeAction.Hold, (float)SelectedFraction);
 
         /// <summary>Back to playStart, all cash.</summary>
         public void Restart()
@@ -91,9 +91,9 @@ namespace Gym.Runtime.Play
             if (agent != null) agent.EpisodeInterrupted();
         }
 
-        void Act(int branch, float fraction)
+        void Act(TradeAction action, float fraction)
         {
-            pendingBranch = branch;
+            pendingAction = action;
             pendingContinuous = ActionCodec.FromFraction(fraction);
             try
             {
@@ -102,7 +102,7 @@ namespace Gym.Runtime.Play
             }
             finally
             {
-                pendingBranch = (int)TradeAction.Hold;
+                pendingAction = TradeAction.Hold;
             }
         }
 
@@ -110,7 +110,7 @@ namespace Gym.Runtime.Play
         {
             ActionSegment<int> discrete = actionsOut.DiscreteActions;
             ActionSegment<float> continuous = actionsOut.ContinuousActions;
-            discrete[0] = pendingBranch;
+            discrete[0] = (int)pendingAction;
             continuous[0] = pendingContinuous;
         }
     }

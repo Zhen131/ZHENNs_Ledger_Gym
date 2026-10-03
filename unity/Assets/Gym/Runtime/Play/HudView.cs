@@ -81,10 +81,10 @@ namespace Gym.Runtime.Play
             if (!source.HasStepped) return "-";
             StepResult r = source.LastResult;
             string pct = (ActionCodec.Fraction(source.LastContinuous) * 100).ToString("0.#", CultureInfo.InvariantCulture) + "%";
-            switch (source.LastBranch)
+            switch (source.LastAction)
             {
-                case (int)TradeAction.Buy: return r.Traded ? $"BUY {pct}: filled" : $"BUY {pct}: REJECTED";
-                case (int)TradeAction.Sell: return r.Traded ? $"SELL {pct}: filled" : $"SELL {pct}: REJECTED";
+                case TradeAction.Buy: return r.Traded ? $"BUY {pct}: filled" : $"BUY {pct}: REJECTED";
+                case TradeAction.Sell: return r.Traded ? $"SELL {pct}: filled" : $"SELL {pct}: REJECTED";
                 default: return "HOLD";
             }
         }

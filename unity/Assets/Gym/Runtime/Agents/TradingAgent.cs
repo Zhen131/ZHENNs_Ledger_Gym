@@ -62,7 +62,7 @@ namespace Gym.Runtime.Agents
         public EpisodeStats LastEpisodeStats { get; private set; }
 
         public bool HasStepped { get; private set; }
-        public int LastBranch { get; private set; }
+        public TradeAction LastAction { get; private set; }
         public float LastContinuous { get; private set; }
         public StepResult LastResult { get; private set; }
 
@@ -112,12 +112,12 @@ namespace Gym.Runtime.Agents
 
         public override void OnActionReceived(ActionBuffers actions)
         {
-            int branch = actions.DiscreteActions[0];
+            var action = (TradeAction)actions.DiscreteActions[0];
             float continuous = actions.ContinuousActions[0];
-            StepResult result = Env.Step((TradeAction)branch, continuous);
+            StepResult result = Env.Step(action, continuous);
 
             HasStepped = true;
-            LastBranch = branch;
+            LastAction = action;
             LastContinuous = continuous;
             LastResult = result;
             AddReward((float)result.Reward);
@@ -171,7 +171,7 @@ namespace Gym.Runtime.Agents
                 Env.ResetForTraining(EpisodeSeed, cost);
             }
             HasStepped = false;
-            LastBranch = (int)TradeAction.Hold;
+            LastAction = TradeAction.Hold;
             LastContinuous = 0f;
             LastResult = default;
             EpisodeStarted?.Invoke(this);
