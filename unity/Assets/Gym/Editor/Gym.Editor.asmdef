@@ -1,6 +1,6 @@
 {
     "name": "Gym.Editor",
-    "rootNamespace": "Gym.EditorTools",
+    "rootNamespace": "Gym.Editor",
     "references": [
         "Gym.Core",
         "Gym.Runtime",

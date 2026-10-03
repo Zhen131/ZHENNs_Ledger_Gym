@@ -7,14 +7,14 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
-namespace Gym.EditorTools
+namespace Gym.Editor
 {
     /// <summary>
     /// Renders the Play scene's chart after the checklist's three key presses to
     /// Logs/play-snapshot.png. The IMGUI HUD is drawn only in a real Game view, so it
     /// is not in the picture. Needs a graphics device (run without -nographics):
     ///
-    ///   Unity -batchmode -projectPath "$PWD/unity" -executeMethod Gym.EditorTools.PlaySnapshot.Render -quit
+    ///   Unity -batchmode -projectPath "$PWD/unity" -executeMethod Gym.Editor.PlaySnapshot.Render -quit
     /// </summary>
     public static class PlaySnapshot
     {

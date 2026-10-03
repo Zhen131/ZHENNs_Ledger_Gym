@@ -2,7 +2,6 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
-using Gym.EditorTools;
 using Gym.Runtime.Agents;
 using Gym.Runtime.Configuration;
 using Gym.Runtime.Evaluation;

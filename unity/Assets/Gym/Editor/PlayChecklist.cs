@@ -8,14 +8,14 @@ using Gym.Runtime.Configuration;
 using UnityEditor;
 using UnityEngine;
 
-namespace Gym.EditorTools
+namespace Gym.Editor
 {
     /// <summary>
     /// Prints the expected HUD values for the first three key presses of the Play
     /// scene (select 25 % + B, H, select 50 % + S), computed with TradingEnv from the
     /// default config. Writes Logs/play-checklist.md as well.
     ///
-    ///   Unity -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.EditorTools.PlayChecklist.Print -quit
+    ///   Unity -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.PlayChecklist.Print -quit
     /// </summary>
     public static class PlayChecklist
     {
