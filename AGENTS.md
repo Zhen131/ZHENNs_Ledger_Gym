@@ -2,83 +2,7 @@
 
 Guidance for anyone, AI or human, who works on this repository.
 
-## What this is
-
-A Unity ML-Agents environment for a university course on reinforcement learning: an agent steps through historical 1-hour BTC/USDT candles and decides each hour whether to buy, sell or hold, and how much, while fees are charged on every fill. The research question is how fees change what the agent learns.
-
-What it is **not**: a trading strategy, a trading bot, financial advice, or a claim that anything here makes money. Do not add live trading, exchange APIs, order placement or anything that touches a real account.
-
-## Pinned versions
-
-| Component | Version |
-| --- | --- |
-| Unity Editor | 6000.0.84f1 |
-| `com.unity.ml-agents` | 4.0.3 (pulls `com.unity.ai.inference` 2.6.1) |
-| `com.unity.test-framework` | 1.6.0 |
-| Python | 3.10.12 in the conda environment `mlagents` |
-| `mlagents` / `mlagents-envs` | 1.1.0 |
-| PyTorch | 2.2.x |
-
-Do not change `unity/Packages/manifest.json`, upgrade packages or install Python packages without the owner's explicit decision.
-
-## Layout
-
-| Path | Contents |
-| --- | --- |
-| `unity/Assets/Gym/Core/` | `Gym.Core` (asmdef with `noEngineReferences: true`), one folder and namespace per concept: `Market/` (`CandleSeries`, `SymbolRules`, `SegmentSpec`/`SplitValidator`), `Accounting/` (`Account`, `CostModel`), `Env/` (`TradingEnv`, `TradeAction`, `ActionCodec`, `ObservationBuilder`, `RewardFunction`, `SeedMixer`), `Evaluation/` (`Metrics`, `Baselines`, `EvaluationLog`, `JsonWriter`) |
-| `unity/Assets/Gym/Runtime/` | `Gym.Runtime`: `TradingAgent` (ML-Agents shell around `TradingEnv`), `GymConfigLoader`, `GymDataCache`, `EpisodeStats`, `PlayController`, `HudView`, `CandleChartView`, `EvalRunner` |
-| `unity/Assets/Gym/Editor/` | `BuildScript` (training and evaluation players), `EvalTools` (baselines), `GymSceneBuilder`, `PlayChecklist`, `PlaySnapshot` |
-| `unity/Assets/Gym/Scenes/` | `Training.unity` (16 agents), `Play.unity` (keyboard), `Eval.unity` (one agent + `EvalRunner`) |
-| `unity/Assets/Gym/Prefabs/` | `TradingAgent.prefab` (35 observations, 1 continuous + 1 discrete branch of 3, decision every step) |
-| `unity/Assets/Gym/Tests/` | `Core/` (core, in the same four folders), `Editor/` (config, prefab, scenes), `PlayMode/` |
-| `unity/Assets/StreamingAssets/Gym/` | `gym-config.json`, `symbols.json`, `data/BTCUSDT-1h.csv` + manifest + `DATA-LICENSE.md` |
-| `config/` | `ppo_base.yaml`, smoke configs, `variants/`; see `config/README.md` |
-| `scripts/` | `data/fetch_binance_klines.py`, `train/` (`run_series.sh`, `run_series.ps1`, `check_configs.py`, `read_scalars.py`), `eval/summarize.py` |
-| `evaluations/` | Append-only `log.csv` and `runs/*.json` |
-| `docs/` | `pc-training.md`, `pc-training.zh.md` |
-
-## Common commands (macOS)
-
-Close the Unity editor first; run from the repository root.
-
-```bash
-UNITY=/Applications/Unity/Hub/Editor/6000.0.84f1/Unity.app/Contents/MacOS/Unity
-conda activate mlagents
-
-# Tests
-"$UNITY" -batchmode -nographics -projectPath "$PWD/unity" -runTests -testPlatform EditMode -testResults "$PWD/unity/Logs/editmode-results.xml" -logFile "$PWD/unity/Logs/editmode.log"
-"$UNITY" -batchmode -nographics -projectPath "$PWD/unity" -runTests -testPlatform PlayMode -testResults "$PWD/unity/Logs/playmode-results.xml" -logFile "$PWD/unity/Logs/playmode.log"
-python scripts/data/fetch_binance_klines.py --self-test
-
-# Build the training player (unity/Builds/mac/Gym.app)
-"$UNITY" -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.BuildScript.BuildMacTraining -quit -logFile "$PWD/unity/Logs/build-mac.log"
-
-# Smoke training and its curves
-RUN=smoke-$(date +%Y%m%d-%H%M%S)
-mlagents-learn config/smoke.yaml --env unity/Builds/mac/Gym.app --run-id $RUN --no-graphics
-python scripts/train/read_scalars.py results/$RUN
-
-# Configs and series
-python scripts/train/check_configs.py
-scripts/train/run_series.sh --env unity/Builds/mac/Gym.app --seeds 1 --smoke config/ppo_base.yaml config/variants/fee-0.003.yaml
-
-# Evaluate a model (writes to evaluations/smoke/, which Git ignores)
-"$UNITY" -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.BuildScript.BuildMacEval -gymModel "$PWD/results/$RUN/TradingAgent.onnx" -quit -logFile "$PWD/unity/Logs/build-eval.log"
-unity/Builds/mac/GymEval.app/Contents/MacOS/ZHENN_Ledger_Gym -batchmode -nographics -gymMode eval -gymSegment validation -gymFeeRate 0.001 -gymOut "$PWD/evaluations/smoke"
-
-# Baselines (append to the tracked evaluations/log.csv; run once per segment and fee set)
-"$UNITY" -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.EvalTools.RunBaselines -gymSegment validation -gymOut "$PWD/evaluations" -quit -logFile "$PWD/unity/Logs/baselines.log"
-python scripts/eval/summarize.py evaluations/log.csv
-
-# Regenerate scenes / the Play checklist / a chart snapshot
-"$UNITY" -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.GymSceneBuilder.BuildAll -quit -logFile "$PWD/unity/Logs/build-scenes.log"
-"$UNITY" -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.PlayChecklist.Print -quit -logFile "$PWD/unity/Logs/checklist.log"
-"$UNITY" -batchmode -projectPath "$PWD/unity" -executeMethod Gym.Editor.PlaySnapshot.Render -quit -logFile "$PWD/unity/Logs/snapshot.log"
-```
-
-Windows equivalents are in `docs/pc-training.md`. `GymSceneBuilder.BuildAll` rewrites all scenes; the Training scene usually comes back with the same content in a different order, which can be reverted with `git checkout`.
-
-After any Unity run, check `git status`. Unity writes `unity/Assets/ML-Agents/` (ML-Agents timers) and `unity/ProjectSettings/SceneTemplateSettings.json` by itself; Git ignores both. It may also flip the `SENTIS_ANALYTICS_ENABLED` define in `unity/ProjectSettings/ProjectSettings.asset`; see rule 10.
+What the project is: [README.md](README.md). The folder layout is the README's [Repository layout](README.md#repository-layout) table, and how the code is layered is in [docs/architecture.md](docs/architecture.md). The pinned versions are in [docs/setup.md](docs/setup.md#versions-pinned-on-every-machine). The commands are in the README's [quick start](README.md#quick-start-mac) and the pages under [docs/](docs/) (Windows: [docs/pc-training.md](docs/pc-training.md)).
 
 ## Rules
 
@@ -92,3 +16,5 @@ After any Unity run, check `git status`. Unity writes `unity/Assets/ML-Agents/` 
 8. **Training runs:** run ids for experiments are new every time; never use `--force`; never stop a run with Ctrl+C.
 9. Unity creates `.meta` files for new assets; commit them together with the asset.
 10. **After a command-line Unity run**, if the only change in `unity/ProjectSettings/ProjectSettings.asset` is the `SENTIS_ANALYTICS_ENABLED` scripting define (the inference package drops it in batch test runs and adds it back in the editor), restore the file with `git checkout -- unity/ProjectSettings/ProjectSettings.asset`. If the file has any other change, look at it before deciding; never commit the define flip by itself.
+11. **No live trading.** What it is **not**: a trading strategy, a trading bot, financial advice, or a claim that anything here makes money. Do not add live trading, exchange APIs, order placement or anything that touches a real account.
+12. **Pinned versions.** Do not change `unity/Packages/manifest.json`, upgrade packages or install Python packages without the owner's explicit decision.
