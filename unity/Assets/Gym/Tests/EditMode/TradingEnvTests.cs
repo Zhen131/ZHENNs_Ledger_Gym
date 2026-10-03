@@ -28,7 +28,7 @@ namespace Gym.Tests.EditMode
             Assert.IsTrue(end.Done);
             Assert.AreEqual(EndReason.EpisodeLength, end.Reason);
             Assert.AreEqual(720, env.StepCount);
-            Assert.AreEqual(env.StartIndex + 720, env.T);
+            Assert.AreEqual(env.StartIndex + 720, env.CurrentIndex);
             Assert.AreEqual(721, env.EquityCurve.Count);
             Assert.Throws<InvalidOperationException>(() => env.Step(TradeAction.Hold, 0f));
         }
@@ -79,8 +79,8 @@ namespace Gym.Tests.EditMode
                 steps++;
             }
             Assert.AreEqual(EndReason.SegmentEnd, r.Reason);
-            Assert.AreEqual(last, env.T);
-            Assert.AreEqual(new DateTime(2026, 8, 31, 23, 0, 0, DateTimeKind.Utc), s.OpenTimeUtc(env.T));
+            Assert.AreEqual(last, env.CurrentIndex);
+            Assert.AreEqual(new DateTime(2026, 8, 31, 23, 0, 0, DateTimeKind.Utc), s.OpenTimeUtc(env.CurrentIndex));
             Assert.AreEqual(last - first, steps);
             Assert.AreEqual(last - first + 1, env.EquityCurve.Count);
         }
@@ -183,7 +183,7 @@ namespace Gym.Tests.EditMode
             var env = new TradingEnv(s, Btc, 10, 250);
             env.Reset(new CostModel(), 100);
             Assert.AreEqual(100, env.StartIndex);
-            Assert.AreEqual(100, env.T);
+            Assert.AreEqual(100, env.CurrentIndex);
             Assert.IsTrue(env.Evaluation);
             Assert.IsFalse(env.StartedWithCoin);
             Assert.AreEqual(env.InitialCash, env.Account.Cash);

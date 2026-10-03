@@ -13,9 +13,9 @@ namespace Gym.Core.Env
         public const int ContinuousSize = 1;
 
         /// <summary>Fraction = clamp((a + 1) ÷ 2, 0, 1). NaN counts as 0.</summary>
-        public static double Fraction(float a)
+        public static double Fraction(float continuousAction)
         {
-            double f = ((double)a + 1) / 2;
+            double f = ((double)continuousAction + 1) / 2;
             if (double.IsNaN(f)) return 0;
             return Math.Max(0, Math.Min(1, f));
         }
@@ -37,14 +37,14 @@ namespace Gym.Core.Env
             account.CoinUnits > 0 &&
             account.Quantity * price * (1 - account.Cost.Slippage) >= account.Rules.MinNotional;
 
-        public static bool IsEnabled(TradeAction branch, Account account, double price)
+        public static bool IsEnabled(TradeAction action, Account account, double price)
         {
-            switch (branch)
+            switch (action)
             {
                 case TradeAction.Hold: return HoldEnabled;
                 case TradeAction.Buy: return BuyEnabled(account, price);
                 case TradeAction.Sell: return SellEnabled(account, price);
-                default: throw new ArgumentOutOfRangeException(nameof(branch), (int)branch, "Must be 0, 1 or 2.");
+                default: throw new ArgumentOutOfRangeException(nameof(action), (int)action, "Must be 0, 1 or 2.");
             }
         }
     }

@@ -72,7 +72,7 @@ namespace Gym.Runtime
             if (env == null || env.Account == null) return;
             EnsureMesh();
             CandleSeries series = env.Series;
-            int last = env.T;
+            int last = env.CurrentIndex;
             int first = Math.Max(0, last - VisibleCandles + 1);
 
             double low = double.MaxValue, high = double.MinValue;

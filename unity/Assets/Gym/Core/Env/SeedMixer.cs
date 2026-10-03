@@ -19,11 +19,11 @@ namespace Gym.Core.Env
         public static int Mix(int seed) => Low31(SplitMix64(unchecked((ulong)seed)));
 
         /// <summary>
-        /// A seed for item <paramref name="b"/> of base seed <paramref name="a"/>: Mix(a) in the
-        /// high 32 bits and b's 32-bit pattern in the low 32 bits, through SplitMix64 again.
+        /// A seed for item <paramref name="index"/> of base seed <paramref name="seed"/>: Mix(seed) in the
+        /// high 32 bits and index's 32-bit pattern in the low 32 bits, through SplitMix64 again.
         /// </summary>
-        public static int Mix(int a, int b) =>
-            Low31(SplitMix64(((ulong)(uint)Mix(a) << 32) | (uint)b));
+        public static int Mix(int seed, int index) =>
+            Low31(SplitMix64(((ulong)(uint)Mix(seed) << 32) | (uint)index));
 
         static ulong SplitMix64(ulong x)
         {

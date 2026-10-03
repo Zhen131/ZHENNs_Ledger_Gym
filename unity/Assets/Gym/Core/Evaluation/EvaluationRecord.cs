@@ -34,17 +34,17 @@ namespace Gym.Core.Evaluation
         public double Exposure;
         public string Notes = "";
 
-        public void SetMetrics(EpisodeMetrics m)
+        public void SetMetrics(EpisodeMetrics metrics)
         {
-            TotalReturn = m.TotalReturn;
-            MaxDrawdown = m.MaxDrawdown;
-            Sharpe = m.SharpeAnnualized;
-            Trades = m.Trades;
-            Rejected = m.Rejected;
-            Turnover = m.Turnover;
-            FeesPaid = m.FeesPaid;
-            FeesPct = m.FeesPct;
-            Exposure = m.Exposure;
+            TotalReturn = metrics.TotalReturn;
+            MaxDrawdown = metrics.MaxDrawdown;
+            Sharpe = metrics.SharpeAnnualized;
+            Trades = metrics.Trades;
+            Rejected = metrics.Rejected;
+            Turnover = metrics.Turnover;
+            FeesPaid = metrics.FeesPaid;
+            FeesPct = metrics.FeesPct;
+            Exposure = metrics.Exposure;
         }
 
         public void SetCost(CostModel cost)

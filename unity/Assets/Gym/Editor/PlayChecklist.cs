@@ -30,7 +30,7 @@ namespace Gym.EditorTools
 
             CultureInfo inv = CultureInfo.InvariantCulture;
             var md = new StringBuilder();
-            md.AppendLine($"Start: {s.Series.OpenTimeUtc(env.T).ToString("yyyy-MM-dd HH:mm", inv)} UTC, close {env.CurrentClose.ToString("F2", inv)}, cash {env.Account.Cash.ToString("F4", inv)}, fee {cost.FeeRate}, fixed {cost.FixedFee}, slippage {cost.Slippage}");
+            md.AppendLine($"Start: {s.Series.OpenTimeUtc(env.CurrentIndex).ToString("yyyy-MM-dd HH:mm", inv)} UTC, close {env.CurrentClose.ToString("F2", inv)}, cash {env.Account.Cash.ToString("F4", inv)}, fee {cost.FeeRate}, fixed {cost.FixedFee}, slippage {cost.Slippage}");
             md.AppendLine();
             md.AppendLine("| Step | Keys | Candle now (UTC) | Fill price | Cash | Coin units | Coin BTC | Fee this step | Equity | Fees total | Trades | Rejected |");
             md.AppendLine("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |");
@@ -47,7 +47,7 @@ namespace Gym.EditorTools
                 double feesBefore = env.Account.FeesPaid;
                 StepResult r = env.Step(branch, ActionCodec.FromFraction(fraction));
                 string price = r.Traded ? env.Trades[env.Trades.Count - 1].Price.ToString("F4", inv) : "-";
-                md.AppendLine($"| {i + 1} | {keys} | {s.Series.OpenTimeUtc(env.T).ToString("yyyy-MM-dd HH:mm", inv)} | {price} | " +
+                md.AppendLine($"| {i + 1} | {keys} | {s.Series.OpenTimeUtc(env.CurrentIndex).ToString("yyyy-MM-dd HH:mm", inv)} | {price} | " +
                     $"{env.Account.Cash.ToString("F4", inv)} | {env.Account.CoinUnits} | {env.Account.Quantity.ToString("F5", inv)} | " +
                     $"{(env.Account.FeesPaid - feesBefore).ToString("F4", inv)} | {env.CurrentEquity.ToString("F4", inv)} | " +
                     $"{env.Account.FeesPaid.ToString("F4", inv)} | {env.Account.Trades} | {env.Account.Rejected} |");

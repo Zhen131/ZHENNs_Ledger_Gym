@@ -100,17 +100,17 @@ namespace Gym.Tests.EditMode
                 envA.WriteObservation(obsA);
                 envB.WriteObservation(obsB);
                 for (int k = 0; k < obsA.Length; k++)
-                    Assert.IsTrue(TestData.SameBits(obsA[k], obsB[k]), $"t={envA.T}, obs[{k}]");
+                    Assert.IsTrue(TestData.SameBits(obsA[k], obsB[k]), $"t={envA.CurrentIndex}, obs[{k}]");
                 Assert.AreEqual(envA.BuyEnabled, envB.BuyEnabled);
                 Assert.AreEqual(envA.SellEnabled, envB.SellEnabled);
-                if (envA.T == t) break;
+                if (envA.CurrentIndex == t) break;
                 int branch = actions.Next(3);
                 float x = (float)(actions.NextDouble() * 2 - 1);
                 envA.Step((TradeAction)branch, x);
                 envB.Step((TradeAction)branch, x);
                 Assert.IsTrue(TestData.SameBits(envA.CurrentEquity, envB.CurrentEquity));
             }
-            Assert.AreEqual(t, envA.T);
+            Assert.AreEqual(t, envA.CurrentIndex);
         }
 
         [Test]
@@ -120,7 +120,7 @@ namespace Gym.Tests.EditMode
             CandleSeries s = TestData.Synthetic(80, k => 100 + k, k => k == 0 ? 100 : (100 + k - 1) * 1.01);
             var env = new TradingEnv(s, Btc, 0, 79);
             env.ResetForEvaluation(0, new CostModel(0.001, 0, 0.0005));
-            Assert.AreEqual(32, env.T);
+            Assert.AreEqual(32, env.CurrentIndex);
             StepResult r = env.Step(TradeAction.Buy, 1f);
             Assert.IsTrue(r.Traded);
             TradeRecord trade = env.Trades[0];

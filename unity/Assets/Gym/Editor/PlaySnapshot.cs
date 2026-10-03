@@ -49,7 +49,7 @@ namespace Gym.EditorTools
             string path = Path.Combine("Logs", "play-snapshot.png");
             File.WriteAllBytes(path, image.EncodeToPNG());
             Debug.Log($"[Gym] wrote {path}: {chart.DrawnCandles} candles, {chart.DrawnMarkers} markers, " +
-                      $"last candle {s.Series.OpenTimeUtc(env.T):yyyy-MM-dd HH:mm} UTC, graphics {SystemInfo.graphicsDeviceType}");
+                      $"last candle {s.Series.OpenTimeUtc(env.CurrentIndex):yyyy-MM-dd HH:mm} UTC, graphics {SystemInfo.graphicsDeviceType}");
             Object.DestroyImmediate(image);
             Object.DestroyImmediate(target);
         }

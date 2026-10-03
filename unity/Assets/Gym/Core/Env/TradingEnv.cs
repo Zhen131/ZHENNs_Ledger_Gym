@@ -73,7 +73,7 @@ namespace Gym.Core.Env
         public bool Evaluation { get; private set; }
 
         /// <summary>Index of the candle whose close the agent has just seen.</summary>
-        public int T { get; private set; }
+        public int CurrentIndex { get; private set; }
         public int StartIndex { get; private set; }
         public int StepCount { get; private set; }
         public int StepsSinceTrade { get; private set; }
@@ -89,11 +89,11 @@ namespace Gym.Core.Env
         public int ClippedRewards { get; private set; }
         public double RewardSum { get; private set; }
 
-        public double CurrentClose => Series.CloseAt(T);
-        public double CurrentEquity => Account.Equity(Series.CloseAt(T));
+        public double CurrentClose => Series.CloseAt(CurrentIndex);
+        public double CurrentEquity => Account.Equity(Series.CloseAt(CurrentIndex));
 
-        public bool BuyEnabled => ActionCodec.BuyEnabled(RequireAccount(), Series.CloseAt(T));
-        public bool SellEnabled => ActionCodec.SellEnabled(RequireAccount(), Series.CloseAt(T));
+        public bool BuyEnabled => ActionCodec.BuyEnabled(RequireAccount(), Series.CloseAt(CurrentIndex));
+        public bool SellEnabled => ActionCodec.SellEnabled(RequireAccount(), Series.CloseAt(CurrentIndex));
 
         /// <summary>
         /// Start a training episode: random start in [max(First, 32), Last − EpisodeLength]
@@ -167,7 +167,7 @@ namespace Gym.Core.Env
         {
             Account = new Account(Rules, Cost, cash, coinUnits, avgCost);
             StartIndex = startIndex;
-            T = startIndex;
+            CurrentIndex = startIndex;
             StepCount = 0;
             StepsSinceTrade = 0;
             StartedWithCoin = coinUnits > 0;
@@ -182,7 +182,7 @@ namespace Gym.Core.Env
         }
 
         public void WriteObservation(float[] dst, int offset = 0) =>
-            ObservationBuilder.Write(Series, T, RequireAccount(), StepsSinceTrade, dst, offset);
+            ObservationBuilder.Write(Series, CurrentIndex, RequireAccount(), StepsSinceTrade, dst, offset);
 
         /// <summary>
         /// Apply one action. A masked choice that is sent anyway (e.g. from the
@@ -195,15 +195,15 @@ namespace Gym.Core.Env
             if ((int)action < 0 || (int)action >= ActionCodec.BranchSize)
                 throw new ArgumentOutOfRangeException(nameof(action), (int)action, "Must be 0, 1 or 2.");
 
-            double closeNow = Series.CloseAt(T);
+            double closeNow = Series.CloseAt(CurrentIndex);
             double equityBefore = account.Equity(closeNow);
-            double fillBase = Series.OpenAt(T + 1);
+            double fillBase = Series.OpenAt(CurrentIndex + 1);
             double fraction = ActionCodec.Fraction(continuousAction);
             bool traded = PlaceOrder(account, action, fraction, closeNow, fillBase, out bool rejected, out Fill fill);
 
             if (traded)
             {
-                trades.Add(new TradeRecord(StepCount, T + 1, action, fraction, fill));
+                trades.Add(new TradeRecord(StepCount, CurrentIndex + 1, action, fraction, fill));
                 StepsSinceTrade = 0;
             }
             else
@@ -211,11 +211,11 @@ namespace Gym.Core.Env
                 StepsSinceTrade++;
             }
 
-            T++;
+            CurrentIndex++;
             StepCount++;
             if (account.CoinUnits > 0) HoldingSteps++;
 
-            double equityAfter = account.Equity(Series.CloseAt(T));
+            double equityAfter = account.Equity(Series.CloseAt(CurrentIndex));
             double reward = RewardFunction.Compute(equityBefore, equityAfter, out bool clipped);
             if (clipped) ClippedRewards++;
             RewardSum += reward;
@@ -255,7 +255,7 @@ namespace Gym.Core.Env
         EndReason EndReasonAfterStep()
         {
             if (!Evaluation && EpisodeLength > 0 && StepCount >= EpisodeLength) return EndReason.EpisodeLength;
-            if (T >= Last) return EndReason.SegmentEnd;
+            if (CurrentIndex >= Last) return EndReason.SegmentEnd;
             return EndReason.None;
         }
 

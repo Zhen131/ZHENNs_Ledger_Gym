@@ -49,7 +49,7 @@ namespace Gym.Tests.PlayMode
             Assert.IsTrue(SameBits(reference.Account.FeesPaid, shown.FeesPaid), $"{when}: fees {shown.FeesPaid:R} vs {reference.Account.FeesPaid:R}");
             Assert.AreEqual(reference.Account.Trades, shown.Trades, $"{when}: trades");
             Assert.AreEqual(reference.Account.Rejected, shown.Rejected, $"{when}: rejected");
-            Assert.AreEqual(reference.Series.OpenTimeUtc(reference.T), shown.TimeUtc, $"{when}: candle");
+            Assert.AreEqual(reference.Series.OpenTimeUtc(reference.CurrentIndex), shown.TimeUtc, $"{when}: candle");
         }
 
         // ---- P-2 the HUD equals a standalone TradingEnv, bit for bit
@@ -64,8 +64,8 @@ namespace Gym.Tests.PlayMode
             GymConfig c = s.Config;
             var reference = TradingEnv.ForSegment(s.Series, s.Rules, s.Train, c.initialCash, c.episodeLength, c.randomInitialPositionShare);
             reference.Reset(new CostModel(agent.DefaultFeeRate, agent.DefaultFixedFee, agent.DefaultSlippage), s.PlayStartIndex);
-            Assert.AreEqual(new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), s.Series.OpenTimeUtc(reference.T));
-            Assert.AreEqual(reference.T, agent.Env.T);
+            Assert.AreEqual(new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), s.Series.OpenTimeUtc(reference.CurrentIndex));
+            Assert.AreEqual(reference.CurrentIndex, agent.Env.CurrentIndex);
 
             controller.PressBuy(0.25f);
             reference.Step(TradeAction.Buy, ActionCodec.FromFraction(0.25f));
@@ -120,7 +120,7 @@ namespace Gym.Tests.PlayMode
             controller.PressBuy(1f);
             controller.PressHold();
             controller.Restart();
-            Assert.AreEqual(agent.Settings.PlayStartIndex, agent.Env.T);
+            Assert.AreEqual(agent.Settings.PlayStartIndex, agent.Env.CurrentIndex);
             Assert.AreEqual(0, hud.Shown.CoinUnits);
             Assert.AreEqual(agent.Settings.Config.initialCash, hud.Shown.Cash);
             controller.PressHold();

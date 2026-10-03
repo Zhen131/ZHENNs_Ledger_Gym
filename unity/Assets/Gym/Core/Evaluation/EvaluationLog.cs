@@ -67,16 +67,16 @@ namespace Gym.Core.Evaluation
             return path;
         }
 
-        public static string FormatRow(EvaluationRecord r)
+        public static string FormatRow(EvaluationRecord record)
         {
             var cells = new[]
             {
-                r.TimestampUtc.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", Inv),
-                r.Kind, r.Policy, r.ModelRunId, r.ModelSha256, r.Symbol, r.Segment,
-                r.SegmentStart.ToString("yyyy-MM-dd", Inv), r.SegmentEnd.ToString("yyyy-MM-dd", Inv),
-                Number(r.FeeRate), Number(r.FixedFee), Number(r.Slippage), r.Seeds.ToString(Inv),
-                Number(r.TotalReturn), Number(r.MaxDrawdown), Number(r.Sharpe), Number(r.Trades), Number(r.Rejected),
-                Number(r.Turnover), Number(r.FeesPaid), Number(r.FeesPct), Number(r.Exposure), r.Notes,
+                record.TimestampUtc.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", Inv),
+                record.Kind, record.Policy, record.ModelRunId, record.ModelSha256, record.Symbol, record.Segment,
+                record.SegmentStart.ToString("yyyy-MM-dd", Inv), record.SegmentEnd.ToString("yyyy-MM-dd", Inv),
+                Number(record.FeeRate), Number(record.FixedFee), Number(record.Slippage), record.Seeds.ToString(Inv),
+                Number(record.TotalReturn), Number(record.MaxDrawdown), Number(record.Sharpe), Number(record.Trades), Number(record.Rejected),
+                Number(record.Turnover), Number(record.FeesPaid), Number(record.FeesPct), Number(record.Exposure), record.Notes,
             };
             var sb = new StringBuilder();
             for (int i = 0; i < cells.Length; i++)
@@ -88,20 +88,20 @@ namespace Gym.Core.Evaluation
         }
 
         /// <summary>The metrics of one episode as a JSON object.</summary>
-        public static JsonObject MetricsJson(EpisodeMetrics m) => new JsonObject
+        public static JsonObject MetricsJson(EpisodeMetrics metrics) => new JsonObject
         {
-            { "total_return", m.TotalReturn },
-            { "max_drawdown", m.MaxDrawdown },
-            { "sharpe", m.SharpeAnnualized },
-            { "trades", m.Trades },
-            { "rejected", m.Rejected },
-            { "turnover", m.Turnover },
-            { "fees_paid", m.FeesPaid },
-            { "fees_pct", m.FeesPct },
-            { "exposure", m.Exposure },
-            { "steps", m.Steps },
-            { "initial_equity", m.InitialEquity },
-            { "final_equity", m.FinalEquity },
+            { "total_return", metrics.TotalReturn },
+            { "max_drawdown", metrics.MaxDrawdown },
+            { "sharpe", metrics.SharpeAnnualized },
+            { "trades", metrics.Trades },
+            { "rejected", metrics.Rejected },
+            { "turnover", metrics.Turnover },
+            { "fees_paid", metrics.FeesPaid },
+            { "fees_pct", metrics.FeesPct },
+            { "exposure", metrics.Exposure },
+            { "steps", metrics.Steps },
+            { "initial_equity", metrics.InitialEquity },
+            { "final_equity", metrics.FinalEquity },
         };
 
         public static string Number(double value) =>

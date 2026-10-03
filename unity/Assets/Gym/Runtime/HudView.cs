@@ -79,7 +79,7 @@ namespace Gym.Runtime
             Shown = new HudSnapshot
             {
                 Ready = true,
-                TimeUtc = env.Series.OpenTimeUtc(env.T),
+                TimeUtc = env.Series.OpenTimeUtc(env.CurrentIndex),
                 Close = close,
                 Cash = a.Cash,
                 CoinUnits = a.CoinUnits,
