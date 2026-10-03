@@ -15,7 +15,7 @@ the seed + k and seeds 1, 2, 3 ... would collide when -NumEnvs > 1. The run id k
 the plain seed (-s3); results\<run-id>\seed-used.txt records what was passed.
 One series uses one -NumEnvs value for every run, so the runs stay comparable.
 After each run the Player logs are searched for "(clock)": an agent that could not read
-the trainer's seed seeds itself from the clock and the run cannot be repeated (Q08). Such
+the trainer's seed seeds itself from the clock and the run cannot be repeated. Such
 a run gets a loud warning and the line "WARNING: some agents seeded from the clock" in
 seed-used.txt.
 -Smoke copies each config to results\_tmp\ with max_steps 15000 (or -SmokeSteps),
@@ -61,7 +61,7 @@ function Fail([string]$message) {
     exit 2
 }
 
-# True when any agent of the run logged its master seed as "(clock)" instead of "(trainer)" (Q08).
+# True when any agent of the run logged its master seed as "(clock)" instead of "(trainer)".
 function Test-ClockSeeded([string]$runDir) {
     $logs = Get-ChildItem -Path (Join-Path $runDir 'run_logs') -Filter 'Player-*.log' -File -ErrorAction SilentlyContinue
     foreach ($log in $logs) {
@@ -165,7 +165,7 @@ foreach ($cfg in $absConfigs) {
                 $bar = '!' * 77
                 foreach ($line in @($bar,
                         "!!! WARNING: in $runId some agents seeded from the clock, not from --seed",
-                        "!!! $learnSeed; this run cannot be repeated. See results\$runId\run_logs (Q08).",
+                        "!!! $learnSeed; this run cannot be repeated. See results\$runId\run_logs.",
                         $bar)) {
                     Write-Host $line -ForegroundColor Yellow -BackgroundColor DarkRed
                 }
@@ -183,7 +183,7 @@ foreach ($cfg in $absConfigs) {
 
 Write-Host "series finished: $ran ran, $skipped skipped, $failed failed"
 if ($clocked -gt 0) {
-    Write-Host "WARNING: $clocked run(s) had agents seeded from the clock; see the warnings above (Q08)" -ForegroundColor Yellow -BackgroundColor DarkRed
+    Write-Host "WARNING: $clocked run(s) had agents seeded from the clock; see the warnings above" -ForegroundColor Yellow -BackgroundColor DarkRed
 }
 if ($failed -gt 0) { exit 1 }
 exit 0
