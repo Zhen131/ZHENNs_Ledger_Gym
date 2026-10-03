@@ -34,25 +34,31 @@ namespace Gym.Editor
             EditorSceneManager.OpenScene(GymSceneBuilder.PlayScenePath, OpenSceneMode.Single);
             var chart = Object.FindFirstObjectByType<CandleChartView>();
             chart.Draw(env);
-            Camera camera = Camera.main;
-
-            var target = new RenderTexture(1600, 900, 24);
-            camera.targetTexture = target;
-            camera.Render();
-            RenderTexture.active = target;
-            var image = new Texture2D(1600, 900, TextureFormat.RGB24, false);
-            image.ReadPixels(new Rect(0, 0, 1600, 900), 0, 0);
-            image.Apply();
-            camera.targetTexture = null;
-            RenderTexture.active = null;
+            byte[] png = RenderToPng(Camera.main, 1600, 900);
 
             Directory.CreateDirectory("Logs");
             string path = Path.Combine("Logs", "play-snapshot.png");
-            File.WriteAllBytes(path, image.EncodeToPNG());
+            File.WriteAllBytes(path, png);
             Debug.Log($"[Gym] wrote {path}: {chart.DrawnCandles} candles, {chart.DrawnMarkers} markers, " +
                       $"last candle {s.Series.OpenTimeUtc(env.CurrentIndex):yyyy-MM-dd HH:mm} UTC, graphics {SystemInfo.graphicsDeviceType}");
+        }
+
+        /// <summary>One frame of the camera into a texture of the given size, as PNG bytes.</summary>
+        static byte[] RenderToPng(Camera camera, int width, int height)
+        {
+            var target = new RenderTexture(width, height, 24);
+            camera.targetTexture = target;
+            camera.Render();
+            RenderTexture.active = target;
+            var image = new Texture2D(width, height, TextureFormat.RGB24, false);
+            image.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+            image.Apply();
+            camera.targetTexture = null;
+            RenderTexture.active = null;
+            byte[] png = image.EncodeToPNG();
             Object.DestroyImmediate(image);
             Object.DestroyImmediate(target);
+            return png;
         }
     }
 }

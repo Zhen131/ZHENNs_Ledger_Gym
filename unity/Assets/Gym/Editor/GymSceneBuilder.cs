@@ -138,14 +138,7 @@ namespace Gym.Editor
         public static void BuildPlayScene(GameObject prefab, Material chartMaterial)
         {
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-
-            var cameraObject = new GameObject("Main Camera") { tag = "MainCamera" };
-            var camera = cameraObject.AddComponent<Camera>();
-            camera.orthographic = true;
-            camera.orthographicSize = 5;
-            camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(0.07f, 0.08f, 0.10f);
-            camera.transform.position = new Vector3(0, 0, -10);
+            AddChartCamera();
 
             var agentObject = (GameObject)PrefabUtility.InstantiatePrefab(prefab, scene);
             agentObject.name = "TradingAgent (Play)";
@@ -163,14 +156,31 @@ namespace Gym.Editor
             hud.Agent = agent;
             hud.Controller = controller;
 
+            AddCandleChart(agent, chartMaterial);
+
+            EnsureFolder(Path.GetDirectoryName(PlayScenePath));
+            EditorSceneManager.SaveScene(scene, PlayScenePath);
+        }
+
+        /// <summary>An orthographic camera on a dark background, looking at the chart.</summary>
+        static void AddChartCamera()
+        {
+            var cameraObject = new GameObject("Main Camera") { tag = "MainCamera" };
+            var camera = cameraObject.AddComponent<Camera>();
+            camera.orthographic = true;
+            camera.orthographicSize = 5;
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = new Color(0.07f, 0.08f, 0.10f);
+            camera.transform.position = new Vector3(0, 0, -10);
+        }
+
+        static void AddCandleChart(TradingAgent agent, Material chartMaterial)
+        {
             var chartObject = new GameObject("CandleChart");
             chartObject.transform.position = new Vector3(0, -1.4f, 0);
             chartObject.AddComponent<MeshFilter>();
             chartObject.AddComponent<MeshRenderer>().sharedMaterial = chartMaterial;
             chartObject.AddComponent<CandleChartView>().Agent = agent;
-
-            EnsureFolder(Path.GetDirectoryName(PlayScenePath));
-            EditorSceneManager.SaveScene(scene, PlayScenePath);
         }
 
         public static void SetBuildScenes()
