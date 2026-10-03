@@ -157,4 +157,4 @@ pip install mlagents==1.1.0
 
 ## Reading the code
 
-Open the `unity/` folder in VS Code (*File → Open Folder*). Unity is configured to open scripts in VS Code; install the *Unity* extension (`visualstudiotoolsforunity.vstuc`) and a .NET SDK for IntelliSense. Start with `unity/Assets/Gym/Core/TradingEnv.cs`; `AGENTS.md` lists the rules for anyone, human or AI, who changes the code.
+Open the `unity/` folder in VS Code (*File → Open Folder*). Unity is configured to open scripts in VS Code; install the *Unity* extension (`visualstudiotoolsforunity.vstuc`) and a .NET SDK for IntelliSense. Start with `unity/Assets/Gym/Core/Env/TradingEnv.cs`; `AGENTS.md` lists the rules for anyone, human or AI, who changes the code.

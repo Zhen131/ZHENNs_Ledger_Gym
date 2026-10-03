@@ -157,4 +157,4 @@ pip install mlagents==1.1.0
 
 ## 读代码
 
-用 VS Code 打开 `unity/` 文件夹（*File → Open Folder*）。Unity 已经设成用 VS Code 打开脚本；装上 *Unity* 扩展（`visualstudiotoolsforunity.vstuc`）和 .NET SDK 就有代码提示。从 `unity/Assets/Gym/Core/TradingEnv.cs` 看起；改代码之前先读 `AGENTS.md` 里的规矩（人和 AI 都一样）。
+用 VS Code 打开 `unity/` 文件夹（*File → Open Folder*）。Unity 已经设成用 VS Code 打开脚本；装上 *Unity* 扩展（`visualstudiotoolsforunity.vstuc`）和 .NET SDK 就有代码提示。从 `unity/Assets/Gym/Core/Env/TradingEnv.cs` 看起；改代码之前先读 `AGENTS.md` 里的规矩（人和 AI 都一样）。

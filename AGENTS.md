@@ -25,12 +25,12 @@ Do not change `unity/Packages/manifest.json`, upgrade packages or install Python
 
 | Path | Contents |
 | --- | --- |
-| `unity/Assets/Gym/Core/` | `Gym.Core` (asmdef with `noEngineReferences: true`): `CandleSeries`, `SymbolRules`, `CostModel`, `Account`, `ActionCodec`, `ObservationBuilder`, `RewardFunction`, `SegmentSpec`/`SplitValidator`, `TradingEnv`, `Metrics`, `Baselines`, `EvaluationLog` |
+| `unity/Assets/Gym/Core/` | `Gym.Core` (asmdef with `noEngineReferences: true`), one folder and namespace per concept: `Market/` (`CandleSeries`, `SymbolRules`, `SegmentSpec`/`SplitValidator`), `Accounting/` (`Account`, `CostModel`), `Env/` (`TradingEnv`, `TradeAction`, `ActionCodec`, `ObservationBuilder`, `RewardFunction`, `SeedMixer`), `Evaluation/` (`Metrics`, `Baselines`, `EvaluationLog`, `JsonWriter`) |
 | `unity/Assets/Gym/Runtime/` | `Gym.Runtime`: `TradingAgent` (ML-Agents shell around `TradingEnv`), `GymConfigLoader`, `GymDataCache`, `EpisodeStats`, `PlayController`, `HudView`, `CandleChartView`, `EvalRunner` |
 | `unity/Assets/Gym/Editor/` | `BuildScript` (training and evaluation players), `EvalTools` (baselines), `GymSceneBuilder`, `PlayChecklist`, `PlaySnapshot` |
 | `unity/Assets/Gym/Scenes/` | `Training.unity` (16 agents), `Play.unity` (keyboard), `Eval.unity` (one agent + `EvalRunner`) |
 | `unity/Assets/Gym/Prefabs/` | `TradingAgent.prefab` (35 observations, 1 continuous + 1 discrete branch of 3, decision every step) |
-| `unity/Assets/Gym/Tests/` | `EditMode/` (core), `Editor/` (config, prefab, scenes), `PlayMode/` |
+| `unity/Assets/Gym/Tests/` | `Core/` (core, in the same four folders), `Editor/` (config, prefab, scenes), `PlayMode/` |
 | `unity/Assets/StreamingAssets/Gym/` | `gym-config.json`, `symbols.json`, `data/BTCUSDT-1h.csv` + manifest + `DATA-LICENSE.md` |
 | `config/` | `ppo_base.yaml`, smoke configs, `variants/`; see `config/README.md` |
 | `scripts/` | `data/fetch_binance_klines.py`, `train/` (`run_series.sh`, `run_series.ps1`, `check_configs.py`, `read_scalars.py`), `eval/summarize.py` |
