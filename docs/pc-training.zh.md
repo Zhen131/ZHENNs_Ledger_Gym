@@ -46,7 +46,7 @@ Test-Path $unity
 
    问「是否要更改执行策略」时输入 `Y`、回车。这条命令只对你这个用户放开：本机写的脚本（比如 conda 的、仓库里的 `run_series.ps1`）可以跑，从网上下载、没有签名的脚本照样拦着。
 3. 打开一次 **Miniforge Prompt**，运行 `conda init powershell`，然后关掉所有 PowerShell 窗口、重新开一个。**新窗口最上面不该有红字。** 有红字就回到第 2 步。
-4. 照 README 的 Windows 一节建环境，装的是 **CUDA 版** PyTorch（能用显卡，也能用 CPU）：
+4. 照 [setup.md 的 Windows 一节](setup.md#windows)（英文）建环境，装的是 **CUDA 版** PyTorch（能用显卡，也能用 CPU）：
 
 ```powershell
 conda create -n mlagents python=3.10.12
@@ -121,7 +121,7 @@ python scripts\train\read_scalars.py results\smoke-pc-100k-cpu
 - 用显卡更快的话，第 8 步成批训练加 `-Device cuda`；用 CPU 就什么都不用加。
 - 200 万步要 `2000000 ÷ 每秒步数` 秒。作为参考，Mac（Apple M5、10 核，CPU）单环境大约每秒 2,000～2,900 步，200 万步要 12～16 分钟。**正式训练每组跑多少步、几个种子，就按快的那个速度定。**
 
-`read_scalars.py` 应该列出 `Environment/Cumulative Reward`、`Policy/Entropy` 和一串 `Trading/…`，其中 `Trading/FeeRate` = 0.001。`Trading/…` 要等第一批局走完才有：16 个智能体 × 720 步 = 11,520 步。每条 `Trading/…` 是什么意思，见 README 的「训练曲线」一节。
+`read_scalars.py` 应该列出 `Environment/Cumulative Reward`、`Policy/Entropy` 和一串 `Trading/…`，其中 `Trading/FeeRate` = 0.001。`Trading/…` 要等第一批局走完才有：16 个智能体 × 720 步 = 11,520 步。每条 `Trading/…` 是什么意思，见 [training.md](training.md#training-curves-trading-in-tensorboard)（英文）的「Training curves」表。
 
 ## 8. 跑对比组
 
@@ -169,7 +169,7 @@ run-id 的格式是 `<配置名>-s<种子>-<年月日>`（UTC 日期）。`resul
 
 脚本传给 mlagents-learn 的是 `--seed <种子 × 1000>`，并写进 `results\<run-id>\seed-used.txt`。原因：ML-Agents 给第 k 个环境的种子是「种子 + k」，种子 1、2、3 直接用的话，`-NumEnvs` 大于 1 时会撞号；乘 1000 就拉开了。每个智能体的随机起点都由这个种子推出来，所以配置、种子、`-NumEnvs` 都一样时，环境给的局完全一样。训练器那一侧也用了这个种子，但 PyTorch 不保证逐位相同，曲线可能还会有一点点差别。
 
-每次训练结束，脚本会去 Player 日志里查有没有智能体「按时钟播种」。万一看到一大块红底的 `!!! WARNING: ... seeded from the clock`，`seed-used.txt` 末尾也会多一行 `WARNING: some agents seeded from the clock`：说明这次没用上种子、不能原样重跑。训练结果照样能用，但要记下来，告诉讨论会话（问题单 Q08）。
+每次训练结束，脚本会去 Player 日志里查有没有智能体「按时钟播种」。万一看到一大块红底的 `!!! WARNING: ... seeded from the clock`，`seed-used.txt` 末尾也会多一行 `WARNING: some agents seeded from the clock`：说明这次没用上种子、不能原样重跑。训练结果照样能用，但要记下来，告诉讨论会话。
 
 ## 9. 用 TensorBoard 看曲线
 
