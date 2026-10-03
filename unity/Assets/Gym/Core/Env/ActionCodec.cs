@@ -9,9 +9,6 @@ namespace Gym.Core.Env
     /// </summary>
     public static class ActionCodec
     {
-        public const int Hold = 0;
-        public const int Buy = 1;
-        public const int Sell = 2;
         public const int BranchSize = 3;
         public const int ContinuousSize = 1;
 
@@ -40,14 +37,14 @@ namespace Gym.Core.Env
             account.CoinUnits > 0 &&
             account.Quantity * price * (1 - account.Cost.Slippage) >= account.Rules.MinNotional;
 
-        public static bool IsEnabled(int branch, Account account, double price)
+        public static bool IsEnabled(TradeAction branch, Account account, double price)
         {
             switch (branch)
             {
-                case Hold: return HoldEnabled;
-                case Buy: return BuyEnabled(account, price);
-                case Sell: return SellEnabled(account, price);
-                default: throw new ArgumentOutOfRangeException(nameof(branch), branch, "Must be 0, 1 or 2.");
+                case TradeAction.Hold: return HoldEnabled;
+                case TradeAction.Buy: return BuyEnabled(account, price);
+                case TradeAction.Sell: return SellEnabled(account, price);
+                default: throw new ArgumentOutOfRangeException(nameof(branch), (int)branch, "Must be 0, 1 or 2.");
             }
         }
     }

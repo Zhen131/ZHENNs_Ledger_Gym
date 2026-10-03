@@ -21,7 +21,7 @@ namespace Gym.Runtime
         [SerializeField] float autoPlayStepsPerSecond = 5f;
         [SerializeField] int selectedIndex = 1;
 
-        int pendingBranch = ActionCodec.Hold;
+        int pendingBranch = (int)TradeAction.Hold;
         float pendingContinuous;
         float autoPlayTimer;
 
@@ -80,9 +80,9 @@ namespace Gym.Runtime
 
         public void SelectFraction(int index) => selectedIndex = Mathf.Clamp(index, 0, FractionChoices.Length - 1);
 
-        public void PressBuy(float fraction) => Act(ActionCodec.Buy, fraction);
-        public void PressSell(float fraction) => Act(ActionCodec.Sell, fraction);
-        public void PressHold() => Act(ActionCodec.Hold, (float)SelectedFraction);
+        public void PressBuy(float fraction) => Act((int)TradeAction.Buy, fraction);
+        public void PressSell(float fraction) => Act((int)TradeAction.Sell, fraction);
+        public void PressHold() => Act((int)TradeAction.Hold, (float)SelectedFraction);
 
         /// <summary>Back to playStart, all cash.</summary>
         public void Restart()
@@ -101,7 +101,7 @@ namespace Gym.Runtime
             }
             finally
             {
-                pendingBranch = ActionCodec.Hold;
+                pendingBranch = (int)TradeAction.Hold;
             }
         }
 

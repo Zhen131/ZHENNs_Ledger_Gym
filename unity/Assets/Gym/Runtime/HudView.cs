@@ -105,8 +105,8 @@ namespace Gym.Runtime
             string pct = (ActionCodec.Fraction(source.LastContinuous) * 100).ToString("0.#", CultureInfo.InvariantCulture) + "%";
             switch (source.LastBranch)
             {
-                case ActionCodec.Buy: return r.Traded ? $"BUY {pct}: filled" : $"BUY {pct}: REJECTED";
-                case ActionCodec.Sell: return r.Traded ? $"SELL {pct}: filled" : $"SELL {pct}: REJECTED";
+                case (int)TradeAction.Buy: return r.Traded ? $"BUY {pct}: filled" : $"BUY {pct}: REJECTED";
+                case (int)TradeAction.Sell: return r.Traded ? $"SELL {pct}: filled" : $"SELL {pct}: REJECTED";
                 default: return "HOLD";
             }
         }

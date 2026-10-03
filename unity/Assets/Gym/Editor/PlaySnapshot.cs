@@ -24,11 +24,11 @@ namespace Gym.EditorTools
             GymConfig c = s.Config;
             var env = TradingEnv.ForSegment(s.Series, s.Rules, s.Train, c.initialCash, c.episodeLength, c.randomInitialPositionShare);
             env.Reset(new CostModel(), s.PlayStartIndex);
-            for (int i = 0; i < 40; i++) env.Step(ActionCodec.Hold, 0f);
-            env.Step(ActionCodec.Buy, ActionCodec.FromFraction(0.25));
-            for (int i = 0; i < 12; i++) env.Step(ActionCodec.Hold, 0f);
-            env.Step(ActionCodec.Sell, ActionCodec.FromFraction(0.5));
-            for (int i = 0; i < 6; i++) env.Step(ActionCodec.Hold, 0f);
+            for (int i = 0; i < 40; i++) env.Step(TradeAction.Hold, 0f);
+            env.Step(TradeAction.Buy, ActionCodec.FromFraction(0.25));
+            for (int i = 0; i < 12; i++) env.Step(TradeAction.Hold, 0f);
+            env.Step(TradeAction.Sell, ActionCodec.FromFraction(0.5));
+            for (int i = 0; i < 6; i++) env.Step(TradeAction.Hold, 0f);
 
             EditorSceneManager.OpenScene(GymSceneBuilder.PlayScenePath, OpenSceneMode.Single);
             var chart = Object.FindFirstObjectByType<CandleChartView>();

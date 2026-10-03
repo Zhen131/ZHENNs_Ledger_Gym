@@ -111,7 +111,7 @@ namespace Gym.Runtime
                 if (trade.CandleIndex < first || trade.CandleIndex > last) continue;
                 float x = left + (trade.CandleIndex - first + 0.5f) * slot;
                 float size = slot * 0.45f;
-                if (trade.Side == ActionCodec.Buy)
+                if (trade.Side == TradeAction.Buy)
                 {
                     float tip = Y(series[trade.CandleIndex].Low) - 0.08f;
                     AddTriangle(new Vector3(x, tip), new Vector3(x - size, tip - size * 1.4f), new Vector3(x + size, tip - size * 1.4f), buyColor);

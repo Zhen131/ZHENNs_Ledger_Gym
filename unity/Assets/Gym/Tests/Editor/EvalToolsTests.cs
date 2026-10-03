@@ -115,7 +115,7 @@ namespace Gym.Tests.Editor
                 new[] { "x", "-gymMode", "eval", "-gymSegment", "validation" });
             TradingEnv env = TradingEnv.ForSegment(s.Series, s.Rules, s.EvalSegment, s.Config.initialCash, 0, 0);
             env.Reset(0, true, new CostModel());
-            env.Step(ActionCodec.Hold, 0f);
+            env.Step(TradeAction.Hold, 0f);
             var record = new EvaluationRecord
             {
                 TimestampUtc = DateTime.UtcNow, Kind = EvaluationRecord.AgentKind, Policy = "agent",

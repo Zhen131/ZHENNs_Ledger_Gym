@@ -106,8 +106,8 @@ namespace Gym.Tests.EditMode
                 if (envA.T == t) break;
                 int branch = actions.Next(3);
                 float x = (float)(actions.NextDouble() * 2 - 1);
-                envA.Step(branch, x);
-                envB.Step(branch, x);
+                envA.Step((TradeAction)branch, x);
+                envB.Step((TradeAction)branch, x);
                 Assert.IsTrue(TestData.SameBits(envA.CurrentEquity, envB.CurrentEquity));
             }
             Assert.AreEqual(t, envA.T);
@@ -121,14 +121,14 @@ namespace Gym.Tests.EditMode
             var env = new TradingEnv(s, Btc, 0, 79);
             env.Reset(0, true, new CostModel(0.001, 0, 0.0005));
             Assert.AreEqual(32, env.T);
-            StepResult r = env.Step(ActionCodec.Buy, 1f);
+            StepResult r = env.Step(TradeAction.Buy, 1f);
             Assert.IsTrue(r.Traded);
             TradeRecord trade = env.Trades[0];
             Assert.AreEqual(33, trade.CandleIndex);
             Assert.AreEqual(s.OpenAt(33) * 1.0005, trade.Price, 1e-9);
             Assert.AreNotEqual(s.CloseAt(32), s.OpenAt(33));
 
-            env.Step(ActionCodec.Sell, 1f);
+            env.Step(TradeAction.Sell, 1f);
             TradeRecord sell = env.Trades[1];
             Assert.AreEqual(34, sell.CandleIndex);
             Assert.AreEqual(s.OpenAt(34) * (1 - 0.0005), sell.Price, 1e-9);

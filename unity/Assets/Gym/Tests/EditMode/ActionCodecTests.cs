@@ -31,7 +31,7 @@ namespace Gym.Tests.EditMode
             Assert.IsFalse(ActionCodec.SellEnabled(a, 50_000));
             Assert.IsTrue(ActionCodec.BuyEnabled(a, 50_000));
             Assert.IsTrue(ActionCodec.HoldEnabled);
-            Assert.IsTrue(ActionCodec.IsEnabled(ActionCodec.Hold, a, 50_000));
+            Assert.IsTrue(ActionCodec.IsEnabled(TradeAction.Hold, a, 50_000));
         }
 
         [Test]
@@ -42,9 +42,9 @@ namespace Gym.Tests.EditMode
             Assert.IsTrue(ActionCodec.BuyEnabled(new Account(Btc, new CostModel(), 5.01), 50_000));
             // Hold stays available with no cash and no coin.
             var empty = new Account(Btc, new CostModel(), 0);
-            Assert.IsTrue(ActionCodec.IsEnabled(ActionCodec.Hold, empty, 50_000));
-            Assert.IsFalse(ActionCodec.IsEnabled(ActionCodec.Buy, empty, 50_000));
-            Assert.IsFalse(ActionCodec.IsEnabled(ActionCodec.Sell, empty, 50_000));
+            Assert.IsTrue(ActionCodec.IsEnabled(TradeAction.Hold, empty, 50_000));
+            Assert.IsFalse(ActionCodec.IsEnabled(TradeAction.Buy, empty, 50_000));
+            Assert.IsFalse(ActionCodec.IsEnabled(TradeAction.Sell, empty, 50_000));
         }
 
         [Test]
@@ -80,14 +80,14 @@ namespace Gym.Tests.EditMode
             var env = new TradingEnv(s, Btc, 0, 99);
             env.Reset(0, true, new CostModel());
             Assert.IsFalse(env.SellEnabled);
-            StepResult r = env.Step(ActionCodec.Sell, 1f);
+            StepResult r = env.Step(TradeAction.Sell, 1f);
             Assert.IsTrue(r.Rejected);
             Assert.IsFalse(r.Traded);
             Assert.AreEqual(1, env.Account.Rejected);
             Assert.AreEqual(0, env.Account.Trades);
             Assert.AreEqual(10_000, env.Account.Cash);
             Assert.AreEqual(1, env.StepsSinceTrade);
-            Assert.Throws<ArgumentOutOfRangeException>(() => env.Step(3, 0f));
+            Assert.Throws<ArgumentOutOfRangeException>(() => env.Step((TradeAction)3, 0f));
         }
     }
 }

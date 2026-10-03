@@ -97,8 +97,8 @@ namespace Gym.Tests.EditMode
             {
                 int branch = actions.Next(3);
                 float x = (float)(actions.NextDouble() * 2 - 1);
-                a.Step(branch, x);
-                b.Step(branch, x);
+                a.Step((TradeAction)branch, x);
+                b.Step((TradeAction)branch, x);
             }
             Assert.AreEqual(a.EquityCurve.Count, b.EquityCurve.Count);
             for (int i = 0; i < a.EquityCurve.Count; i++)

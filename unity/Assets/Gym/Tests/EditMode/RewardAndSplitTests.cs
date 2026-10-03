@@ -37,7 +37,7 @@ namespace Gym.Tests.EditMode
             var random = new System.Random(80);
             double sum = 0;
             while (!env.Done)
-                sum += env.Step(random.Next(3), (float)(random.NextDouble() * 2 - 1)).Reward;
+                sum += env.Step((TradeAction)random.Next(3), (float)(random.NextDouble() * 2 - 1)).Reward;
 
             Assert.AreEqual(0, env.ClippedRewards);
             Assert.Greater(env.Account.Trades, 10, "the episode should actually trade");
@@ -56,11 +56,11 @@ namespace Gym.Tests.EditMode
             CandleSeries s = TestData.Synthetic(100, k => k < 50 ? 100 : k < 60 ? 105 : k < 70 ? 100 : 103);
             var env = new TradingEnv(s, Btc, 0, 99);
             env.Reset(0, true, new CostModel());
-            Assert.IsTrue(env.Step(ActionCodec.Buy, 1f).Traded);
+            Assert.IsTrue(env.Step(TradeAction.Buy, 1f).Traded);
             int clippedSeen = 0;
             while (!env.Done)
             {
-                StepResult r = env.Step(ActionCodec.Hold, 0f);
+                StepResult r = env.Step(TradeAction.Hold, 0f);
                 if (r.RewardClipped)
                 {
                     clippedSeen++;

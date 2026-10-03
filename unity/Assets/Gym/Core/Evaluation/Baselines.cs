@@ -19,8 +19,8 @@ namespace Gym.Core.Evaluation
         public static EpisodeMetrics RunBuyAndHold(TradingEnv env, CostModel cost)
         {
             env.Reset(0, true, cost);
-            env.Step(ActionCodec.Buy, ActionCodec.FromFraction(1));
-            while (!env.Done) env.Step(ActionCodec.Hold, 0f);
+            env.Step(TradeAction.Buy, ActionCodec.FromFraction(1));
+            while (!env.Done) env.Step(TradeAction.Hold, 0f);
             return Metrics.From(env);
         }
 
@@ -28,7 +28,7 @@ namespace Gym.Core.Evaluation
         public static EpisodeMetrics RunCash(TradingEnv env, CostModel cost)
         {
             env.Reset(0, true, cost);
-            while (!env.Done) env.Step(ActionCodec.Hold, 0f);
+            while (!env.Done) env.Step(TradeAction.Hold, 0f);
             return Metrics.From(env);
         }
 
@@ -41,15 +41,15 @@ namespace Gym.Core.Evaluation
         {
             // Mixed first: System.Random with seeds 0, 1, 2 … gives shifted copies of one sequence (Q03).
             var random = new Random(SeedMixer.Mix(seed));
-            var choices = new List<int>(ActionCodec.BranchSize);
+            var choices = new List<TradeAction>(ActionCodec.BranchSize);
             env.Reset(seed, true, cost);
             while (!env.Done)
             {
                 choices.Clear();
-                choices.Add(ActionCodec.Hold);
-                if (env.BuyEnabled) choices.Add(ActionCodec.Buy);
-                if (env.SellEnabled) choices.Add(ActionCodec.Sell);
-                int branch = choices[random.Next(choices.Count)];
+                choices.Add(TradeAction.Hold);
+                if (env.BuyEnabled) choices.Add(TradeAction.Buy);
+                if (env.SellEnabled) choices.Add(TradeAction.Sell);
+                TradeAction branch = choices[random.Next(choices.Count)];
                 double fraction = random.NextDouble();
                 env.Step(branch, ActionCodec.FromFraction(fraction));
             }

@@ -35,15 +35,15 @@ namespace Gym.EditorTools
             md.AppendLine("| Step | Keys | Candle now (UTC) | Fill price | Cash | Coin units | Coin BTC | Fee this step | Equity | Fees total | Trades | Rejected |");
             md.AppendLine("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |");
 
-            (int branch, double fraction, string keys)[] presses =
+            (TradeAction branch, double fraction, string keys)[] presses =
             {
-                (ActionCodec.Buy, 0.25, "2, B"),
-                (ActionCodec.Hold, 0.25, "H"),
-                (ActionCodec.Sell, 0.50, "3, S"),
+                (TradeAction.Buy, 0.25, "2, B"),
+                (TradeAction.Hold, 0.25, "H"),
+                (TradeAction.Sell, 0.50, "3, S"),
             };
             for (int i = 0; i < presses.Length; i++)
             {
-                (int branch, double fraction, string keys) = presses[i];
+                (TradeAction branch, double fraction, string keys) = presses[i];
                 double feesBefore = env.Account.FeesPaid;
                 StepResult r = env.Step(branch, ActionCodec.FromFraction(fraction));
                 string price = r.Traded ? env.Trades[env.Trades.Count - 1].Price.ToString("F4", inv) : "-";

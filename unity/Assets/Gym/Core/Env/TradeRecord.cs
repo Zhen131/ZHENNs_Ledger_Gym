@@ -8,8 +8,8 @@ namespace Gym.Core.Env
         public readonly int Step;
         /// <summary>Candle at whose open the order filled (t + 1).</summary>
         public readonly int CandleIndex;
-        /// <summary><see cref="ActionCodec.Buy"/> or <see cref="ActionCodec.Sell"/>.</summary>
-        public readonly int Side;
+        /// <summary><see cref="TradeAction.Buy"/> or <see cref="TradeAction.Sell"/>.</summary>
+        public readonly TradeAction Side;
         public readonly double Fraction;
         public readonly long Units;
         /// <summary>Fill price after slippage.</summary>
@@ -17,7 +17,7 @@ namespace Gym.Core.Env
         public readonly double Notional;
         public readonly double Fee;
 
-        public TradeRecord(int step, int candleIndex, int side, double fraction, Fill fill)
+        public TradeRecord(int step, int candleIndex, TradeAction side, double fraction, Fill fill)
         {
             Step = step;
             CandleIndex = candleIndex;

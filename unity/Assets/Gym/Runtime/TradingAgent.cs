@@ -150,15 +150,15 @@ namespace Gym.Runtime
 
         public override void WriteDiscreteActionMask(IDiscreteActionMask actionMask)
         {
-            actionMask.SetActionEnabled(0, ActionCodec.Buy, Env.BuyEnabled);
-            actionMask.SetActionEnabled(0, ActionCodec.Sell, Env.SellEnabled);
+            actionMask.SetActionEnabled(0, (int)TradeAction.Buy, Env.BuyEnabled);
+            actionMask.SetActionEnabled(0, (int)TradeAction.Sell, Env.SellEnabled);
         }
 
         public override void OnActionReceived(ActionBuffers actions)
         {
             int branch = actions.DiscreteActions[0];
             float continuous = actions.ContinuousActions[0];
-            StepResult result = Env.Step(branch, continuous);
+            StepResult result = Env.Step((TradeAction)branch, continuous);
 
             HasStepped = true;
             LastBranch = branch;
@@ -186,7 +186,7 @@ namespace Gym.Runtime
             }
             ActionSegment<int> discrete = actionsOut.DiscreteActions;
             ActionSegment<float> continuous = actionsOut.ContinuousActions;
-            discrete[0] = ActionCodec.Hold;
+            discrete[0] = (int)TradeAction.Hold;
             continuous[0] = 0f;
         }
 
@@ -215,7 +215,7 @@ namespace Gym.Runtime
                 Env.Reset(EpisodeSeed, false, cost);
             }
             HasStepped = false;
-            LastBranch = ActionCodec.Hold;
+            LastBranch = (int)TradeAction.Hold;
             LastContinuous = 0f;
             LastResult = default;
             EpisodeStarted?.Invoke(this);

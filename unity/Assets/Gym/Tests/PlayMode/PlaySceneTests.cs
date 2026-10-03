@@ -68,18 +68,18 @@ namespace Gym.Tests.PlayMode
             Assert.AreEqual(reference.T, agent.Env.T);
 
             controller.PressBuy(0.25f);
-            reference.Step(ActionCodec.Buy, ActionCodec.FromFraction(0.25f));
+            reference.Step(TradeAction.Buy, ActionCodec.FromFraction(0.25f));
             AssertHudMatches(hud.Shown, reference, "after buy 25 %");
             Assert.AreEqual(1, reference.Account.Trades, "premise: the buy fills");
             StringAssert.Contains("BUY 25%: filled", hud.Shown.LastAction);
 
             controller.PressHold();
-            reference.Step(ActionCodec.Hold, ActionCodec.FromFraction(controller.SelectedFraction));
+            reference.Step(TradeAction.Hold, ActionCodec.FromFraction(controller.SelectedFraction));
             AssertHudMatches(hud.Shown, reference, "after hold");
             Assert.AreEqual("HOLD", hud.Shown.LastAction);
 
             controller.PressSell(0.5f);
-            reference.Step(ActionCodec.Sell, ActionCodec.FromFraction(0.5f));
+            reference.Step(TradeAction.Sell, ActionCodec.FromFraction(0.5f));
             AssertHudMatches(hud.Shown, reference, "after sell 50 %");
             Assert.AreEqual(2, reference.Account.Trades, "premise: the sell fills");
             Assert.AreEqual(3, agent.Env.StepCount);

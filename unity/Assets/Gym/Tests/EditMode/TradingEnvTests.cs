@@ -21,16 +21,16 @@ namespace Gym.Tests.EditMode
             env.Reset(42, false, new CostModel());
             for (int i = 1; i < 720; i++)
             {
-                StepResult r = env.Step(ActionCodec.Hold, 0f);
+                StepResult r = env.Step(TradeAction.Hold, 0f);
                 Assert.IsFalse(r.Done, $"done early at step {i}");
             }
-            StepResult end = env.Step(ActionCodec.Hold, 0f);
+            StepResult end = env.Step(TradeAction.Hold, 0f);
             Assert.IsTrue(end.Done);
             Assert.AreEqual(EndReason.EpisodeLength, end.Reason);
             Assert.AreEqual(720, env.StepCount);
             Assert.AreEqual(env.StartIndex + 720, env.T);
             Assert.AreEqual(721, env.EquityCurve.Count);
-            Assert.Throws<InvalidOperationException>(() => env.Step(ActionCodec.Hold, 0f));
+            Assert.Throws<InvalidOperationException>(() => env.Step(TradeAction.Hold, 0f));
         }
 
         [Test]
@@ -75,7 +75,7 @@ namespace Gym.Tests.EditMode
             StepResult r = default;
             while (!env.Done)
             {
-                r = env.Step(ActionCodec.Hold, 0f);
+                r = env.Step(TradeAction.Hold, 0f);
                 steps++;
             }
             Assert.AreEqual(EndReason.SegmentEnd, r.Reason);
@@ -100,7 +100,7 @@ namespace Gym.Tests.EditMode
                 {
                     env.WriteObservation(obs);
                     observations.AddRange(obs);
-                    env.Step(actions.Next(3), (float)(actions.NextDouble() * 2 - 1));
+                    env.Step((TradeAction)actions.Next(3), (float)(actions.NextDouble() * 2 - 1));
                 }
                 trades = new List<TradeRecord>(env.Trades);
                 return new List<double>(env.EquityCurve);
@@ -141,7 +141,7 @@ namespace Gym.Tests.EditMode
                 env.Reset(episode, false, costs[episode % costs.Length]);
                 while (!env.Done)
                 {
-                    env.Step(random.Next(3), (float)(random.NextDouble() * 2.4 - 1.2));
+                    env.Step((TradeAction)random.Next(3), (float)(random.NextDouble() * 2.4 - 1.2));
                     steps++;
                     Account a = env.Account;
                     if (a.Cash < 0 || a.CoinUnits < 0 || double.IsNaN(a.Cash) || double.IsNaN(env.CurrentEquity))
@@ -166,7 +166,7 @@ namespace Gym.Tests.EditMode
             {
                 if (env.Done) env.Reset(seed++, false, new CostModel());
                 env.WriteObservation(obs);
-                env.Step(random.Next(3), (float)(random.NextDouble() * 2 - 1));
+                env.Step((TradeAction)random.Next(3), (float)(random.NextDouble() * 2 - 1));
             }
             watch.Stop();
             double ms = watch.Elapsed.TotalMilliseconds;
@@ -191,7 +191,7 @@ namespace Gym.Tests.EditMode
             int steps = 0;
             while (!env.Done)
             {
-                env.Step(ActionCodec.Hold, 0f);
+                env.Step(TradeAction.Hold, 0f);
                 steps++;
             }
             Assert.AreEqual(150, steps);
@@ -207,8 +207,8 @@ namespace Gym.Tests.EditMode
             {
                 int branch = random.Next(3);
                 float x = (float)(random.NextDouble() * 2 - 1);
-                a.Step(branch, x);
-                b.Step(branch, x);
+                a.Step((TradeAction)branch, x);
+                b.Step((TradeAction)branch, x);
                 Assert.IsTrue(TestData.SameBits(a.CurrentEquity, b.CurrentEquity));
             }
             Assert.IsTrue(b.Done);
