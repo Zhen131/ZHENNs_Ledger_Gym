@@ -50,7 +50,7 @@ python scripts/eval/summarize.py evaluations/smoke/log.csv
 | `unity/Assets/Gym/Prefabs/` | `TradingAgent.prefab`；它的观测和动作见 [docs/architecture.md](docs/architecture.md)（英文） |
 | `unity/Assets/Gym/Materials/` | `CandleChart.mat`，试玩场景里 K 线图用的材质 |
 | `unity/Assets/Gym/Models/` | 打评估包时导入的模型放进 `Imported/`，不进 Git（见 [Models/README.md](unity/Assets/Gym/Models/README.md)） |
-| `unity/Assets/Gym/Tests/` | EditMode 测试在 `Core/`（内核，按同样的四个文件夹摆）、`Runtime/`、`Editor/`；PlayMode 测试在 `PlayMode/` |
+| `unity/Assets/Gym/Tests/` | EditMode 测试在 `Core/`（内核，按同样的四个文件夹摆）、`Runtime/`、`Editor/`（智能体预制体、场景和对照组工具 `EvalTools`）；PlayMode 测试在 `PlayMode/` |
 | `unity/Assets/StreamingAssets/Gym/` | `gym-config.json`、`symbols.json` 和数据（`data/BTCUSDT-1h.csv`、它的清单和 `DATA-LICENSE.md`）；每个包里都带一份 |
 | `unity/Packages/` | `manifest.json` 和 `packages-lock.json`：Unity 包和它们的版本 |
 | `unity/ProjectSettings/` | Unity 的工程设置，编辑器版本记在 `ProjectVersion.txt` 里 |

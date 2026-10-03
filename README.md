@@ -50,7 +50,7 @@ To play by hand, open the project in Unity (the `unity/` folder), open `Assets/G
 | `unity/Assets/Gym/Prefabs/` | `TradingAgent.prefab`; its observations and actions are in [docs/architecture.md](docs/architecture.md) |
 | `unity/Assets/Gym/Materials/` | `CandleChart.mat` for the Play scene's candle chart |
 | `unity/Assets/Gym/Models/` | Models imported by an evaluation build go to `Imported/`, which Git ignores ([Models/README.md](unity/Assets/Gym/Models/README.md)) |
-| `unity/Assets/Gym/Tests/` | EditMode tests in `Core/` (the core, in the same four folders), `Runtime/` and `Editor/`; PlayMode tests in `PlayMode/` |
+| `unity/Assets/Gym/Tests/` | EditMode tests in `Core/` (the core, in the same four folders), `Runtime/` and `Editor/` (the agent prefab, the scenes and the baseline tool `EvalTools`); PlayMode tests in `PlayMode/` |
 | `unity/Assets/StreamingAssets/Gym/` | `gym-config.json`, `symbols.json` and the data (`data/BTCUSDT-1h.csv`, its manifest and `DATA-LICENSE.md`); shipped inside every build |
 | `unity/Packages/` | `manifest.json` and `packages-lock.json`: the Unity packages and their versions |
 | `unity/ProjectSettings/` | Unity's project settings, including the editor version (`ProjectVersion.txt`) |
