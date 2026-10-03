@@ -24,7 +24,7 @@ from pathlib import Path
 POLICY_ORDER = {"buy_and_hold": 0, "cash": 1, "random": 2, "agent": 3}
 
 
-def label(row: dict) -> str:
+def policy_label(row: dict) -> str:
     policy = row["policy"]
     if row["kind"] == "agent":
         return f"agent `{row['model_run_id'] or '?'}`"
@@ -33,15 +33,52 @@ def label(row: dict) -> str:
     return policy
 
 
-def pct(text: str, digits: int = 2) -> str:
+def format_percent(text: str, digits: int = 2) -> str:
     return f"{float(text) * 100:.{digits}f} %" if text else ""
 
 
-def num(text: str, digits: int = 2) -> str:
+def format_number(text: str, digits: int = 2) -> str:
     if not text:
         return ""
     value = float(text)
     return f"{value:.0f}" if value.is_integer() else f"{value:.{digits}f}"
+
+
+def group_by_costs(rows: list[dict]) -> dict[tuple, list[dict]]:
+    """Rows keyed by (segment, fee rate, fixed fee, slippage)."""
+    groups: dict[tuple, list[dict]] = defaultdict(list)
+    for row in rows:
+        key = (row["segment"], float(row["fee_rate"]), float(row["fixed_fee"] or 0), float(row["slippage"] or 0))
+        groups[key].append(row)
+    return groups
+
+
+def cost_text(fee: float, fixed_fee: float, slippage: float) -> str:
+    """The fee rate, plus the fixed fee and the slippage when they are not zero."""
+    costs = f"fee {fee * 100:g} %"
+    if fixed_fee:
+        costs += f", fixed fee {fixed_fee:g} USDT"
+    if slippage:
+        costs += f", slippage {slippage * 10_000:g} bp"
+    return costs
+
+
+def table_lines(items: list[dict]) -> list[str]:
+    """One group's Markdown table, policies in a fixed order; sorts items in place."""
+    lines = [
+        "| Policy | Return | Max drawdown | Sharpe | Trades | Fees % of start | Exposure | Logged (UTC) |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
+    ]
+    items.sort(key=lambda row: (POLICY_ORDER.get(row["policy"], 9), row["timestamp_utc"]))
+    for row in items:
+        lines.append(
+            f"| {policy_label(row)} | {format_percent(row['total_return'])} | {format_percent(row['max_drawdown'])} | "
+            f"{format_number(row['sharpe'])} | {format_number(row['trades'], 1)} | {float(row['fees_pct']):.3f} % | "
+            f"{format_percent(row['exposure'], 1)} | {row['timestamp_utc'][:16].replace('T', ' ')} |"
+        )
+        if row["policy"] == "random" and row["notes"]:
+            lines.append(f"|  ↳ {row['notes']} | | | | | | | |")
+    return lines
 
 
 def summarize(path: Path) -> str:
@@ -50,31 +87,12 @@ def summarize(path: Path) -> str:
     if not rows:
         return f"{path}: no rows\n"
 
-    groups: dict[tuple, list[dict]] = defaultdict(list)
-    for row in rows:
-        key = (row["segment"], float(row["fee_rate"]), float(row["fixed_fee"] or 0), float(row["slippage"] or 0))
-        groups[key].append(row)
-
     out = []
-    for (segment, fee, fixed_fee, slippage), items in sorted(groups.items()):
+    for (segment, fee, fixed_fee, slippage), items in sorted(group_by_costs(rows).items()):
         first = items[0]
-        costs = f"fee {fee * 100:g} %"
-        if fixed_fee:
-            costs += f", fixed fee {fixed_fee:g} USDT"
-        if slippage:
-            costs += f", slippage {slippage * 10_000:g} bp"
+        costs = cost_text(fee, fixed_fee, slippage)
         out.append(f"### {segment} ({first['segment_start']} to {first['segment_end']}), {costs}\n")
-        out.append("| Policy | Return | Max drawdown | Sharpe | Trades | Fees % of start | Exposure | Logged (UTC) |")
-        out.append("| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |")
-        items.sort(key=lambda r: (POLICY_ORDER.get(r["policy"], 9), r["timestamp_utc"]))
-        for r in items:
-            out.append(
-                f"| {label(r)} | {pct(r['total_return'])} | {pct(r['max_drawdown'])} | {num(r['sharpe'])} | "
-                f"{num(r['trades'], 1)} | {float(r['fees_pct']):.3f} % | {pct(r['exposure'], 1)} | "
-                f"{r['timestamp_utc'][:16].replace('T', ' ')} |"
-            )
-            if r["policy"] == "random" and r["notes"]:
-                out.append(f"|  ↳ {r['notes']} | | | | | | | |")
+        out.extend(table_lines(items))
         out.append("")
     return "\n".join(out)
 
