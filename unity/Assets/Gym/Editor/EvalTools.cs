@@ -55,19 +55,17 @@ namespace Gym.Editor
         public static string Run(string[] args)
         {
             string segmentName = CommandLineArgs.ValueOf(args, GymConfigLoader.SegmentArg) ?? SegmentNames.Test;
-            double[] feeRates = (CommandLineArgs.ValueOf(args, FeeRatesArg) ?? "0,0.001,0.003")
-                .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(x => double.Parse(x.Trim(), NumberStyles.Float, Inv)).ToArray();
+            double[] feeRates = ParseFeeRates(CommandLineArgs.ValueOf(args, FeeRatesArg) ?? "0,0.001,0.003");
             int seeds = int.Parse(CommandLineArgs.ValueOf(args, RandomSeedsArg) ?? "100", Inv);
             string outDir = Path.GetFullPath(CommandLineArgs.ValueOf(args, OutArg) ?? Path.Combine(RepositoryRoot(), "evaluations"));
             string configPath = CommandLineArgs.ValueOf(args, GymConfigLoader.ConfigArg) ?? GymConfigLoader.DefaultConfigPath;
             if (seeds < 1) throw new ArgumentOutOfRangeException(RandomSeedsArg, seeds, "Need at least one seed.");
             HashSet<string> policies = ParsePolicies(CommandLineArgs.ValueOf(args, PoliciesArg));
 
-            GymSettings s = GymConfigLoader.Load(configPath, GymConfigLoader.DefaultSymbolsPath,
+            GymSettings settings = GymConfigLoader.Load(configPath, GymConfigLoader.DefaultSymbolsPath,
                 new[] { GymConfigLoader.ModeArg, "eval", GymConfigLoader.SegmentArg, segmentName });
-            SegmentSpec segment = s.EvalSegment;
-            var env = TradingEnv.ForSegment(s.Series, s.Rules, segment, s.Config.initialCash, 0, 0);
+            SegmentSpec segment = settings.EvalSegment;
+            var env = TradingEnv.ForSegment(settings.Series, settings.Rules, segment, settings.Config.initialCash, 0, 0);
             JsonObject market = Market(env);
             Debug.Log($"[Gym] baselines on {segment}: {Json(market)}");
 
@@ -78,29 +76,18 @@ namespace Gym.Editor
                 if (policies.Contains("buyhold"))
                 {
                     EpisodeMetrics hold = Baselines.RunBuyAndHold(env, cost);
-                    Write(outDir, s, segment, cost, market, Baselines.BuyAndHoldName, hold, 1, "", null);
+                    WriteSingleRun(outDir, settings, cost, market, Baselines.BuyAndHoldName, hold);
                     Debug.Log($"[Gym] fee {fee}: buy_and_hold {hold.TotalReturn:P2}");
                 }
 
                 if (policies.Contains("cash"))
                 {
                     EpisodeMetrics cash = Baselines.RunCash(env, cost);
-                    Write(outDir, s, segment, cost, market, Baselines.CashName, cash, 1, "", null);
+                    WriteSingleRun(outDir, settings, cost, market, Baselines.CashName, cash);
                     Debug.Log($"[Gym] fee {fee}: cash {cash.TotalReturn:P2}");
                 }
 
-                if (policies.Contains("random"))
-                {
-                    var runs = new List<(int seed, EpisodeMetrics metrics)>();
-                    for (int seed = 0; seed < seeds; seed++) runs.Add((seed, Baselines.RunRandom(env, cost, seed)));
-                    EpisodeMetrics median = MedianOf(runs.Select(r => r.metrics).ToList());
-                    double p5 = Metrics.Percentile(runs.Select(r => r.metrics.TotalReturn), 5);
-                    double p95 = Metrics.Percentile(runs.Select(r => r.metrics.TotalReturn), 95);
-                    string notes = $"seeds mixed (Q03); medians over seeds 0-{seeds - 1}; " +
-                                   $"total_return p5={EvaluationLog.Number(p5)} p95={EvaluationLog.Number(p95)}";
-                    Write(outDir, s, segment, cost, market, Baselines.RandomName, median, seeds, notes, runs);
-                    Debug.Log($"[Gym] fee {fee}: random median {median.TotalReturn:P2} (p5 {p5:P2}, p95 {p95:P2})");
-                }
+                if (policies.Contains("random")) RunRandomPolicy(outDir, settings, env, market, cost, seeds);
             }
 
             string logPath = Path.Combine(outDir, EvaluationLog.FileName);
@@ -108,75 +95,116 @@ namespace Gym.Editor
             return logPath;
         }
 
-        static void Write(string outDir, GymSettings s, SegmentSpec segment, CostModel cost, JsonObject market,
-            string policy, EpisodeMetrics metrics, int seeds, string notes, List<(int seed, EpisodeMetrics metrics)> perSeed)
+        /// <summary>-gymFeeRates: comma-separated numbers in the invariant culture.</summary>
+        static double[] ParseFeeRates(string text) =>
+            text.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(x => double.Parse(x.Trim(), NumberStyles.Float, Inv)).ToArray();
+
+        /// <summary>The random policy over seeds 0 … n−1: one row with the medians, and every seed in the detail file.</summary>
+        static void RunRandomPolicy(string outDir, GymSettings settings, TradingEnv env, JsonObject market, CostModel cost, int seeds)
+        {
+            var runs = new List<(int seed, EpisodeMetrics metrics)>();
+            for (int seed = 0; seed < seeds; seed++) runs.Add((seed, Baselines.RunRandom(env, cost, seed)));
+            EpisodeMetrics median = MedianOf(runs.Select(r => r.metrics).ToList());
+            double p5 = Metrics.Percentile(runs.Select(r => r.metrics.TotalReturn), 5);
+            double p95 = Metrics.Percentile(runs.Select(r => r.metrics.TotalReturn), 95);
+            string notes = $"seeds mixed (Q03); medians over seeds 0-{seeds - 1}; " +
+                           $"total_return p5={EvaluationLog.Number(p5)} p95={EvaluationLog.Number(p95)}";
+            WriteRandomRuns(outDir, settings, cost, market, median, runs, notes);
+            Debug.Log($"[Gym] fee {cost.FeeRate}: random median {median.TotalReturn:P2} (p5 {p5:P2}, p95 {p95:P2})");
+        }
+
+        /// <summary>A policy run once (buy-and-hold, cash): the log row and a detail file with its metrics.</summary>
+        static void WriteSingleRun(string outDir, GymSettings settings, CostModel cost, JsonObject market,
+            string policy, EpisodeMetrics metrics)
         {
             DateTime now = DateTime.UtcNow;
+            EvaluationRecord record = BaselineRecord(now, settings, cost, policy, metrics, 1, "");
+            JsonObject details = DetailsHead(now, record, settings, cost, market);
+            details.Add("metrics", EvaluationLog.MetricsJson(metrics));
+            Save(outDir, now, record, details);
+        }
+
+        /// <summary>The random policy: the log row holds the medians, the detail file a summary and every seed's metrics.</summary>
+        static void WriteRandomRuns(string outDir, GymSettings settings, CostModel cost, JsonObject market,
+            EpisodeMetrics median, List<(int seed, EpisodeMetrics metrics)> perSeed, string notes)
+        {
+            DateTime now = DateTime.UtcNow;
+            EvaluationRecord record = BaselineRecord(now, settings, cost, Baselines.RandomName, median, perSeed.Count, notes);
+            // Medians of integer counts can be halves; keep them exact.
+            record.Trades = Metrics.Median(perSeed.Select(r => (double)r.metrics.Trades));
+            record.Rejected = Metrics.Median(perSeed.Select(r => (double)r.metrics.Rejected));
+            JsonObject details = DetailsHead(now, record, settings, cost, market);
+            details.Add("summary", RandomSummary(record, perSeed));
+            details.Add("per_seed", PerSeedMetrics(perSeed));
+            Save(outDir, now, record, details);
+        }
+
+        static EvaluationRecord BaselineRecord(DateTime now, GymSettings settings, CostModel cost, string policy,
+            EpisodeMetrics metrics, int seeds, string notes)
+        {
             var record = new EvaluationRecord
             {
                 TimestampUtc = now,
                 Kind = EvaluationRecord.BaselineKind,
                 Policy = policy,
-                Symbol = s.Rules.Symbol,
+                Symbol = settings.Rules.Symbol,
                 Seeds = seeds,
                 Notes = notes,
             };
-            record.SetSegment(segment);
+            record.SetSegment(settings.EvalSegment);
             record.SetCost(cost);
             record.SetMetrics(metrics);
-            if (perSeed != null)
-            {
-                // Medians of integer counts can be halves; keep them exact.
-                record.Trades = Metrics.Median(perSeed.Select(r => (double)r.metrics.Trades));
-                record.Rejected = Metrics.Median(perSeed.Select(r => (double)r.metrics.Rejected));
-            }
+            return record;
+        }
 
-            var details = new JsonObject
+        /// <summary>The keys every baseline detail file starts with.</summary>
+        static JsonObject DetailsHead(DateTime now, EvaluationRecord record, GymSettings settings, CostModel cost, JsonObject market) =>
+            new JsonObject
             {
                 { "timestamp_utc", now },
                 { "kind", record.Kind },
-                { "policy", policy },
+                { "policy", record.Policy },
                 { "generated_by", "Gym.Editor.EvalTools.RunBaselines" },
-                { "symbol", s.Rules.Symbol },
-                { "data_file", RecordPaths.PathForRecords(s.Config.dataFile) },
-                { "segment", SegmentJson(segment, s.Series) },
+                { "symbol", settings.Rules.Symbol },
+                { "data_file", RecordPaths.PathForRecords(settings.Config.dataFile) },
+                { "segment", SegmentJson(settings.EvalSegment, settings.Series) },
                 { "market", market },
                 { "cost", new JsonObject { { "fee_rate", cost.FeeRate }, { "fixed_fee", cost.FixedFee }, { "slippage", cost.Slippage } } },
-                { "initial_cash", s.Config.initialCash },
-                { "seeds", seeds },
+                { "initial_cash", settings.Config.initialCash },
+                { "seeds", record.Seeds },
             };
-            if (perSeed == null)
-            {
-                details.Add("metrics", EvaluationLog.MetricsJson(metrics));
-            }
-            else
-            {
-                details.Add("summary", new JsonObject
-                {
-                    { "aggregation", "median over seeds" },
-                    { "total_return", record.TotalReturn },
-                    { "max_drawdown", record.MaxDrawdown },
-                    { "sharpe", record.Sharpe },
-                    { "trades", record.Trades },
-                    { "rejected", record.Rejected },
-                    { "turnover", record.Turnover },
-                    { "fees_paid", record.FeesPaid },
-                    { "fees_pct", record.FeesPct },
-                    { "exposure", record.Exposure },
-                    { "total_return_p5", Metrics.Percentile(perSeed.Select(r => r.metrics.TotalReturn), 5) },
-                    { "total_return_p95", Metrics.Percentile(perSeed.Select(r => r.metrics.TotalReturn), 95) },
-                });
-                details.Add("per_seed", perSeed.Select(r =>
-                {
-                    JsonObject m = EvaluationLog.MetricsJson(r.metrics);
-                    var row = new JsonObject { { "seed", r.seed } };
-                    foreach (KeyValuePair<string, object> pair in m) row.Add(pair.Key, pair.Value);
-                    return row;
-                }).ToList());
-            }
 
+        static JsonObject RandomSummary(EvaluationRecord record, List<(int seed, EpisodeMetrics metrics)> perSeed) =>
+            new JsonObject
+            {
+                { "aggregation", "median over seeds" },
+                { "total_return", record.TotalReturn },
+                { "max_drawdown", record.MaxDrawdown },
+                { "sharpe", record.Sharpe },
+                { "trades", record.Trades },
+                { "rejected", record.Rejected },
+                { "turnover", record.Turnover },
+                { "fees_paid", record.FeesPaid },
+                { "fees_pct", record.FeesPct },
+                { "exposure", record.Exposure },
+                { "total_return_p5", Metrics.Percentile(perSeed.Select(r => r.metrics.TotalReturn), 5) },
+                { "total_return_p95", Metrics.Percentile(perSeed.Select(r => r.metrics.TotalReturn), 95) },
+            };
+
+        static List<JsonObject> PerSeedMetrics(List<(int seed, EpisodeMetrics metrics)> perSeed) =>
+            perSeed.Select(r =>
+            {
+                JsonObject m = EvaluationLog.MetricsJson(r.metrics);
+                var row = new JsonObject { { "seed", r.seed } };
+                foreach (KeyValuePair<string, object> pair in m) row.Add(pair.Key, pair.Value);
+                return row;
+            }).ToList();
+
+        static void Save(string outDir, DateTime now, EvaluationRecord record, JsonObject details)
+        {
             EvaluationLog.Append(outDir, record);
-            EvaluationLog.WriteRunDetails(outDir, now, policy, segment.Name, details);
+            EvaluationLog.WriteRunDetails(outDir, now, record.Policy, record.Segment, details);
         }
 
         /// <summary>-gymPolicies: a comma-separated subset of buyhold, cash, random; all three when absent.</summary>
