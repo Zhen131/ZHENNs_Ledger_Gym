@@ -193,31 +193,31 @@ namespace Gym.Core.Env
         /// Apply one action. A masked choice that is sent anyway (e.g. from the
         /// keyboard) is booked as a rejected order.
         /// </summary>
-        public StepResult Step(TradeAction branch, float a)
+        public StepResult Step(TradeAction action, float continuousAction)
         {
             Account account = RequireAccount();
             if (Done) throw new InvalidOperationException("The episode is over; call Reset.");
-            if ((int)branch < 0 || (int)branch >= ActionCodec.BranchSize)
-                throw new ArgumentOutOfRangeException(nameof(branch), (int)branch, "Must be 0, 1 or 2.");
+            if ((int)action < 0 || (int)action >= ActionCodec.BranchSize)
+                throw new ArgumentOutOfRangeException(nameof(action), (int)action, "Must be 0, 1 or 2.");
 
             double closeNow = Series.CloseAt(T);
             double equityBefore = account.Equity(closeNow);
             double fillBase = Series.OpenAt(T + 1);
-            double fraction = ActionCodec.Fraction(a);
+            double fraction = ActionCodec.Fraction(continuousAction);
             bool traded = false;
             bool rejected = false;
             Fill fill = default;
 
-            if (branch != TradeAction.Hold)
+            if (action != TradeAction.Hold)
             {
-                if (!ActionCodec.IsEnabled(branch, account, closeNow))
+                if (!ActionCodec.IsEnabled(action, account, closeNow))
                 {
                     account.RecordRejection();
                     rejected = true;
                 }
                 else
                 {
-                    traded = branch == TradeAction.Buy
+                    traded = action == TradeAction.Buy
                         ? account.TryBuy(fraction, fillBase, out fill)
                         : account.TrySell(fraction, fillBase, out fill);
                     rejected = !traded;
@@ -226,7 +226,7 @@ namespace Gym.Core.Env
 
             if (traded)
             {
-                trades.Add(new TradeRecord(StepCount, T + 1, branch, fraction, fill));
+                trades.Add(new TradeRecord(StepCount, T + 1, action, fraction, fill));
                 StepsSinceTrade = 0;
             }
             else
