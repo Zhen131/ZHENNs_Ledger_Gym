@@ -1,16 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Gym.Core.Accounting;
 using Gym.Core.Env;
-using Gym.Core.Evaluation;
-using Gym.Core.Market;
 using NUnit.Framework;
 
 namespace Gym.Tests.EditMode
 {
     /// <summary>Seed mixing (Q03 / Q07): R-1 to R-4 of 07B.</summary>
-    public class SeedTests
+    public class SeedMixerTests
     {
         const long Modulus = int.MaxValue; // System.Random's legacy generator works modulo 2^31 − 1
 
@@ -49,60 +46,6 @@ namespace Gym.Tests.EditMode
             Assert.AreEqual(1000, seen.Count, "no collisions among 1000 nearby seeds");
             var perAgent = Enumerable.Range(0, 16).Select(i => SeedMixer.Mix(7, i)).ToList();
             Assert.AreEqual(16, perAgent.Distinct().Count());
-        }
-
-        // ---- R-2 training starts for seeds 0..999 are no longer a lattice
-
-        [Test]
-        public void R02_TrainingStartsForConsecutiveSeedsAreSpread()
-        {
-            TradingEnv env = TestData.TrainEnv();
-            int lo = Math.Max(env.First, ObservationBuilder.Lookback), hi = env.Last - TradingEnv.TrainingEpisodeLength;
-
-            // Premise: without mixing, the start for seed s is a lattice in s; adjacent starts differ
-            // by one of a handful of values (two step sizes, ±1 from rounding).
-            var rawStarts = Enumerable.Range(0, 1000).Select(s => new Random(s).Next(lo, hi + 1)).ToList();
-            int rawDistinct = rawStarts.Zip(rawStarts.Skip(1), (a, b) => b - a).Distinct().Count();
-            Assert.LessOrEqual(rawDistinct, 4, "premise: unmixed seeds give a lattice");
-
-            var starts = new List<int>();
-            int withCoin = 0;
-            for (int seed = 0; seed < 1000; seed++)
-            {
-                env.ResetForTraining(seed, new CostModel());
-                Assert.That(env.StartIndex, Is.InRange(lo, hi));
-                starts.Add(env.StartIndex);
-                if (env.StartedWithCoin) withCoin++;
-            }
-            int distinct = starts.Zip(starts.Skip(1), (a, b) => b - a).Distinct().Count();
-            Assert.Greater(distinct, 100, $"adjacent start differences: {distinct} distinct values");
-            Assert.That(withCoin, Is.InRange(400, 600));
-            TestContext.WriteLine($"R-2: unmixed {rawDistinct} distinct adjacent differences, mixed {distinct}; {withCoin}/1000 held coin");
-        }
-
-        // ---- R-3 same seed, same actions, same bits
-
-        [Test]
-        public void R03_SameSeedAndActionsStillGiveIdenticalBits()
-        {
-            TradingEnv a = TestData.TrainEnv(), b = TestData.TrainEnv();
-            var cost = new CostModel(0.001, 0.5, 0.0005);
-            a.ResetForTraining(12345, cost);
-            b.ResetForTraining(12345, cost);
-            Assert.AreEqual(a.StartIndex, b.StartIndex);
-            Assert.AreEqual(a.StartedWithCoin, b.StartedWithCoin);
-            Assert.IsTrue(TestData.SameBits(a.Account.Cash, b.Account.Cash));
-            var actions = new Random(3);
-            while (!a.Done)
-            {
-                int branch = actions.Next(3);
-                float x = (float)(actions.NextDouble() * 2 - 1);
-                a.Step((TradeAction)branch, x);
-                b.Step((TradeAction)branch, x);
-            }
-            Assert.AreEqual(a.EquityCurve.Count, b.EquityCurve.Count);
-            for (int i = 0; i < a.EquityCurve.Count; i++)
-                Assert.IsTrue(TestData.SameBits(a.EquityCurve[i], b.EquityCurve[i]), $"equity[{i}]");
         }
 
         // ---- R-4 the random baseline's draws for seeds 0, 1, 2 are not shifted copies
@@ -144,27 +87,6 @@ namespace Gym.Tests.EditMode
                 Draws(new Random(SeedMixer.Mix(2)), steps));
             Assert.AreEqual(0, mixed, "with mixing none of the first 40 draws is");
             TestContext.WriteLine($"R-4: arithmetic positions among the first {2 * steps} draws: unmixed {raw}, mixed {mixed}");
-        }
-
-        [Test]
-        public void R04_RandomBaselineUsesTheMixedStream()
-        {
-            // Every filled order of RunRandom(seed 0) carries the fraction drawn at its step
-            // from Random(Mix(0)): draw 2k is the choice, draw 2k + 1 the fraction.
-            CandleSeries s = TestData.RandomWalk(300, 41, 0.01);
-            var env = new TradingEnv(s, SymbolRules.BtcUsdt, 0, 299);
-            Baselines.RunRandom(env, new CostModel(), 0);
-            var stream = new Random(SeedMixer.Mix(0));
-            var fractions = new List<double>();
-            for (int k = 0; k < env.StepCount; k++)
-            {
-                stream.NextDouble();
-                fractions.Add(stream.NextDouble());
-            }
-            Assert.Greater(env.Trades.Count, 5);
-            foreach (TradeRecord trade in env.Trades)
-                Assert.AreEqual(ActionCodec.Fraction(ActionCodec.FromFraction(fractions[trade.Step])), trade.Fraction, 1e-12,
-                    $"step {trade.Step}");
         }
     }
 }

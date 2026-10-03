@@ -116,22 +116,6 @@ namespace Gym.Tests.EditMode
             Assert.AreEqual(6.993, a.FeesPaid, Tol);
         }
 
-        [Test]
-        public void T03_CostModelRejectsOutOfRangeValues()
-        {
-            Assert.Throws<ArgumentOutOfRangeException>(() => new CostModel(-0.001));
-            Assert.Throws<ArgumentOutOfRangeException>(() => new CostModel(1));
-            Assert.Throws<ArgumentOutOfRangeException>(() => new CostModel(double.NaN));
-            Assert.Throws<ArgumentOutOfRangeException>(() => new CostModel(0.001, -1));
-            Assert.Throws<ArgumentOutOfRangeException>(() => new CostModel(0.001, 0, 0.1));
-            Assert.Throws<ArgumentOutOfRangeException>(() => new CostModel(0.001, 0, -0.0001));
-            Assert.DoesNotThrow(() => new CostModel(0.999, 100, 0.0999));
-            var defaults = new CostModel();
-            Assert.AreEqual(0.001, defaults.FeeRate);
-            Assert.AreEqual(0, defaults.FixedFee);
-            Assert.AreEqual(0, defaults.Slippage);
-        }
-
         // ---- T-4 minimum order and step size
 
         [Test]

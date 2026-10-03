@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using Gym.Core.Accounting;
 using Gym.Core.Env;
 using Gym.Core.Market;
@@ -229,6 +230,123 @@ namespace Gym.Tests.EditMode
             Assert.Throws<InvalidOperationException>(() => env.Step(0, 0f));
             Assert.Throws<InvalidOperationException>(() => env.ResetForTraining(0, new CostModel()));
             Assert.DoesNotThrow(() => env.ResetForEvaluation(0, new CostModel()));
+        }
+
+        // ---- T-7 no look-ahead
+
+        [Test]
+        public void T07_FutureCandlesDoNotChangeTheObservation()
+        {
+            const int count = 200, t = 120;
+            CandleSeries a = TestData.RandomWalk(count, 7, 0.02);
+            var noisy = new List<Candle>();
+            var random = new System.Random(99);
+            for (int i = 0; i < count; i++)
+            {
+                if (i <= t) { noisy.Add(a[i]); continue; }
+                double o = 1 + random.NextDouble() * 1000, c = 1 + random.NextDouble() * 1000;
+                noisy.Add(new Candle(a[i].OpenTimeMs, o, Math.Max(o, c) + 1, Math.Min(o, c) * 0.5, c, random.NextDouble()));
+            }
+            CandleSeries b = CandleSeries.FromCandles(noisy);
+
+            var envA = new TradingEnv(a, Btc, 0, count - 1);
+            var envB = new TradingEnv(b, Btc, 0, count - 1);
+            envA.ResetForEvaluation(3, new CostModel());
+            envB.ResetForEvaluation(3, new CostModel());
+            var actions = new System.Random(5);
+            var obsA = new float[ObservationBuilder.Size];
+            var obsB = new float[ObservationBuilder.Size];
+            while (true)
+            {
+                envA.WriteObservation(obsA);
+                envB.WriteObservation(obsB);
+                for (int k = 0; k < obsA.Length; k++)
+                    Assert.IsTrue(TestData.SameBits(obsA[k], obsB[k]), $"t={envA.CurrentIndex}, obs[{k}]");
+                Assert.AreEqual(envA.BuyEnabled, envB.BuyEnabled);
+                Assert.AreEqual(envA.SellEnabled, envB.SellEnabled);
+                if (envA.CurrentIndex == t) break;
+                int branch = actions.Next(3);
+                float x = (float)(actions.NextDouble() * 2 - 1);
+                envA.Step((TradeAction)branch, x);
+                envB.Step((TradeAction)branch, x);
+                Assert.IsTrue(TestData.SameBits(envA.CurrentEquity, envB.CurrentEquity));
+            }
+            Assert.AreEqual(t, envA.CurrentIndex);
+        }
+
+        [Test]
+        public void T07_OrdersFillAtTheNextOpen()
+        {
+            // open[k] = close[k − 1] × 1.01, so open[t + 1] differs from close[t].
+            CandleSeries s = TestData.Synthetic(80, k => 100 + k, k => k == 0 ? 100 : (100 + k - 1) * 1.01);
+            var env = new TradingEnv(s, Btc, 0, 79);
+            env.ResetForEvaluation(0, new CostModel(0.001, 0, 0.0005));
+            Assert.AreEqual(32, env.CurrentIndex);
+            StepResult r = env.Step(TradeAction.Buy, 1f);
+            Assert.IsTrue(r.Traded);
+            TradeRecord trade = env.Trades[0];
+            Assert.AreEqual(33, trade.CandleIndex);
+            Assert.AreEqual(s.OpenAt(33) * 1.0005, trade.Price, 1e-9);
+            Assert.AreNotEqual(s.CloseAt(32), s.OpenAt(33));
+
+            env.Step(TradeAction.Sell, 1f);
+            TradeRecord sell = env.Trades[1];
+            Assert.AreEqual(34, sell.CandleIndex);
+            Assert.AreEqual(s.OpenAt(34) * (1 - 0.0005), sell.Price, 1e-9);
+        }
+
+        // ---- R-2 training starts for seeds 0..999 are no longer a lattice
+
+        [Test]
+        public void R02_TrainingStartsForConsecutiveSeedsAreSpread()
+        {
+            TradingEnv env = TestData.TrainEnv();
+            int lo = Math.Max(env.First, ObservationBuilder.Lookback), hi = env.Last - TradingEnv.TrainingEpisodeLength;
+
+            // Premise: without mixing, the start for seed s is a lattice in s; adjacent starts differ
+            // by one of a handful of values (two step sizes, ±1 from rounding).
+            var rawStarts = Enumerable.Range(0, 1000).Select(s => new Random(s).Next(lo, hi + 1)).ToList();
+            int rawDistinct = rawStarts.Zip(rawStarts.Skip(1), (a, b) => b - a).Distinct().Count();
+            Assert.LessOrEqual(rawDistinct, 4, "premise: unmixed seeds give a lattice");
+
+            var starts = new List<int>();
+            int withCoin = 0;
+            for (int seed = 0; seed < 1000; seed++)
+            {
+                env.ResetForTraining(seed, new CostModel());
+                Assert.That(env.StartIndex, Is.InRange(lo, hi));
+                starts.Add(env.StartIndex);
+                if (env.StartedWithCoin) withCoin++;
+            }
+            int distinct = starts.Zip(starts.Skip(1), (a, b) => b - a).Distinct().Count();
+            Assert.Greater(distinct, 100, $"adjacent start differences: {distinct} distinct values");
+            Assert.That(withCoin, Is.InRange(400, 600));
+            TestContext.WriteLine($"R-2: unmixed {rawDistinct} distinct adjacent differences, mixed {distinct}; {withCoin}/1000 held coin");
+        }
+
+        // ---- R-3 same seed, same actions, same bits
+
+        [Test]
+        public void R03_SameSeedAndActionsStillGiveIdenticalBits()
+        {
+            TradingEnv a = TestData.TrainEnv(), b = TestData.TrainEnv();
+            var cost = new CostModel(0.001, 0.5, 0.0005);
+            a.ResetForTraining(12345, cost);
+            b.ResetForTraining(12345, cost);
+            Assert.AreEqual(a.StartIndex, b.StartIndex);
+            Assert.AreEqual(a.StartedWithCoin, b.StartedWithCoin);
+            Assert.IsTrue(TestData.SameBits(a.Account.Cash, b.Account.Cash));
+            var actions = new Random(3);
+            while (!a.Done)
+            {
+                int branch = actions.Next(3);
+                float x = (float)(actions.NextDouble() * 2 - 1);
+                a.Step((TradeAction)branch, x);
+                b.Step((TradeAction)branch, x);
+            }
+            Assert.AreEqual(a.EquityCurve.Count, b.EquityCurve.Count);
+            for (int i = 0; i < a.EquityCurve.Count; i++)
+                Assert.IsTrue(TestData.SameBits(a.EquityCurve[i], b.EquityCurve[i]), $"equity[{i}]");
         }
     }
 }
