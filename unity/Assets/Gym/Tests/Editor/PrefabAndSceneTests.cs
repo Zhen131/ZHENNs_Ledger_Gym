@@ -23,7 +23,7 @@ namespace Gym.Tests.Editor
         static List<T> ComponentsIn<T>(Scene scene) where T : Component =>
             scene.GetRootGameObjects().SelectMany(g => g.GetComponentsInChildren<T>(true)).ToList();
 
-        // ---- E-2 prefab
+        // ---- prefab
 
         [Test]
         public void AgentPrefab_HasTheExpectedBehaviourAndActions()
@@ -52,7 +52,7 @@ namespace Gym.Tests.Editor
             Assert.AreEqual(0.0, agent.DefaultSlippage);
         }
 
-        // ---- E-3 scenes
+        // ---- scenes
 
         [Test]
         public void TrainingScene_HasSixteenDefaultAgents()

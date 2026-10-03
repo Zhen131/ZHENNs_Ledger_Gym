@@ -15,7 +15,7 @@ using Debug = UnityEngine.Debug;
 namespace Gym.Runtime.Evaluation
 {
     /// <summary>
-    /// Drives one evaluation episode in the Eval scene (04B §4.2): turns off automatic
+    /// Drives one evaluation episode in the Eval scene: turns off automatic
     /// stepping, calls Academy.EnvironmentStep in batches each frame until the agent's
     /// episode ends, appends the result to &lt;-gymOut&gt;/log.csv with a JSON detail file,
     /// and quits (0 on success, 1 on failure). It runs only when started with
@@ -67,7 +67,7 @@ namespace Gym.Runtime.Evaluation
         }
 
         /// <summary>
-        /// Null when the command line asks for an evaluation run, else what is missing (05D S-1, 08D N-1).
+        /// Null when the command line asks for an evaluation run, else what is missing.
         /// Without -gymMode eval the player would quietly evaluate the test segment, without
         /// -gymSegment it would fall back to the test segment too (kept for the final numbers,
         /// and the log cannot be undone), and without -gymOut it would write next to wherever
@@ -118,7 +118,7 @@ namespace Gym.Runtime.Evaluation
                 Quit(1);
                 yield break;
             }
-            // One pass needs about one step per candle; far more means the episode never ends (05D M-1).
+            // One pass needs about one step per candle; far more means the episode never ends.
             stepLimit = agent.Env.Last - agent.Env.First + 1 + StepMargin;
             watch = Stopwatch.StartNew();
             steps = 0;
@@ -218,7 +218,7 @@ namespace Gym.Runtime.Evaluation
         /// <summary>
         /// The detail JSON of one agent evaluation. The data file is written as the config
         /// names it and the model only by its file name (the SHA-256 identifies it), so the
-        /// committed file carries no machine's folders or user name (05D M-2).
+        /// committed file carries no machine's folders or user name.
         /// </summary>
         public static JsonObject Details(EvaluationRecord record, EvalBuildInfo info, GymSettings settings, TradingEnv env,
             EpisodeMetrics metrics, string behaviorType, bool deterministicInference, string inferenceDevice)

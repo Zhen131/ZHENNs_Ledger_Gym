@@ -30,7 +30,7 @@ namespace Gym.Tests.Runtime.Evaluation
         [Test]
         public void WithoutAnEvaluationSegment_TheArgumentsAreRefused()
         {
-            // 08D N-1: without -gymSegment the player fell back to the test segment and wrote to -gymOut,
+            // Without -gymSegment the player fell back to the test segment and wrote to -gymOut,
             // which on the PC is the append-only log.
             string noSegment = EvalRunner.CheckArguments(new[] { "GymEval", "-gymMode", "eval", "-gymOut", "x" });
             Assert.IsNotNull(noSegment);

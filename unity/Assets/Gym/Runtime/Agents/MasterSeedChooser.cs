@@ -5,15 +5,15 @@ using Unity.MLAgents;
 namespace Gym.Runtime.Agents
 {
     /// <summary>
-    /// The agent's master seed (Q07). With a trainer attached it derives from the seed
+    /// Chooses the agent's master seed. With a trainer attached it derives from the seed
     /// mlagents-learn sends (--seed, plus the environment's worker index), mixed with the
-    /// agent index, so a run can be repeated; without one it comes from the clock as before.
-    /// Both pass through <see cref="SeedMixer"/> (Q03).
+    /// agent index, so a run can be repeated; without one it comes from the clock.
+    /// Both pass through <see cref="SeedMixer"/>.
     /// </summary>
     public static class MasterSeedChooser
     {
         // Academy.InferenceSeed is set-only in ML-Agents 4.0.3, so the seed the trainer sent
-        // (stored in m_InferenceSeed during the handshake) is read by reflection (Q08).
+        // (stored in m_InferenceSeed during the handshake) is read by reflection.
         static readonly FieldInfo InferenceSeedField =
             typeof(Academy).GetField("m_InferenceSeed", BindingFlags.Instance | BindingFlags.NonPublic);
 

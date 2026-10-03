@@ -3,7 +3,7 @@ using Gym.Core.Env;
 
 namespace Gym.Runtime.Agents
 {
-    /// <summary>End-of-episode numbers sent to TensorBoard under Trading/… (02B §2.2).</summary>
+    /// <summary>End-of-episode numbers sent to TensorBoard under Trading/….</summary>
     public readonly struct EpisodeStats
     {
         /// <summary>Final equity ÷ initial equity − 1.</summary>

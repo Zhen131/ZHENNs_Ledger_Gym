@@ -5,7 +5,7 @@ using NUnit.Framework;
 
 namespace Gym.Tests.Runtime.Agents
 {
-    /// <summary>Q07: where an agent's master seed comes from.</summary>
+    /// <summary>Where an agent's master seed comes from.</summary>
     public class MasterSeedChooserTests
     {
         [Test]

@@ -5,7 +5,7 @@ namespace Gym.Tests.Runtime.Evaluation
 {
     public static class RecordFileAssert
     {
-        // ---- 05D M-2: committed evaluation files must not carry a machine's paths
+        // Committed evaluation files must not carry a machine's paths.
         public static void NoMachinePath(string text, string what)
         {
             StringAssert.DoesNotContain("/Users/", text, what);

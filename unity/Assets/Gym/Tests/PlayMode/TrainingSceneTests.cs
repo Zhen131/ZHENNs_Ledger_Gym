@@ -18,7 +18,7 @@ namespace Gym.Tests.PlayMode
             if (Academy.IsInitialized) Academy.Instance.AutomaticSteppingEnabled = true;
         }
 
-        // ---- P-1 sixteen agents, one full episode each
+        // ---- sixteen agents, one full episode each
 
         [UnityTest]
         public IEnumerator SixteenAgents_EachFinishAnEpisodeWithin750Steps()
@@ -41,7 +41,7 @@ namespace Gym.Tests.PlayMode
                 Assert.AreNotEqual(0, agent.MasterSeed, agent.name);
             }
             logs.AssertNoErrors();
-            Debug.Log($"P-1: {logs.InfoCount} info/warning lines, no errors");
+            Debug.Log($"{logs.InfoCount} info/warning lines, no errors");
         }
     }
 }

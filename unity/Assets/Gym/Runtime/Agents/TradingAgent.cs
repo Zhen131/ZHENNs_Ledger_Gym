@@ -13,7 +13,7 @@ namespace Gym.Runtime.Agents
 {
     /// <summary>
     /// ML-Agents shell around <see cref="TradingEnv"/>. No bookkeeping, observation
-    /// or reward logic lives here (02B §2.2).
+    /// or reward logic lives here.
     /// </summary>
     public class TradingAgent : Agent
     {

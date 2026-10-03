@@ -14,7 +14,7 @@ namespace Gym.Tests.Runtime.Configuration
         [SetUp]
         public void SetUp()
         {
-            tempDir = Path.Combine(Path.GetTempPath(), "gym-e1-" + Guid.NewGuid().ToString("N"));
+            tempDir = Path.Combine(Path.GetTempPath(), "gym-config-test-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(tempDir);
         }
 
@@ -34,8 +34,6 @@ namespace Gym.Tests.Runtime.Configuration
             File.WriteAllText(path, JsonUtility.ToJson(config, true));
             return path;
         }
-
-        // ---- E-1 configuration
 
         [Test]
         public void DefaultFiles_LoadWithoutErrorsOrWarnings()
@@ -148,7 +146,7 @@ namespace Gym.Tests.Runtime.Configuration
         [TestCase("-gymFixedFee", "-1")]
         public void CostArgumentOutsideTheCostModelRange_IsAConfigError(string name, string value)
         {
-            // 05D M-1: the evaluation player hung on -gymFeeRate 1.5 because CostModel threw
+            // The evaluation player hung on -gymFeeRate 1.5 because CostModel threw
             // only when the agent reset. Now the loader reports it like any other config error.
             var e = Assert.Throws<GymConfigException>(() => GymConfigLoader.Load(GymConfigLoader.DefaultConfigPath,
                 GymConfigLoader.DefaultSymbolsPath, new[] { "x", "-gymMode", "eval", name, value }));
@@ -169,7 +167,7 @@ namespace Gym.Tests.Runtime.Configuration
         [Test]
         public void InitialCashAboveTheLimit_IsAConfigError()
         {
-            // 08D N-2: from about 1e12 USDT on, an all-in buy could round past the cash and throw.
+            // From about 1e12 USDT on, an all-in buy could round past the cash and throw.
             GymConfig config = DefaultConfig();
             config.initialCash = 1e13;
             var e = Assert.Throws<GymConfigException>(() =>

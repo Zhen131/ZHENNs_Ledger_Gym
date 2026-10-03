@@ -24,7 +24,7 @@ namespace Gym.Editor
     ///
     /// A failed build exits the batch-mode editor with code 1.
     ///
-    /// Evaluation player with a trained model baked in (04B §4.2):
+    /// Evaluation player with a trained model baked in:
     ///
     ///   Unity -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.BuildScript.BuildMacEval
     ///         -gymModel "$PWD/results/&lt;run-id&gt;/TradingAgent.onnx" -quit -logFile "$PWD/unity/Logs/build-eval.log"
@@ -38,7 +38,7 @@ namespace Gym.Editor
         public const string WindowsOutput = "Builds/win/Gym.exe";
         public const string MacEvalOutput = "Builds/mac/GymEval.app";
         // Its own folder: a Windows player shares UnityPlayer.dll and MonoBleedingEdge\ with
-        // whatever else sits next to it, and those files are locked while Gym.exe trains (05D S-3).
+        // whatever else sits next to it, and those files are locked while Gym.exe trains.
         public const string WindowsEvalOutput = "Builds/win-eval/GymEval.exe";
         public const string ImportedModelsFolder = "Assets/Gym/Models/Imported";
         public const string ModelArg = "-gymModel";
@@ -151,7 +151,7 @@ namespace Gym.Editor
 
         /// <summary>
         /// build-info.json is written into the .app after Unity signed it, which breaks the seal:
-        /// it still runs here, but a copy on another Mac is refused. Sign it again, ad hoc (05D S-13).
+        /// it still runs here, but a copy on another Mac is refused. Sign it again, ad hoc.
         /// </summary>
         static void ResignMacApp(string app)
         {

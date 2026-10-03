@@ -15,7 +15,7 @@ using UnityEngine;
 namespace Gym.Editor
 {
     /// <summary>
-    /// Baseline evaluation from the command line (04B §4.1):
+    /// Baseline evaluation from the command line:
     ///
     ///   Unity -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.EvalTools.RunBaselines
     ///         -gymSegment test -gymFeeRates 0,0.001,0.003 -gymRandomSeeds 100 -gymOut "$PWD/evaluations"

@@ -23,7 +23,7 @@ namespace Gym.Runtime.Configuration
         public const string SlippageArg = "-gymSlippage";
 
         /// <summary>
-        /// The largest initialCash accepted (08D N-2). From about 1e12 on, a double cannot tell
+        /// The largest initialCash accepted. From about 1e12 on, a double cannot tell
         /// apart amounts 0.0001 USDT or more apart, far above the 1e-9 tolerance of an all-in buy,
         /// so rounding its quantity can overshoot the cash and the buy throws. 1e9 leaves room.
         /// </summary>
@@ -205,7 +205,7 @@ namespace Gym.Runtime.Configuration
         }
 
         /// <summary>
-        /// A cost argument, checked by the same ranges CostModel enforces (05D M-1): a value
+        /// A cost argument, checked by the same ranges CostModel enforces: a value
         /// CostModel would reject is a configuration error here, not an exception when the
         /// agent first resets.
         /// </summary>

@@ -54,7 +54,7 @@ namespace Gym.Tests.PlayMode
             Assert.AreEqual(reference.Series.OpenTimeUtc(reference.CurrentIndex), shown.TimeUtc, $"{when}: candle");
         }
 
-        // ---- P-2 the HUD equals a standalone TradingEnv, bit for bit
+        // ---- the HUD equals a standalone TradingEnv, bit for bit
 
         [UnityTest]
         public IEnumerator BuyHoldSell_HudMatchesAStandaloneEnvBitForBit()
@@ -92,7 +92,7 @@ namespace Gym.Tests.PlayMode
             logs.AssertNoErrors();
         }
 
-        // ---- P-3 selling with no coin is rejected, nothing else changes
+        // ---- selling with no coin is rejected, nothing else changes
 
         [UnityTest]
         public IEnumerator SellWhileFlat_IsRejected()

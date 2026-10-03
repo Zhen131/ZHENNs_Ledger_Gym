@@ -8,7 +8,7 @@ namespace Gym.Runtime.Evaluation
             string.IsNullOrEmpty(path) ? "" : path.Substring(path.LastIndexOfAny(new[] { '/', '\\' }) + 1);
 
         /// <summary>
-        /// A path as committed evaluation records keep it (05D M-2): a relative path as written,
+        /// A path as committed evaluation records keep it: a relative path as written,
         /// with /; an absolute one (/…, \…, ~…, C:…) only as its file name, so no machine's
         /// folders or user name end up in the repository.
         /// </summary>
