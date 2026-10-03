@@ -20,14 +20,28 @@ from tensorboard.backend.event_processing.event_accumulator import EventAccumula
 
 def find_event_dirs(run_dir: Path) -> list[Path]:
     """Directories under run_dir that contain TensorBoard event files."""
-    dirs = sorted({p.parent for p in run_dir.rglob("events.out.tfevents.*")})
-    return dirs
+    return sorted({path.parent for path in run_dir.rglob("events.out.tfevents.*")})
 
 
 def read_scalars(event_dir: Path) -> dict[str, list]:
     accumulator = EventAccumulator(str(event_dir), size_guidance={"scalars": 0})
     accumulator.Reload()
     return {tag: accumulator.Scalars(tag) for tag in accumulator.Tags().get("scalars", [])}
+
+
+def print_scalars(event_dir: Path, run_dir: Path) -> None:
+    """A heading for event_dir, then one line per tag: points, last step, last value."""
+    scalars = read_scalars(event_dir)
+    print(f"== {event_dir.relative_to(run_dir.parent) if event_dir != run_dir else event_dir}")
+    if not scalars:
+        print("   (no scalars)")
+        return
+    width = max(len(tag) for tag in scalars)
+    print(f"   {'tag'.ljust(width)}  {'points':>6}  {'last step':>9}  last value")
+    for tag in sorted(scalars):
+        points = scalars[tag]
+        last = points[-1]
+        print(f"   {tag.ljust(width)}  {len(points):>6}  {last.step:>9}  {last.value:.6g}")
 
 
 def main(argv=None) -> int:
@@ -45,17 +59,7 @@ def main(argv=None) -> int:
         return 1
 
     for event_dir in event_dirs:
-        scalars = read_scalars(event_dir)
-        print(f"== {event_dir.relative_to(run_dir.parent) if event_dir != run_dir else event_dir}")
-        if not scalars:
-            print("   (no scalars)")
-            continue
-        width = max(len(tag) for tag in scalars)
-        print(f"   {'tag'.ljust(width)}  {'points':>6}  {'last step':>9}  last value")
-        for tag in sorted(scalars):
-            points = scalars[tag]
-            last = points[-1]
-            print(f"   {tag.ljust(width)}  {len(points):>6}  {last.step:>9}  {last.value:.6g}")
+        print_scalars(event_dir, run_dir)
     return 0
 
 
