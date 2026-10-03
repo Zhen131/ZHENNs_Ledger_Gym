@@ -12,7 +12,7 @@ namespace Gym.Core.Env
     /// At decision index t the agent sees candles up to the close of t; the
     /// order fills at the open of t + 1; the reward compares equity at the
     /// close of t and the close of t + 1. Randomness comes only from the seed
-    /// passed to <see cref="Reset"/>.
+    /// passed to <see cref="ResetForTraining"/>.
     /// </summary>
     public sealed class TradingEnv
     {
@@ -96,71 +96,60 @@ namespace Gym.Core.Env
         public bool SellEnabled => ActionCodec.SellEnabled(RequireAccount(), Series.CloseAt(T));
 
         /// <summary>
-        /// Start an episode. Training: random start in [max(First, 32), Last − EpisodeLength]
+        /// Start a training episode: random start in [max(First, 32), Last − EpisodeLength]
         /// and, with probability <see cref="RandomInitialPositionShare"/>, a random part of
-        /// the equity already in coin (no fee). Evaluation: start at max(First, 32) in cash
-        /// and run to Last.
+        /// the equity already in coin (no fee).
         /// </summary>
-        public void Reset(int seed, bool evaluation, CostModel cost)
+        public void ResetForTraining(int seed, CostModel cost)
         {
             Cost = cost ?? throw new ArgumentNullException(nameof(cost));
             Seed = seed;
-            Evaluation = evaluation;
+            Evaluation = false;
 
             int lo = Math.Max(First, ObservationBuilder.Lookback);
-            int start;
             double cash = InitialCash;
             long units = 0;
             double avgCost = 0;
 
-            if (evaluation)
+            int hi = EpisodeLength > 0 ? Last - EpisodeLength : Last - 1;
+            if (hi < lo)
+                throw new InvalidOperationException(
+                    $"Segment [{First}, {Last}] is too short for a {EpisodeLength}-step episode.");
+            // Mixed first: System.Random with nearby seeds gives shifted copies of one sequence (Q03).
+            var random = new Random(SeedMixer.Mix(seed));
+            int start = random.Next(lo, hi + 1);
+            bool holdCoin = random.NextDouble() < RandomInitialPositionShare;
+            double share = random.NextDouble();
+            if (holdCoin)
             {
-                start = lo;
-            }
-            else
-            {
-                int hi = EpisodeLength > 0 ? Last - EpisodeLength : Last - 1;
-                if (hi < lo)
-                    throw new InvalidOperationException(
-                        $"Segment [{First}, {Last}] is too short for a {EpisodeLength}-step episode.");
-                // Mixed first: System.Random with nearby seeds gives shifted copies of one sequence (Q03).
-                var random = new Random(SeedMixer.Mix(seed));
-                start = random.Next(lo, hi + 1);
-                bool holdCoin = random.NextDouble() < RandomInitialPositionShare;
-                double share = random.NextDouble();
-                if (holdCoin)
+                double price = Series.CloseAt(start);
+                units = (long)decimal.Floor((decimal)(share * InitialCash) / (decimal)price / Rules.StepSize);
+                if (units > 0)
                 {
-                    double price = Series.CloseAt(start);
-                    units = (long)decimal.Floor((decimal)(share * InitialCash) / (decimal)price / Rules.StepSize);
-                    if (units > 0)
-                    {
-                        cash = InitialCash - (double)(units * Rules.StepSize * (decimal)price);
-                        if (cash < 0) cash = 0;
-                        avgCost = price;
-                    }
+                    cash = InitialCash - (double)(units * Rules.StepSize * (decimal)price);
+                    if (cash < 0) cash = 0;
+                    avgCost = price;
                 }
             }
 
-            Account = new Account(Rules, cost, cash, units, avgCost);
-            StartIndex = start;
-            T = start;
-            StepCount = 0;
-            StepsSinceTrade = 0;
-            StartedWithCoin = units > 0;
-            Done = false;
-            EndReason = EndReason.None;
-            HoldingSteps = 0;
-            ClippedRewards = 0;
-            RewardSum = 0;
-            trades.Clear();
-            equityCurve.Clear();
-            equityCurve.Add(CurrentEquity);
+            StartEpisode(start, cash, units, avgCost);
+        }
+
+        /// <summary>
+        /// Start an evaluation episode: start at max(First, 32) in cash and run to Last.
+        /// Nothing is random; the seed is only stored in <see cref="Seed"/>.
+        /// </summary>
+        public void ResetForEvaluation(int seed, CostModel cost)
+        {
+            Cost = cost ?? throw new ArgumentNullException(nameof(cost));
+            Seed = seed;
+            Evaluation = true;
+            StartEpisode(Math.Max(First, ObservationBuilder.Lookback), InitialCash, 0, 0);
         }
 
         /// <summary>
         /// Evaluation-style start at a chosen candle: all cash, no randomness, runs to
-        /// <see cref="Last"/>. Used by the Play scene (02B §2.3); added alongside the
-        /// original <see cref="Reset(int, bool, CostModel)"/>, which is unchanged.
+        /// <see cref="Last"/>. Used by the Play scene (02B §2.3).
         /// </summary>
         public void Reset(CostModel cost, int startIndex)
         {
@@ -170,12 +159,18 @@ namespace Gym.Core.Env
             Cost = cost ?? throw new ArgumentNullException(nameof(cost));
             Seed = 0;
             Evaluation = true;
-            Account = new Account(Rules, cost, InitialCash);
+            StartEpisode(startIndex, InitialCash, 0, 0);
+        }
+
+        /// <summary>Opens the account with <see cref="Cost"/> and clears every per-episode counter.</summary>
+        void StartEpisode(int startIndex, double cash, long coinUnits, double avgCost)
+        {
+            Account = new Account(Rules, Cost, cash, coinUnits, avgCost);
             StartIndex = startIndex;
             T = startIndex;
             StepCount = 0;
             StepsSinceTrade = 0;
-            StartedWithCoin = false;
+            StartedWithCoin = coinUnits > 0;
             Done = false;
             EndReason = EndReason.None;
             HoldingSteps = 0;

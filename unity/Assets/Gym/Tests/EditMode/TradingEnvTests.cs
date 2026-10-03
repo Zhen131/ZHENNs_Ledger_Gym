@@ -18,7 +18,7 @@ namespace Gym.Tests.EditMode
         public void T10_TrainingEpisodeEndsAtStep720()
         {
             TradingEnv env = TestData.TrainEnv();
-            env.Reset(42, false, new CostModel());
+            env.ResetForTraining(42, new CostModel());
             for (int i = 1; i < 720; i++)
             {
                 StepResult r = env.Step(TradeAction.Hold, 0f);
@@ -41,7 +41,7 @@ namespace Gym.Tests.EditMode
             int withCoin = 0;
             for (int seed = 0; seed < 1000; seed++)
             {
-                env.Reset(seed, false, new CostModel());
+                env.ResetForTraining(seed, new CostModel());
                 Assert.That(env.StartIndex, Is.InRange(lo, hi), $"seed {seed}");
                 Assert.GreaterOrEqual(env.Account.Cash, 0);
                 Assert.AreEqual(env.InitialCash, env.CurrentEquity, 1e-6, "no fee on the initial position");
@@ -64,7 +64,7 @@ namespace Gym.Tests.EditMode
         {
             CandleSeries s = TestData.Btc;
             TradingEnv env = TradingEnv.ForSegment(s, Btc, DefaultSplits.Test);
-            env.Reset(123, true, new CostModel());
+            env.ResetForEvaluation(123, new CostModel());
             int first = s.FirstIndexOnOrAfter(new DateTime(2025, 9, 1));
             int last = s.LastIndexOnOrBefore(new DateTime(2026, 8, 31));
             Assert.AreEqual(new DateTime(2025, 9, 1, 0, 0, 0, DateTimeKind.Utc), s.OpenTimeUtc(env.StartIndex));
@@ -92,7 +92,7 @@ namespace Gym.Tests.EditMode
             List<double> RunOnce(out List<float> observations, out List<TradeRecord> trades)
             {
                 TradingEnv env = TestData.TrainEnv();
-                env.Reset(2026, false, costs);
+                env.ResetForTraining(2026, costs);
                 var actions = new System.Random(77);
                 var obs = new float[ObservationBuilder.Size];
                 observations = new List<float>();
@@ -138,7 +138,7 @@ namespace Gym.Tests.EditMode
             long steps = 0;
             for (int episode = 0; episode < 200; episode++)
             {
-                env.Reset(episode, false, costs[episode % costs.Length]);
+                env.ResetForTraining(episode, costs[episode % costs.Length]);
                 while (!env.Done)
                 {
                     env.Step((TradeAction)random.Next(3), (float)(random.NextDouble() * 2.4 - 1.2));
@@ -160,11 +160,11 @@ namespace Gym.Tests.EditMode
             var random = new System.Random(12);
             var obs = new float[ObservationBuilder.Size];
             int seed = 0;
-            env.Reset(seed++, false, new CostModel());
+            env.ResetForTraining(seed++, new CostModel());
             var watch = Stopwatch.StartNew();
             for (int i = 0; i < 100_000; i++)
             {
-                if (env.Done) env.Reset(seed++, false, new CostModel());
+                if (env.Done) env.ResetForTraining(seed++, new CostModel());
                 env.WriteObservation(obs);
                 env.Step((TradeAction)random.Next(3), (float)(random.NextDouble() * 2 - 1));
             }
@@ -200,7 +200,7 @@ namespace Gym.Tests.EditMode
             // Same start and actions as an evaluation episode that happens to start there.
             var a = new TradingEnv(s, Btc, 100, 250);
             var b = new TradingEnv(s, Btc, 10, 250);
-            a.Reset(0, true, new CostModel());
+            a.ResetForEvaluation(0, new CostModel());
             b.Reset(new CostModel(), 100);
             var random = new System.Random(4);
             while (!a.Done)
@@ -227,8 +227,8 @@ namespace Gym.Tests.EditMode
             Assert.Throws<ArgumentOutOfRangeException>(() => new TradingEnv(s, Btc, 0, 100));
             var env = new TradingEnv(s, Btc, 0, 99, episodeLength: 720);
             Assert.Throws<InvalidOperationException>(() => env.Step(0, 0f));
-            Assert.Throws<InvalidOperationException>(() => env.Reset(0, false, new CostModel()));
-            Assert.DoesNotThrow(() => env.Reset(0, true, new CostModel()));
+            Assert.Throws<InvalidOperationException>(() => env.ResetForTraining(0, new CostModel()));
+            Assert.DoesNotThrow(() => env.ResetForEvaluation(0, new CostModel()));
         }
     }
 }

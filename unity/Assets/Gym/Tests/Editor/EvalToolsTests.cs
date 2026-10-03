@@ -114,7 +114,7 @@ namespace Gym.Tests.Editor
             GymSettings s = GymConfigLoader.Load(GymConfigLoader.DefaultConfigPath, GymConfigLoader.DefaultSymbolsPath,
                 new[] { "x", "-gymMode", "eval", "-gymSegment", "validation" });
             TradingEnv env = TradingEnv.ForSegment(s.Series, s.Rules, s.EvalSegment, s.Config.initialCash, 0, 0);
-            env.Reset(0, true, new CostModel());
+            env.ResetForEvaluation(0, new CostModel());
             env.Step(TradeAction.Hold, 0f);
             var record = new EvaluationRecord
             {

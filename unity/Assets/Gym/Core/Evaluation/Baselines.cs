@@ -18,7 +18,7 @@ namespace Gym.Core.Evaluation
         /// <summary>Buy with fraction 1 on the first step, then hold to the end.</summary>
         public static EpisodeMetrics RunBuyAndHold(TradingEnv env, CostModel cost)
         {
-            env.Reset(0, true, cost);
+            env.ResetForEvaluation(0, cost);
             env.Step(TradeAction.Buy, ActionCodec.FromFraction(1));
             while (!env.Done) env.Step(TradeAction.Hold, 0f);
             return Metrics.From(env);
@@ -27,7 +27,7 @@ namespace Gym.Core.Evaluation
         /// <summary>Hold cash the whole segment.</summary>
         public static EpisodeMetrics RunCash(TradingEnv env, CostModel cost)
         {
-            env.Reset(0, true, cost);
+            env.ResetForEvaluation(0, cost);
             while (!env.Done) env.Step(TradeAction.Hold, 0f);
             return Metrics.From(env);
         }
@@ -42,7 +42,7 @@ namespace Gym.Core.Evaluation
             // Mixed first: System.Random with seeds 0, 1, 2 … gives shifted copies of one sequence (Q03).
             var random = new Random(SeedMixer.Mix(seed));
             var choices = new List<TradeAction>(ActionCodec.BranchSize);
-            env.Reset(seed, true, cost);
+            env.ResetForEvaluation(seed, cost);
             while (!env.Done)
             {
                 choices.Clear();

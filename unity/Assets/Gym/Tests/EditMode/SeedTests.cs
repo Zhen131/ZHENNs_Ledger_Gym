@@ -69,7 +69,7 @@ namespace Gym.Tests.EditMode
             int withCoin = 0;
             for (int seed = 0; seed < 1000; seed++)
             {
-                env.Reset(seed, false, new CostModel());
+                env.ResetForTraining(seed, new CostModel());
                 Assert.That(env.StartIndex, Is.InRange(lo, hi));
                 starts.Add(env.StartIndex);
                 if (env.StartedWithCoin) withCoin++;
@@ -87,8 +87,8 @@ namespace Gym.Tests.EditMode
         {
             TradingEnv a = TestData.TrainEnv(), b = TestData.TrainEnv();
             var cost = new CostModel(0.001, 0.5, 0.0005);
-            a.Reset(12345, false, cost);
-            b.Reset(12345, false, cost);
+            a.ResetForTraining(12345, cost);
+            b.ResetForTraining(12345, cost);
             Assert.AreEqual(a.StartIndex, b.StartIndex);
             Assert.AreEqual(a.StartedWithCoin, b.StartedWithCoin);
             Assert.IsTrue(TestData.SameBits(a.Account.Cash, b.Account.Cash));

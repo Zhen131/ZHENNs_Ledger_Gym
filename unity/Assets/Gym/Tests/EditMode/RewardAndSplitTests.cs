@@ -33,7 +33,7 @@ namespace Gym.Tests.EditMode
             // Hourly moves of at most 0.3 % keep every step inside ±1.
             CandleSeries s = TestData.RandomWalk(800, 8, 0.003);
             var env = new TradingEnv(s, Btc, 0, s.Count - 1);
-            env.Reset(0, true, new CostModel());
+            env.ResetForEvaluation(0, new CostModel());
             var random = new System.Random(80);
             double sum = 0;
             while (!env.Done)
@@ -55,7 +55,7 @@ namespace Gym.Tests.EditMode
             // Fully invested from step 1, each jump moves equity by more than 1 % → 3 clipped steps.
             CandleSeries s = TestData.Synthetic(100, k => k < 50 ? 100 : k < 60 ? 105 : k < 70 ? 100 : 103);
             var env = new TradingEnv(s, Btc, 0, 99);
-            env.Reset(0, true, new CostModel());
+            env.ResetForEvaluation(0, new CostModel());
             Assert.IsTrue(env.Step(TradeAction.Buy, 1f).Traded);
             int clippedSeen = 0;
             while (!env.Done)

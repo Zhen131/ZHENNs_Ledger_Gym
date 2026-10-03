@@ -78,7 +78,7 @@ namespace Gym.Tests.EditMode
         {
             CandleSeries s = TestData.Synthetic(100, i => 100);
             var env = new TradingEnv(s, Btc, 0, 99);
-            env.Reset(0, true, new CostModel());
+            env.ResetForEvaluation(0, new CostModel());
             Assert.IsFalse(env.SellEnabled);
             StepResult r = env.Step(TradeAction.Sell, 1f);
             Assert.IsTrue(r.Rejected);

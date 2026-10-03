@@ -202,7 +202,7 @@ namespace Gym.Runtime
             else if (mode == AgentStartMode.Evaluation)
             {
                 EpisodeSeed = 0;
-                Env.Reset(0, true, cost);
+                Env.ResetForEvaluation(0, cost);
             }
             else
             {
@@ -212,7 +212,7 @@ namespace Gym.Runtime
                     firstEpisodeLogged = true;
                     Debug.Log($"[Gym] {name}: first episode seed {EpisodeSeed}");
                 }
-                Env.Reset(EpisodeSeed, false, cost);
+                Env.ResetForTraining(EpisodeSeed, cost);
             }
             HasStepped = false;
             LastBranch = (int)TradeAction.Hold;

@@ -90,8 +90,8 @@ namespace Gym.Tests.EditMode
 
             var envA = new TradingEnv(a, Btc, 0, count - 1);
             var envB = new TradingEnv(b, Btc, 0, count - 1);
-            envA.Reset(3, true, new CostModel());
-            envB.Reset(3, true, new CostModel());
+            envA.ResetForEvaluation(3, new CostModel());
+            envB.ResetForEvaluation(3, new CostModel());
             var actions = new System.Random(5);
             var obsA = new float[ObservationBuilder.Size];
             var obsB = new float[ObservationBuilder.Size];
@@ -119,7 +119,7 @@ namespace Gym.Tests.EditMode
             // open[k] = close[k − 1] × 1.01, so open[t + 1] differs from close[t].
             CandleSeries s = TestData.Synthetic(80, k => 100 + k, k => k == 0 ? 100 : (100 + k - 1) * 1.01);
             var env = new TradingEnv(s, Btc, 0, 79);
-            env.Reset(0, true, new CostModel(0.001, 0, 0.0005));
+            env.ResetForEvaluation(0, new CostModel(0.001, 0, 0.0005));
             Assert.AreEqual(32, env.T);
             StepResult r = env.Step(TradeAction.Buy, 1f);
             Assert.IsTrue(r.Traded);
