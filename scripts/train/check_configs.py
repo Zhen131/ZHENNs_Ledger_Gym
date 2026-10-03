@@ -13,7 +13,7 @@ Rules (exit code 1 if any fails):
 - every file has the single behavior TradingAgent, the environment parameters
   fee_rate, fixed_fee and slippage, and torch_settings.device cpu. The one
   exception is smoke-100k-cuda.yaml, the PC's speed test on the graphics card,
-  which must say cuda (PyTorch ruling, 2026-10-02);
+  which must say cuda;
 - the cost parameters are plain numbers inside the ranges the environment's
   CostModel accepts: fee_rate in [0, 1), slippage in [0, 0.1), fixed_fee >= 0.
   ML-Agents accepts any number, but outside these ranges every episode of the
@@ -37,14 +37,14 @@ MULTIPLE_MARK = "MULTIPLE CHANGES"
 EXPECTED_MULTIPLE = {"sac-base.yaml", "teacher-style.yaml"}
 ENV_PARAMS = ("fee_rate", "fixed_fee", "slippage")
 # Every config trains on the CPU except the PC's graphics-card speed test, which exists to
-# compare the two (PyTorch ruling, 2026-10-02). The series scripts' --device only changes
-# their copies in results/_tmp/, never these files.
+# compare the two. The series scripts' --device only changes their copies in results/_tmp/,
+# never these files.
 DEVICE_EXCEPTIONS = {"smoke-100k-cuda.yaml": "cuda"}
-# The ranges Gym.Core.CostModel enforces (05D S-12).
+# The ranges Gym.Core.CostModel enforces.
 COST_RANGES = {
-    "fee_rate": (lambda v: 0 <= v < 1, "in [0, 1)"),
-    "fixed_fee": (lambda v: v >= 0 and math.isfinite(v), ">= 0"),
-    "slippage": (lambda v: 0 <= v < 0.1, "in [0, 0.1)"),
+    "fee_rate": (lambda value: 0 <= value < 1, "in [0, 1)"),
+    "fixed_fee": (lambda value: value >= 0 and math.isfinite(value), ">= 0"),
+    "slippage": (lambda value: 0 <= value < 0.1, "in [0, 0.1)"),
 }
 
 
@@ -59,15 +59,15 @@ def flatten(value, prefix=""):
 
 
 def differences(base: dict, other: dict) -> list[str]:
-    a, b = flatten(base), flatten(other)
+    base_flat, other_flat = flatten(base), flatten(other)
     diffs = []
-    for key in sorted(set(a) | set(b)):
-        if key not in b:
-            diffs.append(f"{key}: {a[key]!r} -> (removed)")
-        elif key not in a:
-            diffs.append(f"{key}: (added) -> {b[key]!r}")
-        elif a[key] != b[key]:
-            diffs.append(f"{key}: {a[key]!r} -> {b[key]!r}")
+    for key in sorted(set(base_flat) | set(other_flat)):
+        if key not in other_flat:
+            diffs.append(f"{key}: {base_flat[key]!r} -> (removed)")
+        elif key not in base_flat:
+            diffs.append(f"{key}: (added) -> {other_flat[key]!r}")
+        elif base_flat[key] != other_flat[key]:
+            diffs.append(f"{key}: {base_flat[key]!r} -> {other_flat[key]!r}")
     return diffs
 
 
@@ -112,6 +112,61 @@ def mlagents_parse(path: Path):
         return f"{type(error).__name__}: {error}"
 
 
+def check_base(base_path: Path, base: dict, base_text: str) -> bool:
+    """Print the base config's checks; True if any failed."""
+    failed = False
+    print(f"base: {base_path}")
+    for problem in common_problems(base_path, base, base_text.split("\n", 1)[0]):
+        print(f"  FAIL {problem}")
+        failed = True
+    parsed = mlagents_parse(base_path)
+    print(f"  mlagents RunOptions: {'ok' if parsed is None else parsed}")
+    failed |= parsed not in (None, "skipped")
+    return failed
+
+
+def check_variant(path: Path, base: dict) -> tuple[bool, bool]:
+    """Print one variant's checks; return (failed, marked as multiple changes)."""
+    text = path.read_text()
+    first_line = text.split("\n", 1)[0]
+    data = yaml.safe_load(text)
+    diffs = differences(base, data)
+    multiple = MULTIPLE_MARK in first_line
+    problems = common_problems(path, data, first_line)
+    if multiple and path.name not in EXPECTED_MULTIPLE:
+        problems.append(f"marked {MULTIPLE_MARK!r} but only {sorted(EXPECTED_MULTIPLE)} may be")
+    if not multiple and len(diffs) != 1:
+        problems.append(f"must differ from the base in exactly one setting, found {len(diffs)}")
+    if multiple and len(diffs) < 2:
+        problems.append(f"marked {MULTIPLE_MARK!r} but differs in {len(diffs)} setting(s)")
+    parsed = mlagents_parse(path)
+    if parsed not in (None, "skipped"):
+        problems.append(f"ML-Agents rejects it: {parsed}")
+
+    status = "FAIL" if problems else "ok"
+    kind = "multiple" if multiple else "single"
+    print(f"{status:4} {path.name} ({kind}, {len(diffs)} difference{'s' if len(diffs) != 1 else ''}; "
+          f"mlagents {'ok' if parsed is None else parsed})")
+    for diff in diffs:
+        print(f"       {diff}")
+    for problem in problems:
+        print(f"     ! {problem}")
+    return bool(problems), multiple
+
+
+def check_smoke(path: Path) -> bool:
+    """Print one smoke config's checks; True if any failed."""
+    text = path.read_text()
+    problems = common_problems(path, yaml.safe_load(text), text.split("\n", 1)[0])
+    parsed = mlagents_parse(path)
+    if parsed not in (None, "skipped"):
+        problems.append(f"ML-Agents rejects it: {parsed}")
+    print(f"{'FAIL' if problems else 'ok':4} {path.name} (smoke; mlagents {'ok' if parsed is None else parsed})")
+    for problem in problems:
+        print(f"     ! {problem}")
+    return bool(problems)
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--base", default="config/ppo_base.yaml")
@@ -122,15 +177,7 @@ def main(argv=None) -> int:
     base_path = Path(args.base)
     base_text = base_path.read_text()
     base = yaml.safe_load(base_text)
-    failed = False
-
-    print(f"base: {base_path}")
-    for problem in common_problems(base_path, base, base_text.split("\n", 1)[0]):
-        print(f"  FAIL {problem}")
-        failed = True
-    parsed = mlagents_parse(base_path)
-    print(f"  mlagents RunOptions: {'ok' if parsed is None else parsed}")
-    failed |= parsed not in (None, "skipped")
+    failed = check_base(base_path, base, base_text)
 
     variants = sorted(Path(args.variants).glob("*.yaml"))
     if not variants:
@@ -138,48 +185,17 @@ def main(argv=None) -> int:
         return 1
     seen_multiple = set()
     for path in variants:
-        text = path.read_text()
-        first_line = text.split("\n", 1)[0]
-        data = yaml.safe_load(text)
-        diffs = differences(base, data)
-        multiple = MULTIPLE_MARK in first_line
+        variant_failed, multiple = check_variant(path, base)
         if multiple:
             seen_multiple.add(path.name)
-        problems = common_problems(path, data, first_line)
-        if multiple and path.name not in EXPECTED_MULTIPLE:
-            problems.append(f"marked {MULTIPLE_MARK!r} but only {sorted(EXPECTED_MULTIPLE)} may be")
-        if not multiple and len(diffs) != 1:
-            problems.append(f"must differ from the base in exactly one setting, found {len(diffs)}")
-        if multiple and len(diffs) < 2:
-            problems.append(f"marked {MULTIPLE_MARK!r} but differs in {len(diffs)} setting(s)")
-        parsed = mlagents_parse(path)
-        if parsed not in (None, "skipped"):
-            problems.append(f"ML-Agents rejects it: {parsed}")
-
-        status = "FAIL" if problems else "ok"
-        kind = "multiple" if multiple else "single"
-        print(f"{status:4} {path.name} ({kind}, {len(diffs)} difference{'s' if len(diffs) != 1 else ''}; "
-              f"mlagents {'ok' if parsed is None else parsed})")
-        for diff in diffs:
-            print(f"       {diff}")
-        for problem in problems:
-            print(f"     ! {problem}")
-        failed |= bool(problems)
+        failed |= variant_failed
 
     smoke = sorted(Path(p) for p in glob.glob(args.smoke))
     if not smoke:
         print(f"FAIL no smoke configs match {args.smoke}")
         failed = True
     for path in smoke:
-        text = path.read_text()
-        problems = common_problems(path, yaml.safe_load(text), text.split("\n", 1)[0])
-        parsed = mlagents_parse(path)
-        if parsed not in (None, "skipped"):
-            problems.append(f"ML-Agents rejects it: {parsed}")
-        print(f"{'FAIL' if problems else 'ok':4} {path.name} (smoke; mlagents {'ok' if parsed is None else parsed})")
-        for problem in problems:
-            print(f"     ! {problem}")
-        failed |= bool(problems)
+        failed |= check_smoke(path)
 
     missing_multiple = EXPECTED_MULTIPLE - seen_multiple
     if missing_multiple:
