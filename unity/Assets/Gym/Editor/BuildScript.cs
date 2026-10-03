@@ -71,51 +71,12 @@ namespace Gym.Editor
             try
             {
                 RequireModule(target);
-                string[] args = Environment.GetCommandLineArgs();
-                string modelPath = CommandLineArgs.ValueOf(args, ModelArg)
-                    ?? throw new ArgumentException($"{ModelArg} <path to .onnx> is required");
-                modelPath = Path.GetFullPath(modelPath);
-                if (!File.Exists(modelPath)) throw new FileNotFoundException($"model not found: {modelPath}");
-                string runId = CommandLineArgs.ValueOf(args, RunIdArg) ?? Path.GetFileName(Path.GetDirectoryName(modelPath));
-                if (string.IsNullOrEmpty(runId) || runId.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
-                    throw new ArgumentException($"cannot use '{runId}' as a run id; pass {RunIdArg}");
+                (string modelPath, string runId) = ReadModelArguments(Environment.GetCommandLineArgs());
                 string sha = Sha256(modelPath);
-
-                EnsureFolder(ImportedModelsFolder);
-                string modelAssetPath = $"{ImportedModelsFolder}/{runId}.onnx";
-                File.Copy(modelPath, modelAssetPath, true);
-                AssetDatabase.ImportAsset(modelAssetPath, ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.ForceUpdate);
-                var model = AssetDatabase.LoadAssetAtPath<ModelAsset>(modelAssetPath)
-                    ?? throw new InvalidOperationException($"{modelAssetPath} did not import as a ModelAsset");
-
-                string scenePath = $"{ImportedModelsFolder}/Eval-{runId}.unity";
-                AssetDatabase.DeleteAsset(scenePath);
-                if (!AssetDatabase.CopyAsset(GymSceneBuilder.EvalScenePath, scenePath))
-                    throw new InvalidOperationException($"could not copy {GymSceneBuilder.EvalScenePath} to {scenePath}");
-                Scene scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
-                TradingAgent[] agents = scene.GetRootGameObjects().SelectMany(g => g.GetComponentsInChildren<TradingAgent>(true)).ToArray();
-                if (agents.Length != 1) throw new InvalidOperationException($"{scenePath} has {agents.Length} agents, expected 1");
-                var behavior = agents[0].GetComponent<BehaviorParameters>();
-                behavior.Model = model;
-                behavior.BehaviorType = BehaviorType.InferenceOnly;
-                behavior.DeterministicInference = true;
-                behavior.InferenceDevice = InferenceDevice.Burst;
-                PrefabUtility.RecordPrefabInstancePropertyModifications(behavior);
-                EditorSceneManager.MarkSceneDirty(scene);
-                if (!EditorSceneManager.SaveScene(scene)) throw new InvalidOperationException($"could not save {scenePath}");
-
+                ModelAsset model = ImportModel(modelPath, runId);
+                string scenePath = MakeEvalScene(runId, model);
                 BuildSummary summary = BuildPlayer(target, output, scenePath);
-
-                var info = new EvalBuildInfo
-                {
-                    run_id = runId,
-                    model_sha256 = sha,
-                    model_file = modelPath,
-                    built_at_utc = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'"),
-                    unity_version = Application.unityVersion,
-                };
-                string infoPath = Path.Combine(StreamingGymFolder(target, output), EvalRunner.BuildInfoFile);
-                File.WriteAllText(infoPath, JsonUtility.ToJson(info, true));
+                string infoPath = WriteBuildInfo(target, output, runId, sha, modelPath);
                 if (target == BuildTarget.StandaloneOSX) ResignMacApp(output);
                 Debug.Log($"[Gym] eval build: run id {runId}, model sha256 {sha}, {summary.totalSize / 1048576.0:F1} MB -> {output}; wrote {infoPath}");
             }
@@ -125,6 +86,67 @@ namespace Gym.Editor
                 if (Application.isBatchMode) EditorApplication.Exit(1);
                 else throw;
             }
+        }
+
+        /// <summary>The full path of the -gymModel file and the run id (-gymRunId, or the model's folder name); throws when either is unusable.</summary>
+        static (string modelPath, string runId) ReadModelArguments(string[] args)
+        {
+            string modelPath = CommandLineArgs.ValueOf(args, ModelArg)
+                ?? throw new ArgumentException($"{ModelArg} <path to .onnx> is required");
+            modelPath = Path.GetFullPath(modelPath);
+            if (!File.Exists(modelPath)) throw new FileNotFoundException($"model not found: {modelPath}");
+            string runId = CommandLineArgs.ValueOf(args, RunIdArg) ?? Path.GetFileName(Path.GetDirectoryName(modelPath));
+            if (string.IsNullOrEmpty(runId) || runId.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+                throw new ArgumentException($"cannot use '{runId}' as a run id; pass {RunIdArg}");
+            return (modelPath, runId);
+        }
+
+        /// <summary>Copies the ONNX to Imported/&lt;run-id&gt;.onnx and imports it.</summary>
+        static ModelAsset ImportModel(string modelPath, string runId)
+        {
+            EnsureFolder(ImportedModelsFolder);
+            string modelAssetPath = $"{ImportedModelsFolder}/{runId}.onnx";
+            File.Copy(modelPath, modelAssetPath, true);
+            AssetDatabase.ImportAsset(modelAssetPath, ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.ForceUpdate);
+            return AssetDatabase.LoadAssetAtPath<ModelAsset>(modelAssetPath)
+                ?? throw new InvalidOperationException($"{modelAssetPath} did not import as a ModelAsset");
+        }
+
+        /// <summary>A copy of the Eval scene, Imported/Eval-&lt;run-id&gt;.unity, whose agent runs the model (Inference Only, deterministic, CPU/Burst).</summary>
+        static string MakeEvalScene(string runId, ModelAsset model)
+        {
+            string scenePath = $"{ImportedModelsFolder}/Eval-{runId}.unity";
+            AssetDatabase.DeleteAsset(scenePath);
+            if (!AssetDatabase.CopyAsset(GymSceneBuilder.EvalScenePath, scenePath))
+                throw new InvalidOperationException($"could not copy {GymSceneBuilder.EvalScenePath} to {scenePath}");
+            Scene scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+            TradingAgent[] agents = scene.GetRootGameObjects().SelectMany(g => g.GetComponentsInChildren<TradingAgent>(true)).ToArray();
+            if (agents.Length != 1) throw new InvalidOperationException($"{scenePath} has {agents.Length} agents, expected 1");
+            var behavior = agents[0].GetComponent<BehaviorParameters>();
+            behavior.Model = model;
+            behavior.BehaviorType = BehaviorType.InferenceOnly;
+            behavior.DeterministicInference = true;
+            behavior.InferenceDevice = InferenceDevice.Burst;
+            PrefabUtility.RecordPrefabInstancePropertyModifications(behavior);
+            EditorSceneManager.MarkSceneDirty(scene);
+            if (!EditorSceneManager.SaveScene(scene)) throw new InvalidOperationException($"could not save {scenePath}");
+            return scenePath;
+        }
+
+        /// <summary>Writes the run id and the model's SHA-256 into the build's StreamingAssets/Gym/build-info.json; returns its path.</summary>
+        static string WriteBuildInfo(BuildTarget target, string output, string runId, string sha, string modelPath)
+        {
+            var info = new EvalBuildInfo
+            {
+                run_id = runId,
+                model_sha256 = sha,
+                model_file = modelPath,
+                built_at_utc = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'"),
+                unity_version = Application.unityVersion,
+            };
+            string infoPath = Path.Combine(StreamingGymFolder(target, output), EvalRunner.BuildInfoFile);
+            File.WriteAllText(infoPath, JsonUtility.ToJson(info, true));
+            return infoPath;
         }
 
         /// <summary>
