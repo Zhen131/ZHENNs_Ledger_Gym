@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using Gym.Core.Accounting;
 using Gym.Core.Env;
 using Gym.Core.Evaluation;
@@ -88,44 +87,16 @@ namespace Gym.Runtime.Agents
                 c.initialCash, c.episodeLength, c.randomInitialPositionShare);
             Academy academy = Academy.Instance; // connects to the trainer first, which sends the seed
             int trainerSeed = 0;
-            bool fromTrainer = academy.IsCommunicatorOn && TryReadTrainerSeed(academy, out trainerSeed);
+            bool fromTrainer = academy.IsCommunicatorOn && MasterSeedChooser.TryReadTrainerSeed(academy, out trainerSeed);
             if (academy.IsCommunicatorOn && !fromTrainer)
                 Debug.LogWarning("[Gym] trainer attached but its seed could not be read; seeding from the clock (Q08)");
-            (MasterSeed, MasterSeedSource) = ChooseMasterSeed(fromTrainer, trainerSeed, DateTime.UtcNow.Ticks, agentIndex);
+            (MasterSeed, MasterSeedSource) = MasterSeedChooser.Choose(fromTrainer, trainerSeed, DateTime.UtcNow.Ticks, agentIndex);
             seedSource = new System.Random(MasterSeed);
             Debug.Log($"[Gym] {name}: index {agentIndex}, mode {mode}, segment {segment}, master seed {MasterSeed} ({MasterSeedSource})");
             if (mode != AgentStartMode.Training) ResetEnv(); // views and runners can read the start before the first step
         }
 
         public override void OnEpisodeBegin() => ResetEnv();
-
-        /// <summary>
-        /// The agent's master seed (Q07). With a trainer attached it derives from the seed
-        /// mlagents-learn sends (--seed, plus the environment's worker index), mixed with the
-        /// agent index, so a run can be repeated; without one it comes from the clock as before.
-        /// Both pass through <see cref="SeedMixer"/> (Q03).
-        /// </summary>
-        // Academy.InferenceSeed is set-only in ML-Agents 4.0.3, so the seed the trainer sent
-        // (stored in m_InferenceSeed during the handshake) is read by reflection (Q08).
-        static readonly FieldInfo InferenceSeedField =
-            typeof(Academy).GetField("m_InferenceSeed", BindingFlags.Instance | BindingFlags.NonPublic);
-
-        /// <summary>The seed mlagents-learn sent to this player, if it can be read.</summary>
-        public static bool TryReadTrainerSeed(Academy academy, out int seed)
-        {
-            seed = 0;
-            if (academy == null || InferenceSeedField == null || InferenceSeedField.FieldType != typeof(int)) return false;
-            seed = (int)InferenceSeedField.GetValue(academy);
-            return true;
-        }
-
-        public static bool CanReadTrainerSeed => InferenceSeedField != null && InferenceSeedField.FieldType == typeof(int);
-
-        public static (int seed, string source) ChooseMasterSeed(bool trainerConnected, int trainerSeed, long clockTicks, int agentIndex)
-        {
-            if (trainerConnected) return (SeedMixer.Mix(trainerSeed, agentIndex), "trainer");
-            return (SeedMixer.Mix(unchecked((int)clockTicks + 7919 * (agentIndex + 1))), "clock");
-        }
 
         public override void CollectObservations(VectorSensor sensor)
         {
