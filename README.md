@@ -19,59 +19,59 @@ cd ZHENN_Ledger_Gym
 UNITY=/Applications/Unity/Hub/Editor/6000.0.84f1/Unity.app/Contents/MacOS/Unity
 
 # 1. Tests (exit code 0 means all passed)
-"$UNITY" -batchmode -nographics -projectPath "$PWD" -runTests -testPlatform EditMode -testResults "$PWD/Logs/editmode-results.xml" -logFile "$PWD/Logs/editmode.log"
-"$UNITY" -batchmode -nographics -projectPath "$PWD" -runTests -testPlatform PlayMode -testResults "$PWD/Logs/playmode-results.xml" -logFile "$PWD/Logs/playmode.log"
+"$UNITY" -batchmode -nographics -projectPath "$PWD/unity" -runTests -testPlatform EditMode -testResults "$PWD/unity/Logs/editmode-results.xml" -logFile "$PWD/unity/Logs/editmode.log"
+"$UNITY" -batchmode -nographics -projectPath "$PWD/unity" -runTests -testPlatform PlayMode -testResults "$PWD/unity/Logs/playmode-results.xml" -logFile "$PWD/unity/Logs/playmode.log"
 
-# 2. Training build: Builds/mac/Gym.app
-"$UNITY" -batchmode -nographics -projectPath "$PWD" -executeMethod Gym.Editor.BuildScript.BuildMacTraining -quit -logFile "$PWD/Logs/build-mac.log"
+# 2. Training build: unity/Builds/mac/Gym.app
+"$UNITY" -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.BuildScript.BuildMacTraining -quit -logFile "$PWD/unity/Logs/build-mac.log"
 
 # 3. A 30k-step smoke training run (about 15 seconds on an M5)
 conda activate mlagents
 RUN=smoke-$(date +%Y%m%d-%H%M%S)
-mlagents-learn config/smoke.yaml --env Builds/mac/Gym.app --run-id $RUN --no-graphics
-python tools/train/read_scalars.py results/$RUN
+mlagents-learn config/smoke.yaml --env unity/Builds/mac/Gym.app --run-id $RUN --no-graphics
+python scripts/train/read_scalars.py results/$RUN
 
 # 4. Evaluate that model on the validation segment (results go to the git-ignored evaluations/smoke/)
-"$UNITY" -batchmode -nographics -projectPath "$PWD" -executeMethod Gym.Editor.BuildScript.BuildMacEval -gymModel results/$RUN/TradingAgent.onnx -quit -logFile "$PWD/Logs/build-eval.log"
-Builds/mac/GymEval.app/Contents/MacOS/ZHENN_Ledger_Gym -batchmode -nographics -gymMode eval -gymSegment validation -gymFeeRate 0.001 -gymOut "$PWD/evaluations/smoke"
-python tools/eval/summarize.py evaluations/smoke/log.csv
+"$UNITY" -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.BuildScript.BuildMacEval -gymModel "$PWD/results/$RUN/TradingAgent.onnx" -quit -logFile "$PWD/unity/Logs/build-eval.log"
+unity/Builds/mac/GymEval.app/Contents/MacOS/ZHENN_Ledger_Gym -batchmode -nographics -gymMode eval -gymSegment validation -gymFeeRate 0.001 -gymOut "$PWD/evaluations/smoke"
+python scripts/eval/summarize.py evaluations/smoke/log.csv
 ```
 
-To play by hand, open the project in Unity, open `Assets/Gym/Scenes/Play.unity` and press Play. Click into the Game view, then: `1`–`4` pick 10 / 25 / 50 / 100 %, `B` buys, `S` sells, `H` or Space holds (each key moves one candle), `P` toggles auto-play, `R` restarts.
+To play by hand, open the project in Unity (the `unity/` folder), open `Assets/Gym/Scenes/Play.unity` and press Play. Click into the Game view, then: `1`–`4` pick 10 / 25 / 50 / 100 %, `B` buys, `S` sells, `H` or Space holds (each key moves one candle), `P` toggles auto-play, `R` restarts.
 
 ## Training on the Windows PC
 
-Long runs happen on a Windows PC: see [docs/pc-training.md](docs/pc-training.md) (English) or [docs/pc-training.zh.md](docs/pc-training.zh.md) (Chinese). In short: same Unity and Python versions, `BuildWindowsTraining`, 100k-step speed tests on the CPU (`config/smoke-100k.yaml`) and on the graphics card (`config/smoke-100k-cuda.yaml`), then the comparison series with `tools/train/run_series.ps1` on whichever was faster (`-Device cpu|cuda`).
+Long runs happen on a Windows PC: see [docs/pc-training.md](docs/pc-training.md) (English) or [docs/pc-training.zh.md](docs/pc-training.zh.md) (Chinese). In short: same Unity and Python versions, `BuildWindowsTraining`, 100k-step speed tests on the CPU (`config/smoke-100k.yaml`) and on the graphics card (`config/smoke-100k-cuda.yaml`), then the comparison series with `scripts/train/run_series.ps1` on whichever was faster (`-Device cpu|cuda`).
 
 ## Repository layout
 
 | Path | What is there |
 | --- | --- |
-| `Assets/Gym/Core/` | `Gym.Core`: the trading environment in plain C# (no UnityEngine): candles, account and fees, actions and mask, observation, reward, episode, splits, metrics, baselines, evaluation log |
-| `Assets/Gym/Runtime/` | `Gym.Runtime`: the ML-Agents agent around `TradingEnv`, config loading, the Play scene views, the evaluation runner |
-| `Assets/Gym/Editor/` | Build scripts, baseline evaluation, scene builder, Play checklist and snapshot tools |
-| `Assets/Gym/Scenes/` | `Training` (16 agents), `Play` (keyboard), `Eval` (one agent plus the runner) |
-| `Assets/Gym/Tests/` | EditMode tests (core and editor) and PlayMode tests |
-| `Assets/StreamingAssets/Gym/` | `gym-config.json`, `symbols.json` and the data; shipped inside every build |
+| `unity/Assets/Gym/Core/` | `Gym.Core`: the trading environment in plain C# (no UnityEngine): candles, account and fees, actions and mask, observation, reward, episode, splits, metrics, baselines, evaluation log |
+| `unity/Assets/Gym/Runtime/` | `Gym.Runtime`: the ML-Agents agent around `TradingEnv`, config loading, the Play scene views, the evaluation runner |
+| `unity/Assets/Gym/Editor/` | Build scripts, baseline evaluation, scene builder, Play checklist and snapshot tools |
+| `unity/Assets/Gym/Scenes/` | `Training` (16 agents), `Play` (keyboard), `Eval` (one agent plus the runner) |
+| `unity/Assets/Gym/Tests/` | EditMode tests (core and editor) and PlayMode tests |
+| `unity/Assets/StreamingAssets/Gym/` | `gym-config.json`, `symbols.json` and the data; shipped inside every build |
 | `config/` | Training configs and the comparison variants ([config/README.md](config/README.md)) |
-| `tools/data/` | The Binance Vision fetcher |
-| `tools/train/` | Series runners, the config checker and the TensorBoard scalar reader |
-| `tools/eval/` | `summarize.py` for evaluation logs |
+| `scripts/data/` | The Binance Vision fetcher |
+| `scripts/train/` | Series runners, the config checker and the TensorBoard scalar reader |
+| `scripts/eval/` | `summarize.py` for evaluation logs |
 | `evaluations/` | The append-only evaluation log and its per-run details (tracked) |
 | `docs/` | PC training guide |
-| `results/`, `Builds/`, `evaluations/smoke/` | Local output, ignored by Git |
+| `results/`, `unity/Builds/`, `evaluations/smoke/` | Local output, ignored by Git |
 
 ## Data and licence
 
-**Data: Binance Vision.** The environment replays BTC/USDT spot 1-hour candles from [Binance Vision](https://data.binance.vision), from 2017-08-17 04:00 UTC to 2026-08-31 23:00 UTC. The processed file is committed at `Assets/StreamingAssets/Gym/data/BTCUSDT-1h.csv`, next to a manifest with the SHA-256 of every source archive and of the CSV itself.
+**Data: Binance Vision.** The environment replays BTC/USDT spot 1-hour candles from [Binance Vision](https://data.binance.vision), from 2017-08-17 04:00 UTC to 2026-08-31 23:00 UTC. The processed file is committed at `unity/Assets/StreamingAssets/Gym/data/BTCUSDT-1h.csv`, next to a manifest with the SHA-256 of every source archive and of the CSV itself.
 
-The data is licensed [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) under the [Binance Vision Dataset Terms v1.0 (2026-08-26)](https://github.com/binance/binance-public-data/blob/master/TERMS_AND_CONDITIONS.md); see [`DATA-LICENSE.md`](Assets/StreamingAssets/Gym/data/DATA-LICENSE.md) for the attribution and the list of changes. This project is not affiliated with, sponsored or endorsed by Binance. The code has no licence file yet.
+The data is licensed [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) under the [Binance Vision Dataset Terms v1.0 (2026-08-26)](https://github.com/binance/binance-public-data/blob/master/TERMS_AND_CONDITIONS.md); see [`DATA-LICENSE.md`](unity/Assets/StreamingAssets/Gym/data/DATA-LICENSE.md) for the attribution and the list of changes. This project is not affiliated with, sponsored or endorsed by Binance. The code has no licence file yet.
 
 To regenerate the data (standard library only; raw archives are cached in `data/raw/`, which Git ignores):
 
 ```bash
-python tools/data/fetch_binance_klines.py --self-test
-python tools/data/fetch_binance_klines.py --symbol BTCUSDT
+python scripts/data/fetch_binance_klines.py --self-test
+python scripts/data/fetch_binance_klines.py --symbol BTCUSDT
 ```
 
 By default the script stops at 2026-08, the end of the test segment (pass `--end YYYY-MM` to add newer months), and drops the 43 candles of February 2018 that start at hh:28 instead of on the hour, forward-filling those hours (`--off-hour error` stops instead, `--off-hour floor` moves them to the hour). So the default command rebuilds exactly the committed file: the `csv_sha256` in the manifest is `4739c139dc501e38498589359db093394dcee86cabde5a6e37c12d726d084242`.
@@ -89,13 +89,13 @@ Metrics: total return, maximum drawdown, annualised Sharpe ratio (hourly log ret
 Baselines (buy-and-hold, always cash, and a random policy over seeds 0–99 reported as medians with the 5th and 95th percentile of the return) for fee rates 0, 0.1 % and 0.3 %:
 
 ```bash
-"$UNITY" -batchmode -nographics -projectPath "$PWD" -executeMethod Gym.Editor.EvalTools.RunBaselines -gymSegment validation -gymOut evaluations -quit -logFile "$PWD/Logs/baselines.log"
-python tools/eval/summarize.py evaluations/log.csv
+"$UNITY" -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.EvalTools.RunBaselines -gymSegment validation -gymOut "$PWD/evaluations" -quit -logFile "$PWD/unity/Logs/baselines.log"
+python scripts/eval/summarize.py evaluations/log.csv
 ```
 
 Options: `-gymSegment validation|test`, `-gymFeeRates 0,0.001,0.003`, `-gymRandomSeeds 100`, `-gymOut <dir>`, `-gymConfig <file>`. A trained model is evaluated in its own build (`BuildMacEval` / `BuildWindowsEval` with `-gymModel`), which records the run id and the model's SHA-256 in every row; `-gymFixedFee` and `-gymSlippage` set the other costs. The evaluation player refuses to start (exit code 1, nothing written) without `-gymMode eval`, `-gymSegment validation|test` and `-gymOut <dir>`; it has no default segment, so the test segment is never evaluated by accident.
 
-`BuildMacEval` signs `GymEval.app` again after adding `build-info.json`, so a fresh build passes `codesign --verify --deep`. ML-Agents, however, writes its timer file into the app (`Contents/ML-Agents/Timers/`) every time the player runs, which breaks the signature again. It still runs on this Mac; to give the app to another Mac, copy it before its first run, or sign it again first: `codesign --force --deep -s - Builds/mac/GymEval.app`.
+`BuildMacEval` signs `GymEval.app` again after adding `build-info.json`, so a fresh build passes `codesign --verify --deep`. ML-Agents, however, writes its timer file into the app (`Contents/ML-Agents/Timers/`) every time the player runs, which breaks the signature again. It still runs on this Mac; to give the app to another Mac, copy it before its first run, or sign it again first: `codesign --force --deep -s - unity/Builds/mac/GymEval.app`.
 
 ## Training curves (`Trading/*` in TensorBoard)
 
@@ -157,4 +157,4 @@ pip install mlagents==1.1.0
 
 ## Reading the code
 
-Open this folder in VS Code (*File → Open Folder*). Unity is configured to open scripts in VS Code; install the *Unity* extension (`visualstudiotoolsforunity.vstuc`) and a .NET SDK for IntelliSense. Start with `Assets/Gym/Core/TradingEnv.cs`; `AGENTS.md` lists the rules for anyone, human or AI, who changes the code.
+Open the `unity/` folder in VS Code (*File → Open Folder*). Unity is configured to open scripts in VS Code; install the *Unity* extension (`visualstudiotoolsforunity.vstuc`) and a .NET SDK for IntelliSense. Start with `unity/Assets/Gym/Core/TradingEnv.cs`; `AGENTS.md` lists the rules for anyone, human or AI, who changes the code.

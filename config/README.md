@@ -33,9 +33,9 @@ Each variant changes one thing, so a difference in the results can be traced to 
 Check the variants after editing any of them:
 
 ```bash
-python tools/train/check_configs.py
+python scripts/train/check_configs.py
 ```
 
 It fails unless every single-change variant differs from the base in exactly one setting, every file (smoke configs included) has the `TradingAgent` behavior, the three cost parameters inside the ranges the environment accepts (`fee_rate` in [0, 1), `slippage` in [0, 0.1), `fixed_fee` ≥ 0) and the CPU device (cuda in `smoke-100k-cuda.yaml`), and ML-Agents itself accepts the file.
 
-Run a series (every config × every seed) with `tools/train/run_series.sh` on macOS or `tools/train/run_series.ps1` on Windows; see `docs/pc-training.md`.
+Run a series (every config × every seed) with `scripts/train/run_series.sh` on macOS or `scripts/train/run_series.ps1` on Windows; see `docs/pc-training.md`.

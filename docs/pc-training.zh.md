@@ -9,7 +9,7 @@
 - Unity **必须是 6000.0.84f1**，`mlagents` **必须是 1.1.0**。版本不一样，ML-Agents 会出很难发现的毛病。
 - 用命令行跑 Unity 之前，先把 Unity 编辑器关掉。同一个工程不能同时打开两次。
 - **训练中途不要按 Ctrl+C。** 让它跑到 `max_steps` 自己停。实在要放弃一次训练，就别动它的 `results\<run-id>` 文件夹，换一个新的 run-id 重跑：用成批脚本时加 `-Prefix`（例如 `-Prefix rerun1`），run-id 就变成新的。
-- `results\` 和 `Builds\` 只留在这台电脑上，不进 Git。`evaluations\log.csv` 进 Git，而且只追加、不改。**正式的评估流水只在这台 PC 上追加**（训练结果都在 PC 上）：追加前先 `git pull`（还没有连上 GitHub、仓库是拷过来的时候跳过 `git pull`），追加后马上提交。Mac 上的评估一律写进 `evaluations\smoke\`。
+- `results\` 和 `unity\Builds\` 只留在这台电脑上，不进 Git。`evaluations\log.csv` 进 Git，而且只追加、不改。**正式的评估流水只在这台 PC 上追加**（训练结果都在 PC 上）：追加前先 `git pull`（还没有连上 GitHub、仓库是拷过来的时候跳过 `git pull`），追加后马上提交。Mac 上的评估一律写进 `evaluations\smoke\`。
 - 长时间训练时别让电脑睡着（*设置 → 系统 → 电源*：插电时从不睡眠）。
 
 ## 1. 装 Git
@@ -70,11 +70,11 @@ git clone <仓库地址> ZHENN_Ledger_Gym
 cd ZHENN_Ledger_Gym
 ```
 
-仓库推到 GitHub 之后才有地址。在那之前，从 Mac 拷整个文件夹到 `C:\Gym\ZHENN_Ledger_Gym`，但不要带 `Library\`、`Builds\`、`results\`、`Logs\` 这几个。后面的命令都在 `C:\Gym\ZHENN_Ledger_Gym` 里敲。
+仓库推到 GitHub 之后才有地址。在那之前，从 Mac 拷整个文件夹到 `C:\Gym\ZHENN_Ledger_Gym`，但不要带 `unity\Library\`、`unity\Builds\`、`results\`、`unity\Logs\` 这几个。后面的命令都在 `C:\Gym\ZHENN_Ledger_Gym` 里敲。
 
 ## 5. 用 Unity 打开一次
 
-Unity Hub：*Projects → Add → Add project from disk*，选 `C:\Gym\ZHENN_Ledger_Gym`，用 6000.0.84f1 打开。第一次导入要好几分钟。等编辑器不转圈了，把它关掉。
+Unity Hub：*Projects → Add → Add project from disk*，选 `C:\Gym\ZHENN_Ledger_Gym\unity`，用 6000.0.84f1 打开。第一次导入要好几分钟。等编辑器不转圈了，把它关掉。
 
 ## 6. 打 Windows 训练包
 
@@ -82,14 +82,14 @@ Unity Hub：*Projects → Add → Add project from disk*，选 `C:\Gym\ZHENN_Led
 
 ```powershell
 $p = Start-Process -FilePath $unity -Wait -PassThru -ArgumentList @(
-  '-batchmode', '-nographics', '-projectPath', "`"$PWD`"",
+  '-batchmode', '-nographics', '-projectPath', "`"$PWD\unity`"",
   '-executeMethod', 'Gym.Editor.BuildScript.BuildWindowsTraining', '-quit',
-  '-logFile', "`"$PWD\Logs\build-win.log`"")
+  '-logFile', "`"$PWD\unity\Logs\build-win.log`"")
 $p.ExitCode   # 0 表示成功
-Test-Path Builds\win\Gym.exe
+Test-Path unity\Builds\win\Gym.exe
 ```
 
-退出码是 1 的话，看 `Logs\build-win.log` 的最后几行；如果是缺模块，那里会写出模块名，照第 2 步去装。
+退出码是 1 的话，看 `unity\Logs\build-win.log` 的最后几行；如果是缺模块，那里会写出模块名，照第 2 步去装。
 
 ## 7. 测速度：CPU 和显卡各跑 10 万步
 
@@ -100,19 +100,19 @@ conda activate mlagents
 
 # CPU
 $t0 = Get-Date
-mlagents-learn config\smoke-100k.yaml --env Builds\win\Gym.exe --run-id smoke-pc-100k-cpu --no-graphics
+mlagents-learn config\smoke-100k.yaml --env unity\Builds\win\Gym.exe --run-id smoke-pc-100k-cpu --no-graphics
 "CPU: {0:N0} steps/s" -f (100000 / ((Get-Date) - $t0).TotalSeconds)
 
 # 显卡（第 3 步那行显示 False 的话跳过）
 $t0 = Get-Date
-mlagents-learn config\smoke-100k-cuda.yaml --env Builds\win\Gym.exe --run-id smoke-pc-100k-cuda --no-graphics
+mlagents-learn config\smoke-100k-cuda.yaml --env unity\Builds\win\Gym.exe --run-id smoke-pc-100k-cuda --no-graphics
 if ($LASTEXITCODE -ne 0) {
   "GPU: 显卡这次失败，用 CPU"   # 报错退出时不算速度
 } else {
   "GPU: {0:N0} steps/s" -f (100000 / ((Get-Date) - $t0).TotalSeconds)
 }
 
-python tools\train\read_scalars.py results\smoke-pc-100k-cpu
+python scripts\train\read_scalars.py results\smoke-pc-100k-cpu
 ```
 
 第一次跑 `mlagents-learn` 时，Windows 防火墙可能弹窗问 **Python**（`python.exe`）要不要联网。点「允许」或「取消」都行：`mlagents-learn` 只是在本机的 5005 端口等训练包连上来，不走外网，本机内部的连接不受防火墙影响。
@@ -130,7 +130,7 @@ python tools\train\read_scalars.py results\smoke-pc-100k-cpu
 - 「无法加载文件 …\run_series.ps1，因为在此系统上禁止运行脚本」：第 3 步那条没生效。
 - 「无法加载文件 …\run_series.ps1。未对文件 …\run_series.ps1 进行数字签名」：仓库是用浏览器下载 zip 解压出来的。Windows 给下载来的每个文件都打了「来自网络」的标记，第 3 步放开的只是本机写的脚本，带这个标记的照样拦着。
 
-第二种可以在仓库目录（`C:\Gym\ZHENN_Ledger_Gym`）里先把标记去掉，以后新开的窗口也不用再管（`Library\` 里文件多，要等一会儿）：
+第二种可以在仓库目录（`C:\Gym\ZHENN_Ledger_Gym`）里先把标记去掉，以后新开的窗口也不用再管（`unity\Library\` 里文件多，要等一会儿）：
 
 ```powershell
 Get-ChildItem -Recurse | Unblock-File
@@ -145,13 +145,13 @@ Set-ExecutionPolicy -Scope Process Bypass
 先快速试一下脚本能不能用（每个只跑 15,000 步，刚好够第一批局结束、看到 `Trading/…`；run-id 前面带 `smoke-`）：
 
 ```powershell
-.\tools\train\run_series.ps1 -Env Builds\win\Gym.exe -Seeds 1 -Smoke -Configs config\ppo_base.yaml,config\variants\fee-0.003.yaml
+.\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Seeds 1 -Smoke -Configs config\ppo_base.yaml,config\variants\fee-0.003.yaml
 ```
 
 再跑正式的，例如手续费对比、3 个种子（第 7 步显卡更快的话，末尾加 `-Device cuda`）：
 
 ```powershell
-.\tools\train\run_series.ps1 -Env Builds\win\Gym.exe -Seeds 1,2,3 -NumEnvs 1 -Configs config\ppo_base.yaml,config\variants\fee-0.yaml,config\variants\fee-0.003.yaml
+.\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Seeds 1,2,3 -NumEnvs 1 -Configs config\ppo_base.yaml,config\variants\fee-0.yaml,config\variants\fee-0.003.yaml
 ```
 
 | 参数 | 意思 | 不写时 |
@@ -165,7 +165,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 | `-Smoke` / `-SmokeSteps` | 在 `results\_tmp\` 里复制一份缩短版（15,000 步）再跑 | 关 |
 | `-DryRun` | 只打印要跑的命令，什么文件都不写 | 关 |
 
-run-id 的格式是 `<配置名>-s<种子>-<年月日>`（UTC 日期）。`results\<run-id>` 已经存在的就跳过，绝不覆盖。每次训练留下 `results\<run-id>\`（里面有模型和 `config-used.yaml`）和 `results\<run-id>.log`。每份对比配置改了什么，见 `config\README.md`；改过配置后用 `python tools\train\check_configs.py` 检查。
+run-id 的格式是 `<配置名>-s<种子>-<年月日>`（UTC 日期）。`results\<run-id>` 已经存在的就跳过，绝不覆盖。每次训练留下 `results\<run-id>\`（里面有模型和 `config-used.yaml`）和 `results\<run-id>.log`。每份对比配置改了什么，见 `config\README.md`；改过配置后用 `python scripts\train\check_configs.py` 检查。
 
 脚本传给 mlagents-learn 的是 `--seed <种子 × 1000>`，并写进 `results\<run-id>\seed-used.txt`。原因：ML-Agents 给第 k 个环境的种子是「种子 + k」，种子 1、2、3 直接用的话，`-NumEnvs` 大于 1 时会撞号；乘 1000 就拉开了。每个智能体的随机起点都由这个种子推出来，所以配置、种子、`-NumEnvs` 都一样时，环境给的局完全一样。训练器那一侧也用了这个种子，但 PyTorch 不保证逐位相同，曲线可能还会有一点点差别。
 
@@ -181,27 +181,27 @@ tensorboard --logdir results
 
 ## 10. 评估
 
-先 `git pull` 拿到最新的仓库（还没有连上 GitHub、仓库是拷过来的时候，跳过 `git pull`：没有远端，它只会报错），再把训练好的模型打进一个评估包，在验证段上跑。评估包单独放在 `Builds\win-eval\`：训练包正在跑时会占着 `Builds\win\` 里的 `UnityPlayer.dll` 等文件，两个包放一起就打不出来。
+先 `git pull` 拿到最新的仓库（还没有连上 GitHub、仓库是拷过来的时候，跳过 `git pull`：没有远端，它只会报错），再把训练好的模型打进一个评估包，在验证段上跑。评估包单独放在 `unity\Builds\win-eval\`：训练包正在跑时会占着 `unity\Builds\win\` 里的 `UnityPlayer.dll` 等文件，两个包放一起就打不出来。
 
 ```powershell
 git pull   # 还没有连上 GitHub、仓库是拷过来的时候跳过这一行
 
 $p = Start-Process -FilePath $unity -Wait -PassThru -ArgumentList @(
-  '-batchmode', '-nographics', '-projectPath', "`"$PWD`"",
+  '-batchmode', '-nographics', '-projectPath', "`"$PWD\unity`"",
   '-executeMethod', 'Gym.Editor.BuildScript.BuildWindowsEval',
   '-gymModel', "`"$PWD\results\<run-id>\TradingAgent.onnx`"", '-quit',
-  '-logFile', "`"$PWD\Logs\build-eval.log`"")
+  '-logFile', "`"$PWD\unity\Logs\build-eval.log`"")
 $p.ExitCode   # 0 表示成功
 
-$e = Start-Process -FilePath Builds\win-eval\GymEval.exe -Wait -PassThru -ArgumentList @(
+$e = Start-Process -FilePath unity\Builds\win-eval\GymEval.exe -Wait -PassThru -ArgumentList @(
   '-batchmode', '-nographics', '-gymMode', 'eval', '-gymSegment', 'validation',
   '-gymFeeRate', '0.001', '-gymOut', "`"$PWD\evaluations`"",
-  '-logFile', "`"$PWD\Logs\eval.log`"")
-$e.ExitCode   # 0 表示成功；不是 0 就看 Logs\eval.log 的最后几行
+  '-logFile', "`"$PWD\unity\Logs\eval.log`"")
+$e.ExitCode   # 0 表示成功；不是 0 就看 unity\Logs\eval.log 的最后几行
 ```
 
 - `-gymFeeRate` 用这个模型训练时的费率。测试段只留到最后出正式数字时用。
-- 评估包必须带 `-gymMode eval`、`-gymSegment`（`validation` 或 `test`）和 `-gymOut`，少一个它就报错退出（退出码 1），什么都不写。段没有默认值，免得一不小心跑了测试段。费率写错（比如 `1.5`）也是几秒内退出码 1，`Logs\eval.log` 里写着是哪个参数。
+- 评估包必须带 `-gymMode eval`、`-gymSegment`（`validation` 或 `test`）和 `-gymOut`，少一个它就报错退出（退出码 1），什么都不写。段没有默认值，免得一不小心跑了测试段。费率写错（比如 `1.5`）也是几秒内退出码 1，`unity\Logs\eval.log` 里写着是哪个参数。
 - 跑完马上提交，例如：
 
 ```powershell
@@ -213,16 +213,16 @@ git commit -m "eval: <run-id> on the validation segment"
 
 ```powershell
 $p = Start-Process -FilePath $unity -Wait -PassThru -ArgumentList @(
-  '-batchmode', '-nographics', '-projectPath', "`"$PWD`"",
+  '-batchmode', '-nographics', '-projectPath', "`"$PWD\unity`"",
   '-executeMethod', 'Gym.Editor.EvalTools.RunBaselines', '-gymSegment', 'validation',
-  '-gymFeeRates', '<新费率>', '-gymOut', 'evaluations', '-quit', '-logFile', "`"$PWD\Logs\baselines.log`"")
-$p.ExitCode   # 0 表示成功；不是 0 就看 Logs\baselines.log
+  '-gymFeeRates', '<新费率>', '-gymOut', "`"$PWD\evaluations`"", '-quit', '-logFile', "`"$PWD\unity\Logs\baselines.log`"")
+$p.ExitCode   # 0 表示成功；不是 0 就看 unity\Logs\baselines.log
 ```
 
 看汇总表：
 
 ```powershell
-python tools\eval\summarize.py evaluations\log.csv
+python scripts\eval\summarize.py evaluations\log.csv
 ```
 
 ## 11. 东西都放在哪
@@ -231,7 +231,7 @@ python tools\eval\summarize.py evaluations\log.csv
 | --- | --- | --- |
 | 训练产物、模型、TensorBoard 记录 | `results\<run-id>\` | 不进 |
 | 一次训练的终端输出 | `results\<run-id>.log` | 不进 |
-| 打出来的包 | `Builds\win\`（训练包）、`Builds\win-eval\`（评估包） | 不进 |
+| 打出来的包 | `unity\Builds\win\`（训练包）、`unity\Builds\win-eval\`（评估包） | 不进 |
 | 评估流水和明细 | `evaluations\log.csv`、`evaluations\runs\` | 进（只追加，只在这台 PC 上追加） |
 | 试验性的评估、Mac 上的评估 | `evaluations\smoke\` | 不进 |
 

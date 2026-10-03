@@ -2,7 +2,7 @@
 
 **Data: Binance Vision** (https://data.binance.vision)
 
-This notice applies to every data file in this folder (`Assets/StreamingAssets/Gym/data/`), including `BTCUSDT-1h.csv` and `BTCUSDT-1h.manifest.json`.
+This notice applies to every data file in this folder (`unity/Assets/StreamingAssets/Gym/data/`), including `BTCUSDT-1h.csv` and `BTCUSDT-1h.manifest.json`.
 
 | Item | Value |
 | --- | --- |
@@ -13,7 +13,7 @@ This notice applies to every data file in this folder (`Assets/StreamingAssets/G
 
 ## Changes made to the original data
 
-The files here are a derivative of the Binance Vision archives, produced by `tools/data/fetch_binance_klines.py`:
+The files here are a derivative of the Binance Vision archives, produced by `scripts/data/fetch_binance_klines.py`:
 
 1. Only the first six columns are kept: open time, open, high, low, close, volume. The other six columns (close time, quote volume, trade count, taker volumes, Ignore) are dropped.
 2. Open times are unified to milliseconds since the Unix epoch (archives from 2025-01-01 on use microseconds).

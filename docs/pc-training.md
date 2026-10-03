@@ -9,7 +9,7 @@ Rules that matter for every step:
 - Use **exactly** Unity 6000.0.84f1 and `mlagents` 1.1.0. Other versions break ML-Agents in ways that are hard to see.
 - Close the Unity editor before any command-line Unity step; the project cannot be open twice.
 - **Do not press Ctrl+C during training.** Let a run reach its `max_steps`. If a run must be abandoned, leave its `results\<run-id>` folder alone and start a new run id: with the series script, add `-Prefix` (for example `-Prefix rerun1`) and the run ids change.
-- `results\` and `Builds\` stay on this machine; Git ignores them. `evaluations\log.csv` is tracked and append-only. **The official evaluation log is appended only on this PC** (the trained models live here): `git pull` before appending (skip `git pull` while the repository is a copy that is not connected to GitHub yet), commit right after. Evaluations on the Mac always go to `evaluations\smoke\`.
+- `results\` and `unity\Builds\` stay on this machine; Git ignores them. `evaluations\log.csv` is tracked and append-only. **The official evaluation log is appended only on this PC** (the trained models live here): `git pull` before appending (skip `git pull` while the repository is a copy that is not connected to GitHub yet), commit right after. Evaluations on the Mac always go to `evaluations\smoke\`.
 - Keep the PC awake during long runs (*Settings → System → Power*: never sleep while plugged in).
 
 ## 1. Git
@@ -68,11 +68,11 @@ git clone <repository URL> ZHENN_Ledger_Gym
 cd ZHENN_Ledger_Gym
 ```
 
-The repository URL exists once the project is on GitHub. Until then, copy the folder from the Mac to `C:\Gym\ZHENN_Ledger_Gym` without `Library\`, `Builds\`, `results\` and `Logs\`. All later commands run in `C:\Gym\ZHENN_Ledger_Gym`.
+The repository URL exists once the project is on GitHub. Until then, copy the folder from the Mac to `C:\Gym\ZHENN_Ledger_Gym` without `unity\Library\`, `unity\Builds\`, `results\` and `unity\Logs\`. All later commands run in `C:\Gym\ZHENN_Ledger_Gym`.
 
 ## 5. Open the project once
 
-In Unity Hub: *Projects → Add → Add project from disk*, choose `C:\Gym\ZHENN_Ledger_Gym`, and open it with 6000.0.84f1. The first import takes several minutes. When the editor is idle, close it.
+In Unity Hub: *Projects → Add → Add project from disk*, choose `C:\Gym\ZHENN_Ledger_Gym\unity`, and open it with 6000.0.84f1. The first import takes several minutes. When the editor is idle, close it.
 
 ## 6. Build the Windows training player
 
@@ -80,14 +80,14 @@ In Unity Hub: *Projects → Add → Add project from disk*, choose `C:\Gym\ZHENN
 
 ```powershell
 $p = Start-Process -FilePath $unity -Wait -PassThru -ArgumentList @(
-  '-batchmode', '-nographics', '-projectPath', "`"$PWD`"",
+  '-batchmode', '-nographics', '-projectPath', "`"$PWD\unity`"",
   '-executeMethod', 'Gym.Editor.BuildScript.BuildWindowsTraining', '-quit',
-  '-logFile', "`"$PWD\Logs\build-win.log`"")
+  '-logFile', "`"$PWD\unity\Logs\build-win.log`"")
 $p.ExitCode   # 0 = success
-Test-Path Builds\win\Gym.exe
+Test-Path unity\Builds\win\Gym.exe
 ```
 
-If the exit code is 1, the end of `Logs\build-win.log` says why; a missing module is named there (install it as in step 2).
+If the exit code is 1, the end of `unity\Logs\build-win.log` says why; a missing module is named there (install it as in step 2).
 
 ## 7. Speed test: 100k steps on the CPU and on the graphics card
 
@@ -98,19 +98,19 @@ conda activate mlagents
 
 # CPU
 $t0 = Get-Date
-mlagents-learn config\smoke-100k.yaml --env Builds\win\Gym.exe --run-id smoke-pc-100k-cpu --no-graphics
+mlagents-learn config\smoke-100k.yaml --env unity\Builds\win\Gym.exe --run-id smoke-pc-100k-cpu --no-graphics
 "CPU: {0:N0} steps/s" -f (100000 / ((Get-Date) - $t0).TotalSeconds)
 
 # Graphics card (skip if step 3 printed False)
 $t0 = Get-Date
-mlagents-learn config\smoke-100k-cuda.yaml --env Builds\win\Gym.exe --run-id smoke-pc-100k-cuda --no-graphics
+mlagents-learn config\smoke-100k-cuda.yaml --env unity\Builds\win\Gym.exe --run-id smoke-pc-100k-cuda --no-graphics
 if ($LASTEXITCODE -ne 0) {
   "GPU: the graphics card failed this time; use the CPU"   # no speed for a failed run
 } else {
   "GPU: {0:N0} steps/s" -f (100000 / ((Get-Date) - $t0).TotalSeconds)
 }
 
-python tools\train\read_scalars.py results\smoke-pc-100k-cpu
+python scripts\train\read_scalars.py results\smoke-pc-100k-cpu
 ```
 
 The first time `mlagents-learn` runs, Windows Firewall may ask whether **Python** (`python.exe`) may use the network. Allow or Cancel both work: `mlagents-learn` only waits on local port 5005 for the player to connect, nothing goes outside, and connections within the machine are not affected by the firewall.
@@ -128,7 +128,7 @@ After the `Set-ExecutionPolicy` of step 3 the script runs as is. If PowerShell s
 - "…\run_series.ps1 cannot be loaded because running scripts is disabled on this system": the command of step 3 did not take effect.
 - "…\run_series.ps1 cannot be loaded. The file …\run_series.ps1 is not digitally signed": the repository was unpacked from a zip downloaded in a browser. Windows marks every downloaded file as coming from the internet, and step 3 only allows scripts written on this machine, so marked ones are still blocked.
 
-For the second one, remove the mark once in the repository folder (`C:\Gym\ZHENN_Ledger_Gym`); new windows then need nothing more (it takes a while because of the many files in `Library\`):
+For the second one, remove the mark once in the repository folder (`C:\Gym\ZHENN_Ledger_Gym`); new windows then need nothing more (it takes a while because of the many files in `unity\Library\`):
 
 ```powershell
 Get-ChildItem -Recurse | Unblock-File
@@ -143,13 +143,13 @@ Set-ExecutionPolicy -Scope Process Bypass
 First a quick check that the script works (15,000 steps each, just enough for the `Trading/*` tags to appear; run ids start with `smoke-`):
 
 ```powershell
-.\tools\train\run_series.ps1 -Env Builds\win\Gym.exe -Seeds 1 -Smoke -Configs config\ppo_base.yaml,config\variants\fee-0.003.yaml
+.\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Seeds 1 -Smoke -Configs config\ppo_base.yaml,config\variants\fee-0.003.yaml
 ```
 
 Then the real series, for example the fee comparison with three seeds (add `-Device cuda` if the graphics card won in step 7):
 
 ```powershell
-.\tools\train\run_series.ps1 -Env Builds\win\Gym.exe -Seeds 1,2,3 -NumEnvs 1 -Configs config\ppo_base.yaml,config\variants\fee-0.yaml,config\variants\fee-0.003.yaml
+.\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Seeds 1,2,3 -NumEnvs 1 -Configs config\ppo_base.yaml,config\variants\fee-0.yaml,config\variants\fee-0.003.yaml
 ```
 
 | Option | Meaning | Default |
@@ -163,7 +163,7 @@ Then the real series, for example the fee comparison with three seeds (add `-Dev
 | `-Smoke` / `-SmokeSteps` | shortened copies in `results\_tmp\` (15,000 steps) | off |
 | `-DryRun` | print the commands; write no files | off |
 
-Run ids are `<config>-s<seed>-<yyyyMMdd>` (UTC date). A run whose `results\<run-id>` already exists is skipped, never overwritten. Each run leaves `results\<run-id>\` (with the model and `config-used.yaml`) and `results\<run-id>.log`. `config\README.md` explains what each variant changes; `python tools\train\check_configs.py` checks them.
+Run ids are `<config>-s<seed>-<yyyyMMdd>` (UTC date). A run whose `results\<run-id>` already exists is skipped, never overwritten. Each run leaves `results\<run-id>\` (with the model and `config-used.yaml`) and `results\<run-id>.log`. `config\README.md` explains what each variant changes; `python scripts\train\check_configs.py` checks them.
 
 The script passes `--seed <seed × 1000>` to mlagents-learn and writes it to `results\<run-id>\seed-used.txt`. ML-Agents gives environment k the seed + k, so plain seeds 1, 2, 3 would collide with `-NumEnvs` above 1; multiplying by 1000 keeps them apart. Every agent derives its random episode starts from that seed, so the same config, seed and `-NumEnvs` replay the same episodes. The trainer's own numbers are seeded as well, but PyTorch does not promise bit-identical results, so curves may still differ slightly.
 
@@ -179,27 +179,27 @@ Open <http://localhost:6006>. Compare `Environment/Cumulative Reward`, `Policy/E
 
 ## 10. Evaluation
 
-`git pull` first (skip `git pull` while the repository is a copy that is not connected to GitHub yet: without a remote it only fails), then build an evaluation player with a trained model baked in and run it on the validation segment. It goes to its own folder, `Builds\win-eval\`: while the training player runs, it holds `UnityPlayer.dll` and the other files in `Builds\win\`, so a second player could not be built next to it.
+`git pull` first (skip `git pull` while the repository is a copy that is not connected to GitHub yet: without a remote it only fails), then build an evaluation player with a trained model baked in and run it on the validation segment. It goes to its own folder, `unity\Builds\win-eval\`: while the training player runs, it holds `UnityPlayer.dll` and the other files in `unity\Builds\win\`, so a second player could not be built next to it.
 
 ```powershell
 git pull   # skip this line while the repository is a copy not connected to GitHub yet
 
 $p = Start-Process -FilePath $unity -Wait -PassThru -ArgumentList @(
-  '-batchmode', '-nographics', '-projectPath', "`"$PWD`"",
+  '-batchmode', '-nographics', '-projectPath', "`"$PWD\unity`"",
   '-executeMethod', 'Gym.Editor.BuildScript.BuildWindowsEval',
   '-gymModel', "`"$PWD\results\<run-id>\TradingAgent.onnx`"", '-quit',
-  '-logFile', "`"$PWD\Logs\build-eval.log`"")
+  '-logFile', "`"$PWD\unity\Logs\build-eval.log`"")
 $p.ExitCode   # 0 = success
 
-$e = Start-Process -FilePath Builds\win-eval\GymEval.exe -Wait -PassThru -ArgumentList @(
+$e = Start-Process -FilePath unity\Builds\win-eval\GymEval.exe -Wait -PassThru -ArgumentList @(
   '-batchmode', '-nographics', '-gymMode', 'eval', '-gymSegment', 'validation',
   '-gymFeeRate', '0.001', '-gymOut', "`"$PWD\evaluations`"",
-  '-logFile', "`"$PWD\Logs\eval.log`"")
-$e.ExitCode   # 0 = success; otherwise read the end of Logs\eval.log
+  '-logFile', "`"$PWD\unity\Logs\eval.log`"")
+$e.ExitCode   # 0 = success; otherwise read the end of unity\Logs\eval.log
 ```
 
 - Use the same `-gymFeeRate` the model was trained with. Use the test segment only for the final numbers.
-- The evaluation player needs `-gymMode eval`, `-gymSegment` (`validation` or `test`) and `-gymOut`; without any one of them it exits with code 1 and writes nothing. There is no default segment, so the test segment is never evaluated by accident. A fee outside the valid range (for example `1.5`) also exits with code 1 within seconds, and `Logs\eval.log` names the argument.
+- The evaluation player needs `-gymMode eval`, `-gymSegment` (`validation` or `test`) and `-gymOut`; without any one of them it exits with code 1 and writes nothing. There is no default segment, so the test segment is never evaluated by accident. A fee outside the valid range (for example `1.5`) also exits with code 1 within seconds, and `unity\Logs\eval.log` names the argument.
 - Commit right away, for example:
 
 ```powershell
@@ -211,16 +211,16 @@ git commit -m "eval: <run-id> on the validation segment"
 
 ```powershell
 $p = Start-Process -FilePath $unity -Wait -PassThru -ArgumentList @(
-  '-batchmode', '-nographics', '-projectPath', "`"$PWD`"",
+  '-batchmode', '-nographics', '-projectPath', "`"$PWD\unity`"",
   '-executeMethod', 'Gym.Editor.EvalTools.RunBaselines', '-gymSegment', 'validation',
-  '-gymFeeRates', '<new fee rate>', '-gymOut', 'evaluations', '-quit', '-logFile', "`"$PWD\Logs\baselines.log`"")
-$p.ExitCode   # 0 = success; otherwise read Logs\baselines.log
+  '-gymFeeRates', '<new fee rate>', '-gymOut', "`"$PWD\evaluations`"", '-quit', '-logFile', "`"$PWD\unity\Logs\baselines.log`"")
+$p.ExitCode   # 0 = success; otherwise read unity\Logs\baselines.log
 ```
 
 The summary tables:
 
 ```powershell
-python tools\eval\summarize.py evaluations\log.csv
+python scripts\eval\summarize.py evaluations\log.csv
 ```
 
 ## 11. What stays where
@@ -229,7 +229,7 @@ python tools\eval\summarize.py evaluations\log.csv
 | --- | --- | --- |
 | Training output, models, TensorBoard events | `results\<run-id>\` | no |
 | Terminal output of a run | `results\<run-id>.log` | no |
-| Players | `Builds\win\` (training), `Builds\win-eval\` (evaluation) | no |
+| Players | `unity\Builds\win\` (training), `unity\Builds\win-eval\` (evaluation) | no |
 | Evaluation log and details | `evaluations\log.csv`, `evaluations\runs\` | yes (append only, and only on this PC) |
 | Trial evaluations, evaluations on the Mac | `evaluations\smoke\` | no |
 

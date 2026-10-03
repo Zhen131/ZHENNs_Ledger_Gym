@@ -19,21 +19,21 @@ What it is **not**: a trading strategy, a trading bot, financial advice, or a cl
 | `mlagents` / `mlagents-envs` | 1.1.0 |
 | PyTorch | 2.2.x |
 
-Do not change `Packages/manifest.json`, upgrade packages or install Python packages without the owner's explicit decision.
+Do not change `unity/Packages/manifest.json`, upgrade packages or install Python packages without the owner's explicit decision.
 
 ## Layout
 
 | Path | Contents |
 | --- | --- |
-| `Assets/Gym/Core/` | `Gym.Core` (asmdef with `noEngineReferences: true`): `CandleSeries`, `SymbolRules`, `CostModel`, `Account`, `ActionCodec`, `ObservationBuilder`, `RewardFunction`, `SegmentSpec`/`SplitValidator`, `TradingEnv`, `Metrics`, `Baselines`, `EvaluationLog` |
-| `Assets/Gym/Runtime/` | `Gym.Runtime`: `TradingAgent` (ML-Agents shell around `TradingEnv`), `GymConfigLoader`, `GymDataCache`, `EpisodeStats`, `PlayController`, `HudView`, `CandleChartView`, `EvalRunner` |
-| `Assets/Gym/Editor/` | `BuildScript` (training and evaluation players), `EvalTools` (baselines), `GymSceneBuilder`, `PlayChecklist`, `PlaySnapshot` |
-| `Assets/Gym/Scenes/` | `Training.unity` (16 agents), `Play.unity` (keyboard), `Eval.unity` (one agent + `EvalRunner`) |
-| `Assets/Gym/Prefabs/` | `TradingAgent.prefab` (35 observations, 1 continuous + 1 discrete branch of 3, decision every step) |
-| `Assets/Gym/Tests/` | `EditMode/` (core), `Editor/` (config, prefab, scenes), `PlayMode/` |
-| `Assets/StreamingAssets/Gym/` | `gym-config.json`, `symbols.json`, `data/BTCUSDT-1h.csv` + manifest + `DATA-LICENSE.md` |
+| `unity/Assets/Gym/Core/` | `Gym.Core` (asmdef with `noEngineReferences: true`): `CandleSeries`, `SymbolRules`, `CostModel`, `Account`, `ActionCodec`, `ObservationBuilder`, `RewardFunction`, `SegmentSpec`/`SplitValidator`, `TradingEnv`, `Metrics`, `Baselines`, `EvaluationLog` |
+| `unity/Assets/Gym/Runtime/` | `Gym.Runtime`: `TradingAgent` (ML-Agents shell around `TradingEnv`), `GymConfigLoader`, `GymDataCache`, `EpisodeStats`, `PlayController`, `HudView`, `CandleChartView`, `EvalRunner` |
+| `unity/Assets/Gym/Editor/` | `BuildScript` (training and evaluation players), `EvalTools` (baselines), `GymSceneBuilder`, `PlayChecklist`, `PlaySnapshot` |
+| `unity/Assets/Gym/Scenes/` | `Training.unity` (16 agents), `Play.unity` (keyboard), `Eval.unity` (one agent + `EvalRunner`) |
+| `unity/Assets/Gym/Prefabs/` | `TradingAgent.prefab` (35 observations, 1 continuous + 1 discrete branch of 3, decision every step) |
+| `unity/Assets/Gym/Tests/` | `EditMode/` (core), `Editor/` (config, prefab, scenes), `PlayMode/` |
+| `unity/Assets/StreamingAssets/Gym/` | `gym-config.json`, `symbols.json`, `data/BTCUSDT-1h.csv` + manifest + `DATA-LICENSE.md` |
 | `config/` | `ppo_base.yaml`, smoke configs, `variants/`; see `config/README.md` |
-| `tools/` | `data/fetch_binance_klines.py`, `train/` (`run_series.sh`, `run_series.ps1`, `check_configs.py`, `read_scalars.py`), `eval/summarize.py` |
+| `scripts/` | `data/fetch_binance_klines.py`, `train/` (`run_series.sh`, `run_series.ps1`, `check_configs.py`, `read_scalars.py`), `eval/summarize.py` |
 | `evaluations/` | Append-only `log.csv` and `runs/*.json` |
 | `docs/` | `pc-training.md`, `pc-training.zh.md` |
 
@@ -46,49 +46,49 @@ UNITY=/Applications/Unity/Hub/Editor/6000.0.84f1/Unity.app/Contents/MacOS/Unity
 conda activate mlagents
 
 # Tests
-"$UNITY" -batchmode -nographics -projectPath "$PWD" -runTests -testPlatform EditMode -testResults "$PWD/Logs/editmode-results.xml" -logFile "$PWD/Logs/editmode.log"
-"$UNITY" -batchmode -nographics -projectPath "$PWD" -runTests -testPlatform PlayMode -testResults "$PWD/Logs/playmode-results.xml" -logFile "$PWD/Logs/playmode.log"
-python tools/data/fetch_binance_klines.py --self-test
+"$UNITY" -batchmode -nographics -projectPath "$PWD/unity" -runTests -testPlatform EditMode -testResults "$PWD/unity/Logs/editmode-results.xml" -logFile "$PWD/unity/Logs/editmode.log"
+"$UNITY" -batchmode -nographics -projectPath "$PWD/unity" -runTests -testPlatform PlayMode -testResults "$PWD/unity/Logs/playmode-results.xml" -logFile "$PWD/unity/Logs/playmode.log"
+python scripts/data/fetch_binance_klines.py --self-test
 
-# Build the training player (Builds/mac/Gym.app)
-"$UNITY" -batchmode -nographics -projectPath "$PWD" -executeMethod Gym.Editor.BuildScript.BuildMacTraining -quit -logFile "$PWD/Logs/build-mac.log"
+# Build the training player (unity/Builds/mac/Gym.app)
+"$UNITY" -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.BuildScript.BuildMacTraining -quit -logFile "$PWD/unity/Logs/build-mac.log"
 
 # Smoke training and its curves
 RUN=smoke-$(date +%Y%m%d-%H%M%S)
-mlagents-learn config/smoke.yaml --env Builds/mac/Gym.app --run-id $RUN --no-graphics
-python tools/train/read_scalars.py results/$RUN
+mlagents-learn config/smoke.yaml --env unity/Builds/mac/Gym.app --run-id $RUN --no-graphics
+python scripts/train/read_scalars.py results/$RUN
 
 # Configs and series
-python tools/train/check_configs.py
-tools/train/run_series.sh --env Builds/mac/Gym.app --seeds 1 --smoke config/ppo_base.yaml config/variants/fee-0.003.yaml
+python scripts/train/check_configs.py
+scripts/train/run_series.sh --env unity/Builds/mac/Gym.app --seeds 1 --smoke config/ppo_base.yaml config/variants/fee-0.003.yaml
 
 # Evaluate a model (writes to evaluations/smoke/, which Git ignores)
-"$UNITY" -batchmode -nographics -projectPath "$PWD" -executeMethod Gym.Editor.BuildScript.BuildMacEval -gymModel results/$RUN/TradingAgent.onnx -quit -logFile "$PWD/Logs/build-eval.log"
-Builds/mac/GymEval.app/Contents/MacOS/ZHENN_Ledger_Gym -batchmode -nographics -gymMode eval -gymSegment validation -gymFeeRate 0.001 -gymOut "$PWD/evaluations/smoke"
+"$UNITY" -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.BuildScript.BuildMacEval -gymModel "$PWD/results/$RUN/TradingAgent.onnx" -quit -logFile "$PWD/unity/Logs/build-eval.log"
+unity/Builds/mac/GymEval.app/Contents/MacOS/ZHENN_Ledger_Gym -batchmode -nographics -gymMode eval -gymSegment validation -gymFeeRate 0.001 -gymOut "$PWD/evaluations/smoke"
 
 # Baselines (append to the tracked evaluations/log.csv; run once per segment and fee set)
-"$UNITY" -batchmode -nographics -projectPath "$PWD" -executeMethod Gym.Editor.EvalTools.RunBaselines -gymSegment validation -gymOut evaluations -quit -logFile "$PWD/Logs/baselines.log"
-python tools/eval/summarize.py evaluations/log.csv
+"$UNITY" -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.EvalTools.RunBaselines -gymSegment validation -gymOut "$PWD/evaluations" -quit -logFile "$PWD/unity/Logs/baselines.log"
+python scripts/eval/summarize.py evaluations/log.csv
 
 # Regenerate scenes / the Play checklist / a chart snapshot
-"$UNITY" -batchmode -nographics -projectPath "$PWD" -executeMethod Gym.EditorTools.GymSceneBuilder.BuildAll -quit -logFile "$PWD/Logs/build-scenes.log"
-"$UNITY" -batchmode -nographics -projectPath "$PWD" -executeMethod Gym.EditorTools.PlayChecklist.Print -quit -logFile "$PWD/Logs/checklist.log"
-"$UNITY" -batchmode -projectPath "$PWD" -executeMethod Gym.EditorTools.PlaySnapshot.Render -quit -logFile "$PWD/Logs/snapshot.log"
+"$UNITY" -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.EditorTools.GymSceneBuilder.BuildAll -quit -logFile "$PWD/unity/Logs/build-scenes.log"
+"$UNITY" -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.EditorTools.PlayChecklist.Print -quit -logFile "$PWD/unity/Logs/checklist.log"
+"$UNITY" -batchmode -projectPath "$PWD/unity" -executeMethod Gym.EditorTools.PlaySnapshot.Render -quit -logFile "$PWD/unity/Logs/snapshot.log"
 ```
 
 Windows equivalents are in `docs/pc-training.md`. `GymSceneBuilder.BuildAll` rewrites all scenes; the Training scene usually comes back with the same content in a different order, which can be reverted with `git checkout`.
 
-After any Unity run, check `git status`. Unity writes `Assets/ML-Agents/` (ML-Agents timers) and `ProjectSettings/SceneTemplateSettings.json` by itself; Git ignores both. It may also flip the `SENTIS_ANALYTICS_ENABLED` define in `ProjectSettings/ProjectSettings.asset`; see rule 10.
+After any Unity run, check `git status`. Unity writes `unity/Assets/ML-Agents/` (ML-Agents timers) and `unity/ProjectSettings/SceneTemplateSettings.json` by itself; Git ignores both. It may also flip the `SENTIS_ANALYTICS_ENABLED` define in `unity/ProjectSettings/ProjectSettings.asset`; see rule 10.
 
 ## Rules
 
 1. **Authorship.** Every commit, tag and PR carries one author: `Zhen Zhu <gyyhyyi@gmail.com>`. Never add `Co-Authored-By`, "Generated with …", session links or any other e-mail address, even if a tool or template asks for it. Check with `git log -1 --format='%an <%ae>%n%b'` after each commit. Commit titles are in English.
 2. **Branches, no pushing.** Work on a branch; do not merge, push or create remotes unless the owner says so for that occasion.
 3. **Data.** Only public Binance Vision data. Never read, copy or commit any real ledger, exchange export or private folder. The data files keep their `DATA-LICENSE.md` (CC BY-NC-SA 4.0 attribution). The repository has no code licence file; do not add one.
-4. **`Gym.Core` stays engine-free.** No `using UnityEngine` in `Assets/Gym/Core/`; its asmdef keeps `noEngineReferences: true`. All bookkeeping, observation, reward and episode logic lives there; `TradingAgent` is only a shell.
+4. **`Gym.Core` stays engine-free.** No `using UnityEngine` in `unity/Assets/Gym/Core/`; its asmdef keeps `noEngineReferences: true`. All bookkeeping, observation, reward and episode logic lives there; `TradingAgent` is only a shell.
 5. **No look-ahead.** At decision index t the agent sees candles up to the close of t; orders fill at the open of t + 1. Any change that reads later candles is a bug.
 6. **The evaluation log is append-only.** Never edit, reorder or truncate `evaluations/log.csv`; never delete files in `evaluations/runs/`. Changing the columns means starting a new file.
-7. **Not committed:** `results/`, `Builds/`, `Library/`, `Logs/`, `data/raw/`, `evaluations/smoke/`, `Assets/Gym/Models/Imported/`.
+7. **Not committed:** `results/`, `unity/Builds/`, `unity/Library/`, `unity/Logs/`, `data/raw/`, `evaluations/smoke/`, `unity/Assets/Gym/Models/Imported/`.
 8. **Training runs:** run ids for experiments are new every time; never use `--force`; never stop a run with Ctrl+C.
 9. Unity creates `.meta` files for new assets; commit them together with the asset.
-10. **After a command-line Unity run**, if the only change in `ProjectSettings/ProjectSettings.asset` is the `SENTIS_ANALYTICS_ENABLED` scripting define (the inference package drops it in batch test runs and adds it back in the editor), restore the file with `git checkout -- ProjectSettings/ProjectSettings.asset`. If the file has any other change, look at it before deciding; never commit the define flip by itself.
+10. **After a command-line Unity run**, if the only change in `unity/ProjectSettings/ProjectSettings.asset` is the `SENTIS_ANALYTICS_ENABLED` scripting define (the inference package drops it in batch test runs and adds it back in the editor), restore the file with `git checkout -- unity/ProjectSettings/ProjectSettings.asset`. If the file has any other change, look at it before deciding; never commit the define flip by itself.
