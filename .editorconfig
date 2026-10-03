@@ -1,0 +1,23 @@
+# Formatting rules for editors, matching how the files in this repository are already written.
+# https://editorconfig.org
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+indent_style = space
+
+[*.{cs,py,sh,ps1,asmdef}]
+indent_size = 4
+
+[*.{json,yaml,yml}]
+indent_size = 2
+
+# Unity writes these YAML files itself; keep its two-space indentation.
+[*.{unity,prefab,asset,mat,anim,controller,meta}]
+indent_size = 2
+
+# Unity writes the .meta of a C# script without a final newline; leave whatever Unity wrote.
+[*.meta]
+insert_final_newline = unset
