@@ -1,6 +1,6 @@
 {
-    "name": "Gym.Tests.EditMode",
-    "rootNamespace": "Gym.Tests.EditMode",
+    "name": "Gym.Tests.Core",
+    "rootNamespace": "Gym.Tests.Core",
     "references": [
         "Gym.Core",
         "UnityEngine.TestRunner",
