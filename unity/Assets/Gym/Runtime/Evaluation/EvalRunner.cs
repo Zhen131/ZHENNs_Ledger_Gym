@@ -85,7 +85,7 @@ namespace Gym.Runtime.Evaluation
             if (string.IsNullOrWhiteSpace(GymConfigLoader.GetArg(args, OutArg)))
                 missing.Add($"{OutArg} <folder>");
             if (missing.Count == 0) return null;
-            string player = args.Length > 0 ? GymConfigLoader.FileNameOnly(args[0]) : "GymEval";
+            string player = args.Length > 0 ? RecordPaths.FileNameOnly(args[0]) : "GymEval";
             return $"the evaluation player needs {GymConfigLoader.ModeArg} eval, {GymConfigLoader.SegmentArg} validation|test " +
                    $"and {OutArg} <folder>; missing {JoinWithAnd(missing)}. Nothing was written. Example: " +
                    $"{player} -batchmode -nographics -gymMode eval -gymSegment validation -gymFeeRate 0.001 -gymOut evaluations/smoke";
@@ -232,14 +232,14 @@ namespace Gym.Runtime.Evaluation
                 { "generated_by", "Gym.Runtime.EvalRunner" },
                 { "model_run_id", record.ModelRunId },
                 { "model_sha256", record.ModelSha256 },
-                { "model_file", GymConfigLoader.FileNameOnly(info?.model_file) },
+                { "model_file", RecordPaths.FileNameOnly(info?.model_file) },
                 { "build_built_at_utc", info?.built_at_utc ?? "" },
                 { "unity_version", Application.unityVersion },
                 { "behavior_type", behaviorType },
                 { "deterministic_inference", deterministicInference },
                 { "inference_device", inferenceDevice },
                 { "symbol", s.Rules.Symbol },
-                { "data_file", GymConfigLoader.PathForRecords(s.Config.dataFile) },
+                { "data_file", RecordPaths.PathForRecords(s.Config.dataFile) },
                 { "segment", new JsonObject
                     {
                         { "name", segment.Name },

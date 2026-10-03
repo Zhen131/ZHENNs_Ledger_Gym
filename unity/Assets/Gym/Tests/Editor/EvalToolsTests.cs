@@ -83,16 +83,16 @@ namespace Gym.Tests.Editor
         [Test]
         public void M2_PathsForRecordsDropMachineFolders()
         {
-            Assert.AreEqual("data/BTCUSDT-1h.csv", GymConfigLoader.PathForRecords("data/BTCUSDT-1h.csv"));
-            Assert.AreEqual("data/BTCUSDT-1h.csv", GymConfigLoader.PathForRecords(@"data\BTCUSDT-1h.csv"));
-            Assert.AreEqual("BTCUSDT-1h.csv", GymConfigLoader.PathForRecords("/Users/someone/Gym/data/BTCUSDT-1h.csv"));
-            Assert.AreEqual("BTCUSDT-1h.csv", GymConfigLoader.PathForRecords(@"C:\Users\someone\Gym\data\BTCUSDT-1h.csv"));
-            Assert.AreEqual("BTCUSDT-1h.csv", GymConfigLoader.PathForRecords(@"\\server\share\BTCUSDT-1h.csv"));
-            Assert.AreEqual("BTCUSDT-1h.csv", GymConfigLoader.PathForRecords("~/Gym/BTCUSDT-1h.csv"));
-            Assert.AreEqual("", GymConfigLoader.PathForRecords(null));
-            Assert.AreEqual("TradingAgent.onnx", GymConfigLoader.FileNameOnly(@"C:\Users\someone\results\run\TradingAgent.onnx"));
-            Assert.AreEqual("TradingAgent.onnx", GymConfigLoader.FileNameOnly("/Users/someone/results/run/TradingAgent.onnx"));
-            Assert.AreEqual("", GymConfigLoader.FileNameOnly(null));
+            Assert.AreEqual("data/BTCUSDT-1h.csv", RecordPaths.PathForRecords("data/BTCUSDT-1h.csv"));
+            Assert.AreEqual("data/BTCUSDT-1h.csv", RecordPaths.PathForRecords(@"data\BTCUSDT-1h.csv"));
+            Assert.AreEqual("BTCUSDT-1h.csv", RecordPaths.PathForRecords("/Users/someone/Gym/data/BTCUSDT-1h.csv"));
+            Assert.AreEqual("BTCUSDT-1h.csv", RecordPaths.PathForRecords(@"C:\Users\someone\Gym\data\BTCUSDT-1h.csv"));
+            Assert.AreEqual("BTCUSDT-1h.csv", RecordPaths.PathForRecords(@"\\server\share\BTCUSDT-1h.csv"));
+            Assert.AreEqual("BTCUSDT-1h.csv", RecordPaths.PathForRecords("~/Gym/BTCUSDT-1h.csv"));
+            Assert.AreEqual("", RecordPaths.PathForRecords(null));
+            Assert.AreEqual("TradingAgent.onnx", RecordPaths.FileNameOnly(@"C:\Users\someone\results\run\TradingAgent.onnx"));
+            Assert.AreEqual("TradingAgent.onnx", RecordPaths.FileNameOnly("/Users/someone/results/run/TradingAgent.onnx"));
+            Assert.AreEqual("", RecordPaths.FileNameOnly(null));
         }
 
         [Test]

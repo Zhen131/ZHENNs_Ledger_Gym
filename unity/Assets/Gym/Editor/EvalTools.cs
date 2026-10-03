@@ -8,6 +8,7 @@ using Gym.Core.Env;
 using Gym.Core.Evaluation;
 using Gym.Core.Market;
 using Gym.Runtime.Configuration;
+using Gym.Runtime.Evaluation;
 using UnityEditor;
 using UnityEngine;
 
@@ -137,7 +138,7 @@ namespace Gym.Editor
                 { "policy", policy },
                 { "generated_by", "Gym.Editor.EvalTools.RunBaselines" },
                 { "symbol", s.Rules.Symbol },
-                { "data_file", GymConfigLoader.PathForRecords(s.Config.dataFile) },
+                { "data_file", RecordPaths.PathForRecords(s.Config.dataFile) },
                 { "segment", SegmentJson(segment, s.Series) },
                 { "market", market },
                 { "cost", new JsonObject { { "fee_rate", cost.FeeRate }, { "fixed_fee", cost.FixedFee }, { "slippage", cost.Slippage } } },
