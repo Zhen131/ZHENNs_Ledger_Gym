@@ -28,10 +28,16 @@ namespace Gym.Runtime.Agents
 
         public static bool CanReadTrainerSeed => InferenceSeedField != null && InferenceSeedField.FieldType == typeof(int);
 
-        public static (int seed, string source) Choose(bool trainerConnected, int trainerSeed, long clockTicks, int agentIndex)
+        public static (int seed, SeedSource source) Choose(bool trainerConnected, int trainerSeed, long clockTicks, int agentIndex)
         {
-            if (trainerConnected) return (SeedMixer.Mix(trainerSeed, agentIndex), "trainer");
-            return (SeedMixer.Mix(unchecked((int)clockTicks + 7919 * (agentIndex + 1))), "clock");
+            if (trainerConnected) return (SeedMixer.Mix(trainerSeed, agentIndex), SeedSource.Trainer);
+            return (SeedMixer.Mix(unchecked((int)clockTicks + 7919 * (agentIndex + 1))), SeedSource.Clock);
         }
+
+        /// <summary>
+        /// The word the agent's log line shows in brackets: "trainer" or "clock", lower case
+        /// (not the enum's name), because the training scripts search the player log for "(clock)".
+        /// </summary>
+        public static string LogName(SeedSource source) => source == SeedSource.Trainer ? "trainer" : "clock";
     }
 }

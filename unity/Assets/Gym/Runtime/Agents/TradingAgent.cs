@@ -55,8 +55,8 @@ namespace Gym.Runtime.Agents
         public GymSettings Settings { get; private set; }
         public TradingEnv Env { get; private set; }
         public int MasterSeed { get; private set; }
-        /// <summary>"trainer" when the seed came from mlagents-learn (--seed), "clock" otherwise.</summary>
-        public string MasterSeedSource { get; private set; }
+        /// <summary>Trainer when the seed came from mlagents-learn (--seed), Clock otherwise.</summary>
+        public SeedSource MasterSeedSource { get; private set; }
         public int EpisodeSeed { get; private set; }
         public int FinishedEpisodes { get; private set; }
         public EpisodeStats LastEpisodeStats { get; private set; }
@@ -92,7 +92,7 @@ namespace Gym.Runtime.Agents
                 Debug.LogWarning("[Gym] trainer attached but its seed could not be read; seeding from the clock (Q08)");
             (MasterSeed, MasterSeedSource) = MasterSeedChooser.Choose(fromTrainer, trainerSeed, DateTime.UtcNow.Ticks, agentIndex);
             seedSource = new System.Random(MasterSeed);
-            Debug.Log($"[Gym] {name}: index {agentIndex}, mode {mode}, segment {segment}, master seed {MasterSeed} ({MasterSeedSource})");
+            Debug.Log($"[Gym] {name}: index {agentIndex}, mode {mode}, segment {segment}, master seed {MasterSeed} ({MasterSeedChooser.LogName(MasterSeedSource)})");
             if (mode != AgentStartMode.Training) ResetEnv(); // views and runners can read the start before the first step
         }
 

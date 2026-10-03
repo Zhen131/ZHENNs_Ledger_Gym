@@ -13,7 +13,7 @@ namespace Gym.Tests.Editor
         {
             var a = MasterSeedChooser.Choose(true, 7, clockTicks: 111, agentIndex: 3);
             var b = MasterSeedChooser.Choose(true, 7, clockTicks: 999_999, agentIndex: 3);
-            Assert.AreEqual("trainer", a.source);
+            Assert.AreEqual("trainer", MasterSeedChooser.LogName(a.source));
             Assert.AreEqual(a.seed, b.seed, "the clock does not matter when a trainer is attached");
             Assert.AreEqual(SeedMixer.Mix(7, 3), a.seed);
 
@@ -39,7 +39,7 @@ namespace Gym.Tests.Editor
         {
             var a = MasterSeedChooser.Choose(false, 7, clockTicks: 111, agentIndex: 3);
             var b = MasterSeedChooser.Choose(false, 7, clockTicks: 112, agentIndex: 3);
-            Assert.AreEqual("clock", a.source);
+            Assert.AreEqual("clock", MasterSeedChooser.LogName(a.source));
             Assert.AreNotEqual(a.seed, b.seed);
             Assert.AreEqual(SeedMixer.Mix(unchecked(111 + 7919 * 4)), a.seed);
             Assert.GreaterOrEqual(a.seed, 0);
