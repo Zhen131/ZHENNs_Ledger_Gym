@@ -13,7 +13,7 @@ namespace Gym.EditorTools
     /// scene (select 25 % + B, H, select 50 % + S), computed with TradingEnv from the
     /// default config. Writes Logs/play-checklist.md as well.
     ///
-    ///   Unity -batchmode -nographics -projectPath . -executeMethod Gym.EditorTools.PlayChecklist.Print -quit
+    ///   Unity -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.EditorTools.PlayChecklist.Print -quit
     /// </summary>
     public static class PlayChecklist
     {

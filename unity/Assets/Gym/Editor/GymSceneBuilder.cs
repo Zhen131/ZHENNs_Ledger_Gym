@@ -16,7 +16,7 @@ namespace Gym.EditorTools
     /// Builds the agent prefab and the scenes from code, so they can be regenerated
     /// from the command line without opening the editor UI:
     ///
-    ///   Unity -batchmode -nographics -projectPath . -executeMethod Gym.EditorTools.GymSceneBuilder.BuildAll -quit
+    ///   Unity -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.EditorTools.GymSceneBuilder.BuildAll -quit
     /// </summary>
     public static class GymSceneBuilder
     {

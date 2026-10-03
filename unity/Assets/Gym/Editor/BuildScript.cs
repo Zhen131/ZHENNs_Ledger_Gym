@@ -18,15 +18,15 @@ namespace Gym.Editor
     /// <summary>
     /// Training player builds (Training scene only, Mono, non-development):
     ///
-    ///   Unity -batchmode -nographics -projectPath . -executeMethod Gym.Editor.BuildScript.BuildMacTraining -quit -logFile Logs/build-mac.log
-    ///   Unity -batchmode -nographics -projectPath . -executeMethod Gym.Editor.BuildScript.BuildWindowsTraining -quit -logFile Logs/build-win.log
+    ///   Unity -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.BuildScript.BuildMacTraining -quit -logFile "$PWD/unity/Logs/build-mac.log"
+    ///   Unity -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.BuildScript.BuildWindowsTraining -quit -logFile "$PWD/unity/Logs/build-win.log"
     ///
     /// A failed build exits the batch-mode editor with code 1.
     ///
     /// Evaluation player with a trained model baked in (04B §4.2):
     ///
-    ///   Unity -batchmode -nographics -projectPath . -executeMethod Gym.Editor.BuildScript.BuildMacEval
-    ///         -gymModel results/&lt;run-id&gt;/TradingAgent.onnx -quit -logFile Logs/build-eval.log
+    ///   Unity -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.BuildScript.BuildMacEval
+    ///         -gymModel "$PWD/results/&lt;run-id&gt;/TradingAgent.onnx" -quit -logFile "$PWD/unity/Logs/build-eval.log"
     ///
     /// BuildWindowsEval does the same for Windows x64 (Builds/win-eval/GymEval.exe).
     /// </summary>

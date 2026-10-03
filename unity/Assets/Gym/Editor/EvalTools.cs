@@ -13,8 +13,8 @@ namespace Gym.Editor
     /// <summary>
     /// Baseline evaluation from the command line (04B §4.1):
     ///
-    ///   Unity -batchmode -nographics -projectPath . -executeMethod Gym.Editor.EvalTools.RunBaselines
-    ///         -gymSegment test -gymFeeRates 0,0.001,0.003 -gymRandomSeeds 100 -gymOut evaluations
+    ///   Unity -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.EvalTools.RunBaselines
+    ///         -gymSegment test -gymFeeRates 0,0.001,0.003 -gymRandomSeeds 100 -gymOut "$PWD/evaluations"
     ///         [-gymPolicies buyhold,cash,random] -quit
     ///
     /// For every fee rate it runs the chosen policies (default all three: buy-and-hold, cash
@@ -55,7 +55,7 @@ namespace Gym.Editor
                 .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(x => double.Parse(x.Trim(), NumberStyles.Float, Inv)).ToArray();
             int seeds = int.Parse(GymConfigLoader.GetArg(args, RandomSeedsArg) ?? "100", Inv);
-            string outDir = Path.GetFullPath(GymConfigLoader.GetArg(args, OutArg) ?? "evaluations");
+            string outDir = Path.GetFullPath(GymConfigLoader.GetArg(args, OutArg) ?? Path.Combine(RepositoryRoot(), "evaluations"));
             string configPath = GymConfigLoader.GetArg(args, GymConfigLoader.ConfigArg) ?? GymConfigLoader.DefaultConfigPath;
             if (seeds < 1) throw new ArgumentOutOfRangeException(RandomSeedsArg, seeds, "Need at least one seed.");
             HashSet<string> policies = ParsePolicies(GymConfigLoader.GetArg(args, PoliciesArg));
@@ -236,5 +236,12 @@ namespace Gym.Editor
         }
 
         static string Json(JsonObject o) => EvaluationLog.Json(o).Replace("\n", " ").Replace("  ", "");
+
+        /// <summary>
+        /// The repository root: the folder that holds the Unity project (Application.dataPath is
+        /// &lt;project&gt;/Assets). The editor runs inside the Unity project, so a bare "evaluations"
+        /// would land in the project instead of the repository's evaluations/ folder.
+        /// </summary>
+        static string RepositoryRoot() => Path.GetFullPath(Path.Combine(Application.dataPath, "..", ".."));
     }
 }

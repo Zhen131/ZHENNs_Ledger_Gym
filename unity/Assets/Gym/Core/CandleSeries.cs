@@ -7,7 +7,7 @@ namespace Gym.Core
     /// <summary>
     /// A contiguous run of hourly candles: every candle starts on the hour and
     /// the next one starts exactly one hour later. Built by <see cref="Parse"/>
-    /// from the CSV written by tools/data/fetch_binance_klines.py.
+    /// from the CSV written by scripts/data/fetch_binance_klines.py.
     /// </summary>
     public sealed class CandleSeries
     {

@@ -12,7 +12,7 @@ namespace Gym.EditorTools
     /// Logs/play-snapshot.png. The IMGUI HUD is drawn only in a real Game view, so it
     /// is not in the picture. Needs a graphics device (run without -nographics):
     ///
-    ///   Unity -batchmode -projectPath . -executeMethod Gym.EditorTools.PlaySnapshot.Render -quit
+    ///   Unity -batchmode -projectPath "$PWD/unity" -executeMethod Gym.EditorTools.PlaySnapshot.Render -quit
     /// </summary>
     public static class PlaySnapshot
     {
