@@ -69,7 +69,7 @@ namespace Gym.Editor
             var runner = new GameObject("EvalRunner").AddComponent<EvalRunner>();
             runner.Agent = agent;
 
-            EnsureFolder(Path.GetDirectoryName(EvalScenePath));
+            AssetFolders.Ensure(Path.GetDirectoryName(EvalScenePath));
             EditorSceneManager.SaveScene(scene, EvalScenePath);
         }
 
@@ -93,7 +93,7 @@ namespace Gym.Editor
                 requester.DecisionStep = 0;
                 requester.TakeActionsBetweenDecisions = false;
 
-                EnsureFolder(Path.GetDirectoryName(PrefabPath));
+                AssetFolders.Ensure(Path.GetDirectoryName(PrefabPath));
                 return PrefabUtility.SaveAsPrefabAsset(go, PrefabPath);
             }
             finally
@@ -113,7 +113,7 @@ namespace Gym.Editor
                 agent.AgentIndex = i;
                 PrefabUtility.RecordPrefabInstancePropertyModifications(agent);
             }
-            EnsureFolder(Path.GetDirectoryName(TrainingScenePath));
+            AssetFolders.Ensure(Path.GetDirectoryName(TrainingScenePath));
             EditorSceneManager.SaveScene(scene, TrainingScenePath);
         }
 
@@ -123,7 +123,7 @@ namespace Gym.Editor
             Shader shader = Shader.Find("Sprites/Default");
             if (material == null)
             {
-                EnsureFolder(Path.GetDirectoryName(ChartMaterialPath));
+                AssetFolders.Ensure(Path.GetDirectoryName(ChartMaterialPath));
                 material = new Material(shader) { name = "CandleChart" };
                 AssetDatabase.CreateAsset(material, ChartMaterialPath);
             }
@@ -158,7 +158,7 @@ namespace Gym.Editor
 
             AddCandleChart(agent, chartMaterial);
 
-            EnsureFolder(Path.GetDirectoryName(PlayScenePath));
+            AssetFolders.Ensure(Path.GetDirectoryName(PlayScenePath));
             EditorSceneManager.SaveScene(scene, PlayScenePath);
         }
 
@@ -192,15 +192,6 @@ namespace Gym.Editor
                 new EditorBuildSettingsScene(EvalScenePath, true),
             };
             EditorBuildSettings.scenes = scenes.ToArray();
-        }
-
-        static void EnsureFolder(string path)
-        {
-            path = path.Replace('\\', '/');
-            if (AssetDatabase.IsValidFolder(path)) return;
-            string parent = Path.GetDirectoryName(path).Replace('\\', '/');
-            EnsureFolder(parent);
-            AssetDatabase.CreateFolder(parent, Path.GetFileName(path));
         }
     }
 }

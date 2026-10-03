@@ -258,7 +258,7 @@ namespace Gym.Runtime.Evaluation
 
         public static EvalBuildInfo ReadBuildInfo()
         {
-            string path = Path.Combine(Application.streamingAssetsPath, "Gym", BuildInfoFile);
+            string path = Path.Combine(GymConfigLoader.DefaultDirectory, BuildInfoFile);
             if (!File.Exists(path))
             {
                 Debug.LogWarning($"[Gym] {path} not found; model run id is recorded as 'unknown'");

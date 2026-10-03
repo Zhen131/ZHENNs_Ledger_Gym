@@ -33,7 +33,7 @@ namespace Gym.Editor
     /// </summary>
     public static class BuildScript
     {
-        public const string TrainingScenePath = "Assets/Gym/Scenes/Training.unity";
+        public const string TrainingScenePath = GymSceneBuilder.TrainingScenePath;
         public const string MacOutput = "Builds/mac/Gym.app";
         public const string WindowsOutput = "Builds/win/Gym.exe";
         public const string MacEvalOutput = "Builds/mac/GymEval.app";
@@ -104,7 +104,7 @@ namespace Gym.Editor
         /// <summary>Copies the ONNX to Imported/&lt;run-id&gt;.onnx and imports it.</summary>
         static ModelAsset ImportModel(string modelPath, string runId)
         {
-            EnsureFolder(ImportedModelsFolder);
+            AssetFolders.Ensure(ImportedModelsFolder);
             string modelAssetPath = $"{ImportedModelsFolder}/{runId}.onnx";
             File.Copy(modelPath, modelAssetPath, true);
             AssetDatabase.ImportAsset(modelAssetPath, ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.ForceUpdate);
@@ -195,14 +195,6 @@ namespace Gym.Editor
             using (SHA256 sha = SHA256.Create())
             using (FileStream stream = File.OpenRead(path))
                 return BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "").ToLowerInvariant();
-        }
-
-        static void EnsureFolder(string path)
-        {
-            if (AssetDatabase.IsValidFolder(path)) return;
-            string parent = Path.GetDirectoryName(path).Replace('\\', '/');
-            EnsureFolder(parent);
-            AssetDatabase.CreateFolder(parent, Path.GetFileName(path));
         }
 
         /// <summary>Player settings every training build relies on. Saved into ProjectSettings.asset.</summary>

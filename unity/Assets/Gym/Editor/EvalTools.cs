@@ -30,9 +30,12 @@ namespace Gym.Editor
     {
         public const string FeeRatesArg = "-gymFeeRates";
         public const string RandomSeedsArg = "-gymRandomSeeds";
-        public const string OutArg = "-gymOut";
+        public const string OutArg = EvalRunner.OutArg;
         public const string PoliciesArg = "-gymPolicies";
-        public static readonly string[] PolicyNames = { "buyhold", "cash", "random" };
+        public const string BuyAndHoldPolicy = "buyhold";
+        public const string CashPolicy = "cash";
+        public const string RandomPolicy = "random";
+        public static readonly string[] PolicyNames = { BuyAndHoldPolicy, CashPolicy, RandomPolicy };
 
         static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
@@ -73,21 +76,21 @@ namespace Gym.Editor
             {
                 var cost = new CostModel(fee, 0, 0);
 
-                if (policies.Contains("buyhold"))
+                if (policies.Contains(BuyAndHoldPolicy))
                 {
                     EpisodeMetrics hold = Baselines.RunBuyAndHold(env, cost);
                     WriteSingleRun(outDir, settings, cost, market, Baselines.BuyAndHoldName, hold);
                     Debug.Log($"[Gym] fee {fee}: buy_and_hold {hold.TotalReturn:P2}");
                 }
 
-                if (policies.Contains("cash"))
+                if (policies.Contains(CashPolicy))
                 {
                     EpisodeMetrics cash = Baselines.RunCash(env, cost);
                     WriteSingleRun(outDir, settings, cost, market, Baselines.CashName, cash);
                     Debug.Log($"[Gym] fee {fee}: cash {cash.TotalReturn:P2}");
                 }
 
-                if (policies.Contains("random")) RunRandomPolicy(outDir, settings, env, market, cost, seeds);
+                if (policies.Contains(RandomPolicy)) RunRandomPolicy(outDir, settings, env, market, cost, seeds);
             }
 
             string logPath = Path.Combine(outDir, EvaluationLog.FileName);
