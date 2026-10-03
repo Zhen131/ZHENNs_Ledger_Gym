@@ -5,6 +5,7 @@
         "Gym.Core",
         "Gym.Runtime",
         "Gym.Editor",
+        "Gym.Tests.Runtime",
         "Unity.ML-Agents",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"

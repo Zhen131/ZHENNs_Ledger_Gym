@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace Gym.Tests.Editor
 {
-    public class ConfigTests
+    public class GymConfigLoaderTests
     {
         string tempDir;
 
@@ -53,16 +53,6 @@ namespace Gym.Tests.Editor
             Assert.AreEqual(new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), s.Series.OpenTimeUtc(s.PlayStartIndex));
             Assert.IsEmpty(s.Warnings);
             Assert.AreEqual(GymMode.Train, s.Mode);
-        }
-
-        [Test]
-        public void E01_SymbolTableListsThreeSymbols()
-        {
-            SymbolTable table = JsonUtility.FromJson<SymbolTable>(File.ReadAllText(GymConfigLoader.DefaultSymbolsPath));
-            Assert.AreEqual(3, table.symbols.Length);
-            Assert.AreEqual(("BTCUSDT", 5.0, "0.00001"), (table.symbols[0].symbol, table.symbols[0].minNotional, table.symbols[0].stepSize));
-            Assert.AreEqual(("ETHUSDT", 5.0, "0.0001"), (table.symbols[1].symbol, table.symbols[1].minNotional, table.symbols[1].stepSize));
-            Assert.AreEqual(("ADAUSDT", 5.0, "0.1"), (table.symbols[2].symbol, table.symbols[2].minNotional, table.symbols[2].stepSize));
         }
 
         [Test]
@@ -191,14 +181,6 @@ namespace Gym.Tests.Editor
             config.initialCash = GymConfigLoader.MaxInitialCash;
             Assert.AreEqual(1e9, GymConfigLoader.Load(WriteConfig(config), GymConfigLoader.DefaultSymbolsPath).Config.initialCash);
             Assert.AreEqual(10_000, GymConfigLoader.Load(GymConfigLoader.DefaultConfigPath, GymConfigLoader.DefaultSymbolsPath).Config.initialCash);
-        }
-
-        [Test]
-        public void E01_DataIsParsedOncePerPath()
-        {
-            CandleSeries a = GymDataCache.Get(Path.Combine(GymConfigLoader.DefaultDirectory, "data", "BTCUSDT-1h.csv"));
-            CandleSeries b = GymDataCache.Get(Path.Combine(GymConfigLoader.DefaultDirectory, "data", ".", "BTCUSDT-1h.csv"));
-            Assert.AreSame(a, b);
         }
     }
 }

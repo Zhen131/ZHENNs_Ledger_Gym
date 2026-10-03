@@ -6,7 +6,7 @@ using NUnit.Framework;
 namespace Gym.Tests.Editor
 {
     /// <summary>Q07: where an agent's master seed comes from.</summary>
-    public class SeedSourceTests
+    public class MasterSeedChooserTests
     {
         [Test]
         public void Q07_WithATrainerTheMasterSeedFollowsTheTrainerSeed()
