@@ -1,0 +1,36 @@
+namespace Gym.Runtime.Play
+{
+    /// <summary><see cref="PlayText"/> 里的每一条画面文字。带 {0}、{1} 的是格式串。</summary>
+    public enum PlayTextKey
+    {
+        LanguageButton,
+        TimeUtc,
+        Step,
+        Close,
+        Cash,
+        Coin,
+        CoinAmount,
+        Position,
+        Equity,
+        Return,
+        FeesPaid,
+        Trades,
+        Rejected,
+        LastAction,
+        ActionNone,
+        ActionHold,
+        ActionBuyFilled,
+        ActionBuyRejected,
+        ActionSellFilled,
+        ActionSellRejected,
+        Fraction,
+        AutoPlay,
+        Costs,
+        BasisPoints,
+        Keys,
+        KeysTrade,
+        KeysOther,
+        UnrealizedPnl,
+        RealizedPnl,
+    }
+}

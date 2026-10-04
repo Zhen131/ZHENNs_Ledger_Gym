@@ -43,6 +43,24 @@ namespace Gym.Tests.Editor
         }
 
         [Test]
+        public void PlayScene_HasOneLanguageSwitchThatStartsInChinese()
+        {
+            WithScene(PlayScenePath, scene =>
+            {
+                List<PlayLanguageSwitch> switches = ComponentsIn<PlayLanguageSwitch>(scene);
+                Assert.AreEqual(1, switches.Count);
+                Assert.AreEqual(PlayLanguage.Chinese, switches[0].DefaultLanguage);
+            });
+        }
+
+        [Test]
+        public void SavedPlayScene_HoldsNoTextMeshOrFont()
+        {
+            // 字体是运行时按名字找的系统字体；存进 scene 就会变成丢失的引用。
+            WithScene(PlayScenePath, scene => Assert.AreEqual(0, ComponentsIn<TextMesh>(scene).Count));
+        }
+
+        [Test]
         public void TrainingAndEvalScenes_HaveNoFrameRateLimiter()
         {
             WithScene(TrainingScenePath, scene => Assert.AreEqual(0, ComponentsIn<FrameRateLimiter>(scene).Count, "Training"));

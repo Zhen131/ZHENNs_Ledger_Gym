@@ -34,6 +34,9 @@ namespace Gym.Editor
             EditorSceneManager.OpenScene(GymSceneBuilder.PlayScenePath, OpenSceneMode.Single);
             var chart = Object.FindFirstObjectByType<CandleChartView>();
             chart.Draw(env);
+            var language = Object.FindFirstObjectByType<PlayLanguageSwitch>();
+            language.Redraw();
+            Debug.Log($"[Gym] font {PlayFont.ChosenName}, label bounds {language.Label.GetComponent<MeshRenderer>().bounds}");
             byte[] png = RenderToPng(Camera.main, 1600, 900);
 
             Directory.CreateDirectory("Logs");

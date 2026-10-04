@@ -159,6 +159,7 @@ namespace Gym.Editor
 
             // 只有 Play scene 限帧；Training、Eval scene 不挂它。
             new GameObject("FrameRateLimiter").AddComponent<FrameRateLimiter>();
+            new GameObject("Language").AddComponent<PlayLanguageSwitch>();
 
             AssetFolders.Ensure(Path.GetDirectoryName(PlayScenePath));
             EditorSceneManager.SaveScene(scene, PlayScenePath);
