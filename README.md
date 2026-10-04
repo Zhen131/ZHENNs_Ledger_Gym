@@ -36,7 +36,7 @@ unity/Builds/mac/GymEval.app/Contents/MacOS/ZHENN_Ledger_Gym -batchmode -nograph
 python scripts/eval/summarize.py evaluations/smoke/log.csv
 ```
 
-To play by hand, open the project in Unity (the `unity/` folder), open `Assets/Gym/Scenes/Play.unity` and press Play. Click into the Game view, then: `1`–`4` pick 10 / 25 / 50 / 100 %, `B` buys, `S` sells, `H` or Space holds (each key moves one candle), `P` toggles auto-play, `R` restarts.
+To play by hand, open the project in Unity (the `unity/` folder), open `Assets/Gym/Scenes/Play.unity`, set the Game view's aspect ratio to 16:9 and press Play. Click into the Game view, then: `1`–`4` pick 10 / 25 / 50 / 100 %, `B` buys, `S` sells, `H` or Space holds (each key moves one candle), `P` toggles auto-play, `R` restarts, and `L` or the button in the top-left corner switches the on-screen text between Chinese (the default) and English. The top-left panel shows the readings; the chart has a price scale on the right and a date under every UTC midnight; the pocket in the bottom-left shows the cash and the unrealized and realized profit and loss, and a filled buy floats a red `-$amount` up out of it while a filled sell drops a green `+$amount` in. The scene runs at 30 frames per second (`FrameRateLimiter` in the scene; set 60 there for smoother motion).
 
 ## Repository layout
 
@@ -44,7 +44,7 @@ To play by hand, open the project in Unity (the `unity/` folder), open `Assets/G
 | --- | --- |
 | `unity/` | The Unity project; open this folder in Unity |
 | `unity/Assets/Gym/Core/` | `Gym.Core`: the trading environment in plain C# (no UnityEngine), one folder and namespace per concept: `Market/` (candles, symbol rules, splits: `CandleSeries`, `SymbolRules`, `SegmentSpec`, `SplitValidator`), `Accounting/` (account and fees: `Account`, `CostModel`), `Env/` (actions and mask, observation, reward, episode, seeds: `TradingEnv`, `TradeAction`, `ActionCodec`, `ObservationBuilder`, `RewardFunction`, `SeedMixer`), `Evaluation/` (metrics, baselines, evaluation log: `Metrics`, `Baselines`, `EvaluationLog`, `JsonWriter`) |
-| `unity/Assets/Gym/Runtime/` | `Gym.Runtime`: `Agents/` (`TradingAgent`, the ML-Agents agent around `TradingEnv`, and `EpisodeStats`), `Configuration/` (config loading: `GymConfigLoader`, `GymDataCache`), `Evaluation/` (the evaluation runner `EvalRunner`), `Play/` (the Play scene views: `PlayController`, `HudView`, `CandleChartView`) |
+| `unity/Assets/Gym/Runtime/` | `Gym.Runtime`: `Agents/` (`TradingAgent`, the ML-Agents agent around `TradingEnv`, and `EpisodeStats`), `Configuration/` (config loading: `GymConfigLoader`, `GymDataCache`), `Evaluation/` (the evaluation runner `EvalRunner`), `Play/` (the Play scene: `PlayController`; the views `HudView`, `CandleChartView`, `WalletView`, `PlayLanguageSwitch`, `FrameRateLimiter`; the text table `PlayText` and the system font lookup `PlayFont`; the pure helpers `HudReadout`, `PriceScale`, `TimeAxis`, `MoneyText`, `FloatingAmount`; the drawing helpers `WorldText`, `ShapeLayer`, `ColoredMeshBuilder`, `PocketShape`, `PlayLayout`, `PlayPalette`) |
 | `unity/Assets/Gym/Editor/` | `BuildScript` (training and evaluation players), `EvalTools` (baseline evaluation), `GymSceneBuilder` (scene builder), `PlayChecklist` and `PlaySnapshot` (Play checklist and snapshot tools) |
 | `unity/Assets/Gym/Scenes/` | `Training` (16 agents), `Play` (keyboard), `Eval` (one agent plus the runner) |
 | `unity/Assets/Gym/Prefabs/` | `TradingAgent.prefab`; its observations and actions are in [docs/architecture.md](docs/architecture.md) |
