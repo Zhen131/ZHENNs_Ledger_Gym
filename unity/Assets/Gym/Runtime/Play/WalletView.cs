@@ -179,7 +179,8 @@ namespace Gym.Runtime.Play
             floatLabel.gameObject.SetActive(true);
         }
 
-        void ClearFloat()
+        /// <summary>马上收掉正在飘的那条。</summary>
+        public void ClearFloat()
         {
             ActiveFloat = null;
             if (floatLabel != null) floatLabel.gameObject.SetActive(false);
@@ -191,7 +192,8 @@ namespace Gym.Runtime.Play
             text.color = MoneyText.IsGainOrZero(value) ? PlayPalette.Gain : PlayPalette.Loss;
         }
 
-        void DrawLabels()
+        /// <summary>按当前语言写口袋上和旁边的名字。</summary>
+        public void DrawLabels()
         {
             if (caption == null) return;
             PlayLanguage lang = CurrentLanguage;

@@ -12,7 +12,7 @@ namespace Gym.Tests.Runtime.Play
 {
     public class HudReadoutTests
     {
-        static readonly Regex Chinese = new Regex(@"[㐀-鿿]");
+        static readonly Regex Chinese = new Regex(@"[\u3400-\u9FFF]");
 
         /// <summary>改成两种语言之前，面板上每一行左边的英文名字（"Trades … Rejected" 那一行现在拆成两行）。</summary>
         static readonly string[] OldEnglishLabels =

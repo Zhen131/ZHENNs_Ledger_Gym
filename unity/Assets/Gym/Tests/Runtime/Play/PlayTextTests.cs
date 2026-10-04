@@ -8,7 +8,7 @@ namespace Gym.Tests.Runtime.Play
 {
     public class PlayTextTests
     {
-        static readonly Regex Chinese = new Regex(@"[㐀-鿿]");
+        static readonly Regex Chinese = new Regex(@"[\u3400-\u9FFF]");
 
         static PlayTextKey[] AllKeys => (PlayTextKey[])Enum.GetValues(typeof(PlayTextKey));
 
