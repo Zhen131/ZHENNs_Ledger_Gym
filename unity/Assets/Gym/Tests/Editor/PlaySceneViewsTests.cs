@@ -1,0 +1,52 @@
+using System.Collections.Generic;
+using System.Linq;
+using Gym.Runtime.Play;
+using NUnit.Framework;
+using UnityEditor.SceneManagement;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+
+namespace Gym.Tests.Editor
+{
+    /// <summary>Play scene 上那些只给人看的组件：挂在哪、挂了几个、默认值是什么。</summary>
+    public class PlaySceneViewsTests
+    {
+        const string TrainingScenePath = "Assets/Gym/Scenes/Training.unity";
+        const string PlayScenePath = "Assets/Gym/Scenes/Play.unity";
+        const string EvalScenePath = "Assets/Gym/Scenes/Eval.unity";
+
+        static List<T> ComponentsIn<T>(Scene scene) where T : Component =>
+            scene.GetRootGameObjects().SelectMany(g => g.GetComponentsInChildren<T>(true)).ToList();
+
+        static void WithScene(string path, System.Action<Scene> check)
+        {
+            Scene scene = EditorSceneManager.OpenScene(path, OpenSceneMode.Additive);
+            try
+            {
+                check(scene);
+            }
+            finally
+            {
+                EditorSceneManager.CloseScene(scene, true);
+            }
+        }
+
+        [Test]
+        public void PlayScene_HasOneFrameRateLimiterAtThirtyFramesPerSecond()
+        {
+            WithScene(PlayScenePath, scene =>
+            {
+                List<FrameRateLimiter> limiters = ComponentsIn<FrameRateLimiter>(scene);
+                Assert.AreEqual(1, limiters.Count);
+                Assert.AreEqual(30, limiters[0].TargetFrameRate);
+            });
+        }
+
+        [Test]
+        public void TrainingAndEvalScenes_HaveNoFrameRateLimiter()
+        {
+            WithScene(TrainingScenePath, scene => Assert.AreEqual(0, ComponentsIn<FrameRateLimiter>(scene).Count, "Training"));
+            WithScene(EvalScenePath, scene => Assert.AreEqual(0, ComponentsIn<FrameRateLimiter>(scene).Count, "Eval"));
+        }
+    }
+}

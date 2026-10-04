@@ -157,6 +157,9 @@ namespace Gym.Editor
 
             AddCandleChart(agent, chartMaterial);
 
+            // 只有 Play scene 限帧；Training、Eval scene 不挂它。
+            new GameObject("FrameRateLimiter").AddComponent<FrameRateLimiter>();
+
             AssetFolders.Ensure(Path.GetDirectoryName(PlayScenePath));
             EditorSceneManager.SaveScene(scene, PlayScenePath);
         }
