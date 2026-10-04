@@ -151,15 +151,17 @@ namespace Gym.Editor
             var controller = new GameObject("PlayController").AddComponent<PlayController>();
             controller.Agent = agent;
 
+            var language = new GameObject("Language").AddComponent<PlayLanguageSwitch>();
+
             var hud = new GameObject("HUD").AddComponent<HudView>();
             hud.Agent = agent;
             hud.Controller = controller;
+            hud.Language = language;
 
             AddCandleChart(agent, chartMaterial);
 
             // 只有 Play scene 限帧；Training、Eval scene 不挂它。
             new GameObject("FrameRateLimiter").AddComponent<FrameRateLimiter>();
-            new GameObject("Language").AddComponent<PlayLanguageSwitch>();
 
             AssetFolders.Ensure(Path.GetDirectoryName(PlayScenePath));
             EditorSceneManager.SaveScene(scene, PlayScenePath);

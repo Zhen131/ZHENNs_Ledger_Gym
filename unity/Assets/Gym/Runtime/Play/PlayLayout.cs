@@ -15,7 +15,7 @@ namespace Gym.Runtime.Play
         public static readonly Rect LanguageButton = Rect.MinMaxRect(-8.75f, 4.40f, -5.70f, 4.86f);
 
         /// <summary>左上：读数面板。</summary>
-        public static readonly Rect Readout = Rect.MinMaxRect(-8.75f, 0.70f, -3.05f, 4.28f);
+        public static readonly Rect Readout = Rect.MinMaxRect(-8.75f, -0.70f, -3.05f, 4.28f);
 
         /// <summary>左下：口袋、盈亏两行，以及口袋上方飘字走的那一段。</summary>
         public static readonly Rect Wallet = Rect.MinMaxRect(-8.75f, -4.86f, -3.05f, -0.90f);

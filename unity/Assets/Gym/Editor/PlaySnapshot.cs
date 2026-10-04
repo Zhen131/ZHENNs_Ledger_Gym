@@ -36,6 +36,8 @@ namespace Gym.Editor
             chart.Draw(env);
             var language = Object.FindFirstObjectByType<PlayLanguageSwitch>();
             language.Redraw();
+            var hud = Object.FindFirstObjectByType<HudView>();
+            hud.Show(HudView.Capture(env, true, TradeAction.Hold, 0.25, false));
             Debug.Log($"[Gym] font {PlayFont.ChosenName}, label bounds {language.Label.GetComponent<MeshRenderer>().bounds}");
             byte[] png = RenderToPng(Camera.main, 1600, 900);
 
