@@ -19,6 +19,7 @@ using Unity.MLAgents;
 using Unity.MLAgents.Policies;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using Object = UnityEngine.Object;
@@ -67,17 +68,38 @@ namespace Gym.Tests.PlayMode
 
         static WatchController Controller => Object.FindFirstObjectByType<WatchController>();
 
-        /// <summary>按路径加载 Watch scene，等它挂上模型、开始观战；把播放的时钟交给测试。</summary>
+        /// <summary>
+        /// 按路径加载 Watch scene，等它挂上模型、开始观战；播放的时钟一开始就归测试管。
+        /// 时钟要在 sceneLoaded 里接手：Unity 在新 scene 的 Awake、OnEnable 之后、第一次 Start 和 Update 之前调它。
+        /// 等加载完再接手就晚了：控制器开始观战的那一帧要读模型、初始化 Agent，冷启动时这一帧有 0.4 秒，
+        /// 它自己的 Update 按真实时间算，会在测试接手之前先走一步。
+        /// </summary>
         static IEnumerator LoadWatchScene()
         {
-            yield return EditorSceneManager.LoadSceneAsyncInPlayMode(WatchScenePath, new LoadSceneParameters(LoadSceneMode.Single));
+            UnityAction<Scene, LoadSceneMode> takeTheClock = (scene, mode) =>
+            {
+                foreach (GameObject root in scene.GetRootGameObjects())
+                foreach (WatchController c in root.GetComponentsInChildren<WatchController>(true))
+                    c.ManualClock = true;
+            };
+            SceneManager.sceneLoaded += takeTheClock;
+            try
+            {
+                yield return EditorSceneManager.LoadSceneAsyncInPlayMode(WatchScenePath, new LoadSceneParameters(LoadSceneMode.Single));
+            }
+            finally
+            {
+                SceneManager.sceneLoaded -= takeTheClock;
+            }
             yield return null;
             yield return null;
             WatchController controller = Controller;
             Assert.IsNotNull(controller);
+            Assert.IsTrue(controller.ManualClock, "the test holds the clock from before the controller's first Update");
             Assert.IsTrue(controller.IsWatching, "the remembered model was attached and the agent switched on");
+            Assert.AreEqual(0, controller.Playback.StepsTaken, "no step before the test took over");
+            Assert.AreEqual(0, controller.Agent.Env.StepCount, "the agent is still on the segment's first candle");
             Assert.IsFalse(Academy.Instance.IsCommunicatorOn, "no mlagents-learn may be running: the editor would connect to it");
-            controller.ManualClock = true;
         }
 
         /// <summary>暂停后一步一步走到段尾，每 500 步让一帧（和评估包一样不限速）。</summary>
