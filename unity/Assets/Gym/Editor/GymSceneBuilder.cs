@@ -160,6 +160,10 @@ namespace Gym.Editor
 
             AddCandleChart(agent, chartMaterial);
 
+            var wallet = new GameObject("Wallet").AddComponent<WalletView>();
+            wallet.Agent = agent;
+            wallet.Language = language;
+
             // 只有 Play scene 限帧；Training、Eval scene 不挂它。
             new GameObject("FrameRateLimiter").AddComponent<FrameRateLimiter>();
 

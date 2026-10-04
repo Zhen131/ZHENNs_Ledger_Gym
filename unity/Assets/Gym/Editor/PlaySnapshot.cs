@@ -38,6 +38,10 @@ namespace Gym.Editor
             language.Redraw();
             var hud = Object.FindFirstObjectByType<HudView>();
             hud.Show(HudView.Capture(env, true, TradeAction.Hold, 0.25, false));
+            var wallet = Object.FindFirstObjectByType<WalletView>();
+            wallet.Show(env.Account.Cash, env.Account.UnrealizedPnl(env.CurrentClose), env.Account.RealizedPnl);
+            wallet.StartFloat(TradeAction.Buy, 2500.0);
+            wallet.Advance(wallet.FloatSeconds / 2);
             Debug.Log($"[Gym] font {PlayFont.ChosenName}, label bounds {language.Label.GetComponent<MeshRenderer>().bounds}");
             byte[] png = RenderToPng(Camera.main, 1600, 900);
 

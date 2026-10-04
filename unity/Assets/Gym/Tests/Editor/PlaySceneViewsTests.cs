@@ -68,6 +68,21 @@ namespace Gym.Tests.Editor
         }
 
         [Test]
+        public void PlayScene_HasOneWalletAndOneReadoutWiredToTheAgentAndTheLanguageSwitch()
+        {
+            WithScene(PlayScenePath, scene =>
+            {
+                PlayLanguageSwitch language = ComponentsIn<PlayLanguageSwitch>(scene)[0];
+                Gym.Runtime.Agents.TradingAgent agent = ComponentsIn<Gym.Runtime.Agents.TradingAgent>(scene)[0];
+                List<WalletView> wallets = ComponentsIn<WalletView>(scene);
+                Assert.AreEqual(1, wallets.Count);
+                Assert.AreSame(agent, wallets[0].Agent);
+                Assert.AreSame(language, wallets[0].Language);
+                Assert.AreSame(language, ComponentsIn<HudView>(scene)[0].Language);
+            });
+        }
+
+        [Test]
         public void SavedPlayScene_HoldsNoTextMeshOrFont()
         {
             // 字体是运行时按名字找的系统字体；存进 scene 就会变成丢失的引用。
