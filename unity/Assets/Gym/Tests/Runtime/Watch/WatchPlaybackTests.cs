@@ -91,7 +91,7 @@ namespace Gym.Tests.Runtime.Watch
 
         /// <summary>
         /// 在速度 S 下按 1/30 秒一帧拨过 T 秒，走 S × T 步。每帧欠的步数带着小数往下攒，总数是 S × T 向下取整
-        /// （差一点点就够一步的也算够，抵掉小数相加的舍入误差）；合同允许边界上差一步，这里另外查实际没有差。
+        /// （差一点点就够一步的也算够，抵掉小数相加的舍入误差）。差一步以内就算按时；这里另外查了实际一步都不差。
         /// </summary>
         [Test]
         public void AtEverySpeed_TheClockGivesSpeedTimesSecondsSteps()
