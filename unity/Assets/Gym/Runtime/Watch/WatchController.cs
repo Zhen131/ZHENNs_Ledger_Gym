@@ -10,8 +10,9 @@ namespace Gym.Runtime.Watch
 {
     /// <summary>
     /// Watch scene：让训练好的模型来开试玩那套画面。Agent 在 scene 里默认不激活（只推理又没有模型时，ML-Agents
-    /// 一启用就抛异常）；模型挂上以后，<see cref="StartWatching"/> 设好分段和费用、关掉自动步进，再激活 Agent。
-    /// 之后按自己的时钟一步一步推，走法和评估包一样。
+    /// 一启用就抛异常）。开场时按 <see cref="WatchModelMemory"/> 记住的模型，请 <see cref="ModelSource"/> 把它挂到
+    /// Agent 上；挂上了就 <see cref="StartWatching"/>：设好分段和费用、关掉自动步进，再激活 Agent。没有模型就在
+    /// 画面上说去点哪个菜单，Agent 一直不激活，日志里没有错误。之后按自己的时钟一步一步推，走法和评估包一样。
     ///
     /// P 暂停和继续；暂停时 N 走一步；[ 和 ] 在 <see cref="StepsPerSecondChoices"/> 里调慢、调快；R 回到段首重来；
     /// L（或左上角的按钮）切换语言，由 <see cref="PlayLanguageSwitch"/> 管。读数面板最下面写观战自己的按键和状态。
@@ -44,6 +45,9 @@ namespace Gym.Runtime.Watch
 
         AgentWatchTarget target;
 
+        /// <summary>按记录把模型挂到 Agent 上的那个东西；editor 加载时登记，打出来的包里为 null。</summary>
+        public static IWatchModelSource ModelSource { get; set; }
+
         public TradingAgent Agent { get => agent; set => agent = value; }
         public PlayLanguageSwitch Language { get => language; set => language = value; }
         public HudView Hud { get => hud; set => hud = value; }
@@ -66,9 +70,42 @@ namespace Gym.Runtime.Watch
         /// <summary>为 true 时 Update 不拨播放的时钟，只有测试和截图工具拨它（按键照样处理）。</summary>
         public bool ManualClock { get; set; }
 
+        /// <summary>正在看的模型（记录里的 asset 路径）；没有模型时为 null。</summary>
+        public string ModelAsset { get; private set; }
+
         void Awake()
         {
             if (hud != null) hud.Controls = this;
+        }
+
+        void Start()
+        {
+            WatchModelRecord record = WatchModelMemory.Read();
+            if (record == null)
+            {
+                ShowNoModel();
+                return;
+            }
+            if (ModelSource == null)
+            {
+                Debug.LogWarning("[Gym] the Watch scene can only attach a model inside the Unity editor");
+                ShowNoModel();
+                return;
+            }
+            if (!ModelSource.TryAttach(agent, record.model_asset, out string problem))
+            {
+                Debug.LogWarning("[Gym] " + problem);
+                ShowNoModel();
+                return;
+            }
+            ModelAsset = record.model_asset;
+            Debug.Log($"[Gym] watching {record.model_asset} (chosen from {record.source_file}) on the {segment} segment");
+            StartWatching();
+        }
+
+        void ShowNoModel()
+        {
+            if (notice != null) notice.Show(WatchNoticeKind.NoModel);
         }
 
         /// <summary>

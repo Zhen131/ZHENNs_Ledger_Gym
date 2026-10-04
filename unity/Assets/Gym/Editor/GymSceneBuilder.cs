@@ -25,6 +25,8 @@ namespace Gym.Editor
         public const string TrainingScenePath = "Assets/Gym/Scenes/Training.unity";
         public const string PlayScenePath = "Assets/Gym/Scenes/Play.unity";
         public const string EvalScenePath = "Assets/Gym/Scenes/Eval.unity";
+        /// <summary>观战：不进打包清单，只在 editor 里用。</summary>
+        public const string WatchScenePath = "Assets/Gym/Scenes/Watch.unity";
         public const string ChartMaterialPath = "Assets/Gym/Materials/CandleChart.mat";
         public const int TrainingAgentCount = 16;
 

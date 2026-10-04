@@ -100,8 +100,8 @@ namespace Gym.Editor
             return (modelPath, runId);
         }
 
-        /// <summary>把 ONNX 复制成 Imported/&lt;run-id&gt;.onnx 并导入。</summary>
-        static ModelAsset ImportModel(string modelPath, string runId)
+        /// <summary>把 ONNX 复制成 Imported/&lt;run-id&gt;.onnx 并导入。打评估包和观战选模型都走这里。</summary>
+        public static ModelAsset ImportModel(string modelPath, string runId)
         {
             AssetFolders.Ensure(ImportedModelsFolder);
             string modelAssetPath = $"{ImportedModelsFolder}/{runId}.onnx";
@@ -123,13 +123,19 @@ namespace Gym.Editor
             if (agents.Length != 1) throw new InvalidOperationException($"{scenePath} has {agents.Length} agents, expected 1");
             var behavior = agents[0].GetComponent<BehaviorParameters>();
             behavior.Model = model;
-            behavior.BehaviorType = BehaviorType.InferenceOnly;
-            behavior.DeterministicInference = true;
-            behavior.InferenceDevice = InferenceDevice.Burst;
+            UseEvaluationInference(behavior);
             PrefabUtility.RecordPrefabInstancePropertyModifications(behavior);
             EditorSceneManager.MarkSceneDirty(scene);
             if (!EditorSceneManager.SaveScene(scene)) throw new InvalidOperationException($"could not save {scenePath}");
             return scenePath;
+        }
+
+        /// <summary>评估包的推理设置：Inference Only、确定性、CPU/Burst。Watch scene 也用这一份，两边一样。</summary>
+        public static void UseEvaluationInference(BehaviorParameters behavior)
+        {
+            behavior.BehaviorType = BehaviorType.InferenceOnly;
+            behavior.DeterministicInference = true;
+            behavior.InferenceDevice = InferenceDevice.Burst;
         }
 
         /// <summary>把 run id 和模型的 SHA-256 写进包里的 StreamingAssets/Gym/build-info.json；返回这个文件的路径。</summary>
