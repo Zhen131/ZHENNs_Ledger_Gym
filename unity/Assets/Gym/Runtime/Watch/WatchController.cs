@@ -137,6 +137,10 @@ namespace Gym.Runtime.Watch
             if (!ManualClock) Playback.Advance(Time.unscaledDeltaTime);
         }
 
+        /// <summary>
+        /// 离开时不把 Academy 的自动步进打开：打开它会新建一个物体，卸载 scene 的途中新建物体 Unity 会报错。
+        /// 观战只在 editor 里用，退出播放时 Academy 本来就没了。
+        /// </summary>
         void OnDestroy()
         {
             if (Playback != null)
@@ -146,7 +150,6 @@ namespace Gym.Runtime.Watch
                 Playback.Dispose();
             }
             target?.Dispose();
-            if (IsWatching && Academy.IsInitialized) Academy.Instance.AutomaticSteppingEnabled = true;
         }
 
         void SetViewsFrozen(bool frozen)
