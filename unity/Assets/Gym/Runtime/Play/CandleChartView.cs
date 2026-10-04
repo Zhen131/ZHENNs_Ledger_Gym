@@ -10,11 +10,18 @@ namespace Gym.Runtime.Play
     /// <summary>
     /// 把截止到当前这根的最后 64 根 candle 画成一个按顶点着色的 mesh：实体和影线，涨为绿、跌为红；
     /// 在订单成交的那根 candle 上，买入在下方画 ▲，卖出在上方画 ▼。
+    /// 底下垫着价格刻度的横线（右边标价格）和每个 UTC 0 点的竖线（下面标「月-日」），可见范围变了就重算。
     /// </summary>
     [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
     public class CandleChartView : MonoBehaviour
     {
         public const int VisibleCandles = 64;
+        public const int DefaultPriceLines = 5;
+
+        const float LabelSize = 0.17f;
+        const float GridLineThickness = 0.012f;
+        /// <summary>价格数字离图表右边、日期离图表下边的距离。</summary>
+        const float LabelGap = 0.10f;
 
         [SerializeField] TradingAgent agent;
         [SerializeField] float width = 16f;
@@ -23,10 +30,14 @@ namespace Gym.Runtime.Play
         [SerializeField] Color downColor = new Color(0.90f, 0.28f, 0.28f);
         [SerializeField] Color buyColor = new Color(0.30f, 0.65f, 1.00f);
         [SerializeField] Color sellColor = new Color(1.00f, 0.75f, 0.20f);
+        [Tooltip("How many price lines to aim for; the 1-2-5 steps make the real count vary around it.")]
+        [SerializeField] int desiredPriceLines = DefaultPriceLines;
 
-        readonly List<Vector3> vertices = new List<Vector3>();
-        readonly List<Color> colors = new List<Color>();
-        readonly List<int> triangles = new List<int>();
+        readonly ColoredMeshBuilder shapes = new ColoredMeshBuilder();
+        readonly List<TextMesh> priceLabels = new List<TextMesh>();
+        readonly List<TextMesh> timeLabels = new List<TextMesh>();
+        readonly List<string> drawnPriceLabels = new List<string>();
+        readonly List<DateTime> visibleTimes = new List<DateTime>();
         Mesh mesh;
 
         public TradingAgent Agent
@@ -35,8 +46,36 @@ namespace Gym.Runtime.Play
             set => agent = value;
         }
 
+        public float Width
+        {
+            get => width;
+            set => width = value;
+        }
+
+        public float Height
+        {
+            get => height;
+            set => height = value;
+        }
+
+        public int DesiredPriceLines
+        {
+            get => desiredPriceLines;
+            set => desiredPriceLines = value;
+        }
+
         public int DrawnCandles { get; private set; }
         public int DrawnMarkers { get; private set; }
+
+        /// <summary>纵轴的上下限（可见 candle 的最低、最高价各留了一点边距）。</summary>
+        public double VisibleLow { get; private set; }
+        public double VisibleHigh { get; private set; }
+        /// <summary>最旧那根可见 candle 的下标。</summary>
+        public int FirstVisibleIndex { get; private set; }
+
+        public PriceTicks DrawnPriceTicks { get; private set; }
+        public IReadOnlyList<string> DrawnPriceLabels => drawnPriceLabels;
+        public IReadOnlyList<TimeLabel> DrawnTimeLabels { get; private set; } = Array.Empty<TimeLabel>();
 
         void Awake() => EnsureMesh();
 
@@ -75,14 +114,21 @@ namespace Gym.Runtime.Play
             int last = env.CurrentIndex;
             int first = Math.Max(0, last - VisibleCandles + 1);
             (double low, double high) = PriceRange(series, first, last);
+            FirstVisibleIndex = first;
+            VisibleLow = low;
+            VisibleHigh = high;
+            DrawnPriceTicks = PriceScale.Compute(low, high, desiredPriceLines);
+            DrawnTimeLabels = TimeAxis.Pick(VisibleTimes(series, first, last));
 
-            vertices.Clear();
-            colors.Clear();
-            triangles.Clear();
+            shapes.Clear();
+            AddPriceLines(low, high);
+            AddMidnightLines();
             AddCandles(series, first, last, low, high);
             DrawnCandles = last - first + 1;
             AddTradeMarkers(env, first, last, low, high);
-            UploadMesh();
+            shapes.Upload(mesh);
+            PlacePriceLabels(low, high);
+            PlaceTimeLabels();
         }
 
         float SlotWidth => width / VisibleCandles;
@@ -103,22 +149,52 @@ namespace Gym.Runtime.Play
             return (low, high);
         }
 
+        List<DateTime> VisibleTimes(CandleSeries series, int first, int last)
+        {
+            visibleTimes.Clear();
+            for (int i = first; i <= last; i++) visibleTimes.Add(series.OpenTimeUtc(i));
+            return visibleTimes;
+        }
+
         float PriceToY(double price, double low, double high) => (float)((price - low) / (high - low) * height - height / 2);
+
+        float CandleX(int offset) => LeftEdge + (offset + 0.5f) * SlotWidth;
+
+        /// <summary>价格刻度的横线，先画，这样 candle 压在线上面。</summary>
+        void AddPriceLines(double low, double high)
+        {
+            float half = GridLineThickness / 2;
+            foreach (double price in DrawnPriceTicks.Values)
+            {
+                float y = PriceToY(price, low, high);
+                shapes.AddQuad(LeftEdge, y - half, -LeftEdge, y + half, PlayPalette.GridLine);
+            }
+        }
+
+        /// <summary>每个 UTC 0 点一条竖线，对着下面的日期。</summary>
+        void AddMidnightLines()
+        {
+            float half = GridLineThickness / 2;
+            foreach (TimeLabel label in DrawnTimeLabels)
+            {
+                float x = CandleX(label.Offset);
+                shapes.AddQuad(x - half, -height / 2, x + half, height / 2, PlayPalette.GridLine);
+            }
+        }
 
         void AddCandles(CandleSeries series, int first, int last, double low, double high)
         {
             float slot = SlotWidth;
-            float left = LeftEdge;
             for (int i = first; i <= last; i++)
             {
                 Candle c = series[i];
-                float x = left + (i - first + 0.5f) * slot;
+                float x = CandleX(i - first);
                 Color color = c.Close >= c.Open ? upColor : downColor;
                 float top = PriceToY(Math.Max(c.Open, c.Close), low, high);
                 float bottom = PriceToY(Math.Min(c.Open, c.Close), low, high);
                 if (top - bottom < 0.02f) top = bottom + 0.02f;
-                AddQuad(x - slot * 0.06f, PriceToY(c.Low, low, high), x + slot * 0.06f, PriceToY(c.High, low, high), color);
-                AddQuad(x - slot * 0.32f, bottom, x + slot * 0.32f, top, color);
+                shapes.AddQuad(x - slot * 0.06f, PriceToY(c.Low, low, high), x + slot * 0.06f, PriceToY(c.High, low, high), color);
+                shapes.AddQuad(x - slot * 0.32f, bottom, x + slot * 0.32f, top, color);
             }
         }
 
@@ -126,63 +202,68 @@ namespace Gym.Runtime.Play
         void AddTradeMarkers(TradingEnv env, int first, int last, double low, double high)
         {
             float slot = SlotWidth;
-            float left = LeftEdge;
             CandleSeries series = env.Series;
             DrawnMarkers = 0;
             foreach (TradeRecord trade in env.Trades)
             {
                 if (trade.CandleIndex < first || trade.CandleIndex > last) continue;
-                float x = left + (trade.CandleIndex - first + 0.5f) * slot;
+                float x = CandleX(trade.CandleIndex - first);
                 float size = slot * 0.45f;
                 if (trade.Side == TradeAction.Buy)
                 {
                     float tip = PriceToY(series[trade.CandleIndex].Low, low, high) - 0.08f;
-                    AddTriangle(new Vector3(x, tip), new Vector3(x - size, tip - size * 1.4f), new Vector3(x + size, tip - size * 1.4f), buyColor);
+                    shapes.AddTriangle(new Vector3(x, tip), new Vector3(x - size, tip - size * 1.4f), new Vector3(x + size, tip - size * 1.4f), buyColor);
                 }
                 else
                 {
                     float tip = PriceToY(series[trade.CandleIndex].High, low, high) + 0.08f;
-                    AddTriangle(new Vector3(x, tip), new Vector3(x + size, tip + size * 1.4f), new Vector3(x - size, tip + size * 1.4f), sellColor);
+                    shapes.AddTriangle(new Vector3(x, tip), new Vector3(x + size, tip + size * 1.4f), new Vector3(x - size, tip + size * 1.4f), sellColor);
                 }
                 DrawnMarkers++;
             }
         }
 
-        void UploadMesh()
+        /// <summary>每条横线的右边写价格，带千分位。</summary>
+        void PlacePriceLabels(double low, double high)
         {
-            mesh.Clear();
-            mesh.SetVertices(vertices);
-            mesh.SetColors(colors);
-            mesh.SetTriangles(triangles, 0);
-            mesh.RecalculateBounds();
+            IReadOnlyList<double> prices = DrawnPriceTicks.Values;
+            drawnPriceLabels.Clear();
+            for (int i = 0; i < prices.Count; i++)
+            {
+                string text = PriceScale.Label(prices[i], DrawnPriceTicks.Step);
+                drawnPriceLabels.Add(text);
+                Vector3 at = transform.TransformPoint(new Vector3(width / 2 + LabelGap, PriceToY(prices[i], low, high)));
+                ShowLabel(priceLabels, i, "Price label", at, TextAnchor.MiddleLeft, text);
+            }
+            HideFrom(priceLabels, prices.Count);
         }
 
-        void AddQuad(float x0, float y0, float x1, float y1, Color color)
+        /// <summary>每个 UTC 0 点的 candle 下面写「月-日」。</summary>
+        void PlaceTimeLabels()
         {
-            int start = vertices.Count;
-            vertices.Add(new Vector3(x0, y0));
-            vertices.Add(new Vector3(x0, y1));
-            vertices.Add(new Vector3(x1, y1));
-            vertices.Add(new Vector3(x1, y0));
-            for (int k = 0; k < 4; k++) colors.Add(color);
-            triangles.Add(start);
-            triangles.Add(start + 1);
-            triangles.Add(start + 2);
-            triangles.Add(start);
-            triangles.Add(start + 2);
-            triangles.Add(start + 3);
+            for (int i = 0; i < DrawnTimeLabels.Count; i++)
+            {
+                TimeLabel label = DrawnTimeLabels[i];
+                Vector3 at = transform.TransformPoint(new Vector3(CandleX(label.Offset), -height / 2 - LabelGap));
+                ShowLabel(timeLabels, i, "Time label", at, TextAnchor.UpperCenter, label.Text);
+            }
+            HideFrom(timeLabels, DrawnTimeLabels.Count);
         }
 
-        void AddTriangle(Vector3 corner1, Vector3 corner2, Vector3 corner3, Color color)
+        /// <summary>标签按需要建，多出来的藏起来不删，下次重画接着用。</summary>
+        void ShowLabel(List<TextMesh> pool, int index, string name, Vector3 at, TextAnchor anchor, string text)
         {
-            int start = vertices.Count;
-            vertices.Add(corner1);
-            vertices.Add(corner2);
-            vertices.Add(corner3);
-            for (int k = 0; k < 3; k++) colors.Add(color);
-            triangles.Add(start);
-            triangles.Add(start + 1);
-            triangles.Add(start + 2);
+            if (index == pool.Count)
+                pool.Add(WorldText.Create(transform, $"{name} {index}", at, LabelSize, anchor, PlayPalette.AxisText));
+            TextMesh label = pool[index];
+            label.gameObject.SetActive(true);
+            WorldText.Move(label, at);
+            label.text = text;
+        }
+
+        static void HideFrom(List<TextMesh> pool, int count)
+        {
+            for (int i = count; i < pool.Count; i++) pool[i].gameObject.SetActive(false);
         }
     }
 }

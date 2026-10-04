@@ -54,6 +54,20 @@ namespace Gym.Tests.Editor
         }
 
         [Test]
+        public void PlayScene_ChartFillsItsBoxInTheLayoutWithFivePriceLinesWanted()
+        {
+            WithScene(PlayScenePath, scene =>
+            {
+                CandleChartView chart = ComponentsIn<CandleChartView>(scene)[0];
+                Assert.AreEqual(PlayLayout.Chart.center.x, chart.transform.position.x, 1e-5);
+                Assert.AreEqual(PlayLayout.Chart.center.y, chart.transform.position.y, 1e-5);
+                Assert.AreEqual(PlayLayout.Chart.width, chart.Width, 1e-5);
+                Assert.AreEqual(PlayLayout.Chart.height, chart.Height, 1e-5);
+                Assert.AreEqual(5, chart.DesiredPriceLines);
+            });
+        }
+
+        [Test]
         public void SavedPlayScene_HoldsNoTextMeshOrFont()
         {
             // 字体是运行时按名字找的系统字体；存进 scene 就会变成丢失的引用。

@@ -179,13 +179,18 @@ namespace Gym.Editor
             camera.transform.position = new Vector3(0, 0, -10);
         }
 
+        /// <summary>图表放在 <see cref="PlayLayout.Chart"/> 那个框里，给左边的面板和右边、下边的刻度让地方。</summary>
         static void AddCandleChart(TradingAgent agent, Material chartMaterial)
         {
+            Rect area = PlayLayout.Chart;
             var chartObject = new GameObject("CandleChart");
-            chartObject.transform.position = new Vector3(0, -1.4f, 0);
+            chartObject.transform.position = new Vector3(area.center.x, area.center.y, 0);
             chartObject.AddComponent<MeshFilter>();
             chartObject.AddComponent<MeshRenderer>().sharedMaterial = chartMaterial;
-            chartObject.AddComponent<CandleChartView>().Agent = agent;
+            var chart = chartObject.AddComponent<CandleChartView>();
+            chart.Agent = agent;
+            chart.Width = area.width;
+            chart.Height = area.height;
         }
 
         public static void SetBuildScenes()

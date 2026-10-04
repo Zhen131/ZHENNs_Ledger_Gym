@@ -34,10 +34,29 @@ namespace Gym.Tests.PlayMode
             if (Academy.IsInitialized) Academy.Instance.AutomaticSteppingEnabled = true;
         }
 
+        static int emptyScenes;
+
+        /// <summary>
+        /// 换到一个空 scene，把别的都卸掉。前一个测试留下的 Play scene 里也有 limiter，它卸载时会把它自己记下的
+        /// 旧值写回去，盖掉这里设的「之前」的值。
+        /// </summary>
+        static IEnumerator LeaveOnlyAnEmptyScene()
+        {
+            Scene empty = SceneManager.CreateScene($"Empty scene {++emptyScenes} for the frame rate test");
+            SceneManager.SetActiveScene(empty);
+            for (int i = SceneManager.sceneCount - 1; i >= 0; i--)
+            {
+                Scene scene = SceneManager.GetSceneAt(i);
+                if (scene != empty) yield return SceneManager.UnloadSceneAsync(scene);
+            }
+        }
+
         [UnityTest]
         public IEnumerator PlayScene_LimitsTheFrameRateAndRestoresTheOldSettingsWhenDisabledOrUnloaded()
         {
             using var logs = new LogGuard();
+            yield return LeaveOnlyAnEmptyScene();
+            Assert.IsNull(Object.FindFirstObjectByType<FrameRateLimiter>(), "premise: no limiter is loaded");
             Application.targetFrameRate = FrameRateBefore;
             QualitySettings.vSyncCount = VSyncBefore;
             Assert.AreEqual(VSyncBefore, QualitySettings.vSyncCount, "premise: vSync can be set here");
@@ -58,9 +77,7 @@ namespace Gym.Tests.PlayMode
             Assert.AreEqual(limiter.TargetFrameRate, Application.targetFrameRate, "enabled again");
             Assert.AreEqual(0, QualitySettings.vSyncCount, "enabled again");
 
-            Scene play = SceneManager.GetActiveScene();
-            SceneManager.SetActiveScene(SceneManager.CreateScene("Empty scene after Play"));
-            yield return SceneManager.UnloadSceneAsync(play);
+            yield return LeaveOnlyAnEmptyScene();
             Assert.AreEqual(FrameRateBefore, Application.targetFrameRate, "after unloading");
             Assert.AreEqual(VSyncBefore, QualitySettings.vSyncCount, "after unloading");
             logs.AssertNoErrors();
