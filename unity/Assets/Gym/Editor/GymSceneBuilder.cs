@@ -4,6 +4,7 @@ using Gym.Core.Env;
 using Gym.Runtime.Agents;
 using Gym.Runtime.Evaluation;
 using Gym.Runtime.Play;
+using Gym.Runtime.Watch;
 using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
 using Unity.MLAgents.Policies;
@@ -35,7 +36,9 @@ namespace Gym.Editor
         {
             GameObject prefab = BuildAgentPrefab();
             BuildTrainingScene(prefab);
-            BuildPlayScene(prefab, BuildChartMaterial());
+            Material chartMaterial = BuildChartMaterial();
+            BuildPlayScene(prefab, chartMaterial);
+            BuildWatchScene(prefab, chartMaterial);
             BuildEvalScene(prefab);
             SetBuildScenes();
             AssetDatabase.SaveAssets();
@@ -158,6 +161,48 @@ namespace Gym.Editor
 
             AssetFolders.Ensure(Path.GetDirectoryName(PlayScenePath));
             EditorSceneManager.SaveScene(scene, PlayScenePath);
+        }
+
+        /// <summary>
+        /// 观战：和 Play scene 同一套画面，键盘试玩换成 <see cref="WatchController"/>。Agent 照评估包设成只推理、
+        /// 确定性、Burst（<see cref="BuildScript.UseEvaluationInference"/>，两处同一份），但不带模型、默认不激活：
+        /// 只推理又没有模型时，ML-Agents 一启用就抛异常。WatchController 挂上记住的模型以后才激活它。
+        /// 观战只在 editor 里用，不进打包清单。
+        /// </summary>
+        public static void BuildWatchScene(GameObject prefab, Material chartMaterial)
+        {
+            Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            AddChartCamera();
+
+            var agentObject = (GameObject)PrefabUtility.InstantiatePrefab(prefab, scene);
+            agentObject.name = "TradingAgent (Watch)";
+            var agent = agentObject.GetComponent<TradingAgent>();
+            agent.StartMode = AgentStartMode.Evaluation;
+            PrefabUtility.RecordPrefabInstancePropertyModifications(agent);
+            var behavior = agentObject.GetComponent<BehaviorParameters>();
+            BuildScript.UseEvaluationInference(behavior);
+            PrefabUtility.RecordPrefabInstancePropertyModifications(behavior);
+            agentObject.SetActive(false);
+            PrefabUtility.RecordPrefabInstancePropertyModifications(agentObject);
+
+            var controller = new GameObject("WatchController").AddComponent<WatchController>();
+            ScreenViews views = AddScreenViews(agent, chartMaterial);
+            var notice = new GameObject("WatchNotice").AddComponent<WatchNotice>();
+            notice.Language = views.Language;
+
+            controller.Agent = agent;
+            controller.Language = views.Language;
+            controller.Hud = views.Hud;
+            controller.Chart = views.Chart;
+            controller.Wallet = views.Wallet;
+            controller.Avatar = views.Avatar;
+            controller.Notice = notice;
+            controller.FeeRate = agent.DefaultFeeRate;
+            controller.FixedFee = agent.DefaultFixedFee;
+            controller.Slippage = agent.DefaultSlippage;
+
+            AssetFolders.Ensure(Path.GetDirectoryName(WatchScenePath));
+            EditorSceneManager.SaveScene(scene, WatchScenePath);
         }
 
         /// <summary>
