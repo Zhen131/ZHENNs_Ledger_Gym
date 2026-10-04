@@ -6,9 +6,13 @@ How the code is layered and what happens in one step. Paths are relative to `uni
 
 - **Core** (`Core/`, assembly `Gym.Core`): the trading environment in plain C#, in four folders: `Market/`, `Accounting/`, `Env/` and `Evaluation/`. Its assembly definition (`Core/Gym.Core.asmdef`) has an empty `references` list and sets `noEngineReferences: true`, so the core cannot use the Unity engine.
 - **Runtime** (`Runtime/`, assembly `Gym.Runtime`): connects the core to ML-Agents and to the scenes. It references `Gym.Core` and ML-Agents. Its agent, `TradingAgent`, is only a shell around the core's `TradingEnv`: it passes observations, the action mask and actions through, and adds the reward the core computed.
-- **Editor tools** (`Editor/`, assembly `Gym.Editor`): building the players, running the baselines, generating the scenes, the Play checklist and the chart snapshot. It references `Gym.Core`, `Gym.Runtime`, ML-Agents and the inference engine, and is compiled for the Unity editor only.
+- **Editor tools** (`Editor/`, assembly `Gym.Editor`): building the players, running the baselines, generating the scenes, the Play checklist, the Play and Watch snapshots, and the **Gym > Watch a Model...** menu. It references `Gym.Core`, `Gym.Runtime`, ML-Agents and the inference engine, and is compiled for the Unity editor only.
 
 Dependencies point one way: the editor tools use the runtime and the core, the runtime uses the core, and the core uses neither.
+
+## Watching a model
+
+The Watch scene (`Scenes/Watch.unity`) shows a trained model trading on the Play scene's screen. Its agent is saved switched off, set up like the evaluation player (Inference Only, deterministic, Burst; `BuildScript.UseEvaluationInference` sets both) but without a model, because ML-Agents throws as soon as an Inference Only agent without a model is switched on. The runtime does not reference the inference engine and cannot handle a model, so the editor tools put it on the agent: `WatchModelAttacher` registers itself as `WatchController.ModelSource` whenever the editor loads its scripts, and `WatchController` asks it for the model remembered in `WatchModelMemory` (a small file under `unity/UserSettings/`, per project). With a model attached, the controller hands the segment and the costs to the agent through `TradingAgent.SegmentOverride` and `TradingAgent.CostOverride` (both empty in training and evaluation), switches off automatic stepping and switches the agent on. From there it steps the agent one `Academy.EnvironmentStep` at a time, as the evaluation runner does, on its own clock (`WatchPlayback`); at the end of the segment the views freeze, because the agent starts the next episode within the same step.
 
 ## One step
 
