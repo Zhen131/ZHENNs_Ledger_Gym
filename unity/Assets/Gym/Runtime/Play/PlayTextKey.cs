@@ -32,5 +32,8 @@ namespace Gym.Runtime.Play
         KeysOther,
         UnrealizedPnl,
         RealizedPnl,
+        AvatarBuy,
+        AvatarSell,
+        AvatarRejected,
     }
 }

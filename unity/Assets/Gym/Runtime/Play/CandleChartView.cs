@@ -77,6 +77,25 @@ namespace Gym.Runtime.Play
         public IReadOnlyList<string> DrawnPriceLabels => drawnPriceLabels;
         public IReadOnlyList<TimeLabel> DrawnTimeLabels { get; private set; } = Array.Empty<TimeLabel>();
 
+        /// <summary>买入 ▲、卖出 ▼ 的颜色；小人的提示字和边框跟着用。</summary>
+        public Color BuyColor => buyColor;
+        public Color SellColor => sellColor;
+
+        /// <summary>图表在世界坐标里占的方框（图表不旋转、不缩放）。</summary>
+        public Rect WorldArea => new Rect(transform.position.x - width / 2, transform.position.y - height / 2, width, height);
+
+        /// <summary>
+        /// <paramref name="env"/> 当前这根 candle 的最高点在世界坐标里的位置，小人站在它上方。可见范围按 env 自己算，
+        /// 和 <see cref="Draw"/> 是同一套算法，所以不管这一帧图表先重画了没有，结果都和画出来的一致。
+        /// </summary>
+        public Vector3 LatestHighPosition(TradingEnv env)
+        {
+            int last = env.CurrentIndex;
+            int first = Math.Max(0, last - VisibleCandles + 1);
+            (double low, double high) = PriceRange(env.Series, first, last);
+            return transform.TransformPoint(new Vector3(CandleX(last - first), PriceToY(env.Series[last].High, low, high)));
+        }
+
         void Awake() => EnsureMesh();
 
         void OnEnable()

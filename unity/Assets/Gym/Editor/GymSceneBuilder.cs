@@ -151,24 +151,58 @@ namespace Gym.Editor
             var controller = new GameObject("PlayController").AddComponent<PlayController>();
             controller.Agent = agent;
 
+            ScreenViews views = AddScreenViews(agent, chartMaterial);
+            views.Hud.Controller = controller;
+
+            AssetFolders.Ensure(Path.GetDirectoryName(PlayScenePath));
+            EditorSceneManager.SaveScene(scene, PlayScenePath);
+        }
+
+        /// <summary>
+        /// 给人看的 scene 共用的一套画面：语言切换、读数面板、K 线图、口袋、限帧、站在最新那根 candle 上的小人。
+        /// 只有这类 scene 限帧；Training、Eval scene 不挂这些。
+        /// </summary>
+        static ScreenViews AddScreenViews(TradingAgent agent, Material chartMaterial)
+        {
             var language = new GameObject("Language").AddComponent<PlayLanguageSwitch>();
 
             var hud = new GameObject("HUD").AddComponent<HudView>();
             hud.Agent = agent;
-            hud.Controller = controller;
             hud.Language = language;
 
-            AddCandleChart(agent, chartMaterial);
+            CandleChartView chart = AddCandleChart(agent, chartMaterial);
 
             var wallet = new GameObject("Wallet").AddComponent<WalletView>();
             wallet.Agent = agent;
             wallet.Language = language;
 
-            // 只有 Play scene 限帧；Training、Eval scene 不挂它。
             new GameObject("FrameRateLimiter").AddComponent<FrameRateLimiter>();
 
-            AssetFolders.Ensure(Path.GetDirectoryName(PlayScenePath));
-            EditorSceneManager.SaveScene(scene, PlayScenePath);
+            var avatar = new GameObject("Avatar").AddComponent<AvatarView>();
+            avatar.Agent = agent;
+            avatar.Chart = chart;
+            avatar.Language = language;
+
+            return new ScreenViews(language, hud, chart, wallet, avatar);
+        }
+
+        /// <summary><see cref="AddScreenViews"/> 建出来的那几个画面组件，给调用方接到各自的控制器上。</summary>
+        readonly struct ScreenViews
+        {
+            public ScreenViews(PlayLanguageSwitch language, HudView hud, CandleChartView chart, WalletView wallet, AvatarView avatar)
+            {
+                Language = language;
+                Hud = hud;
+                Chart = chart;
+                Wallet = wallet;
+                Avatar = avatar;
+            }
+
+            public readonly PlayLanguageSwitch Language;
+            public readonly HudView Hud;
+            public readonly CandleChartView Chart;
+            public readonly WalletView Wallet;
+            public readonly AvatarView Avatar;
         }
 
         /// <summary>一台对着图表、深色背景的正交相机。</summary>
@@ -184,7 +218,7 @@ namespace Gym.Editor
         }
 
         /// <summary>图表放在 <see cref="PlayLayout.Chart"/> 那个框里，给左边的面板和右边、下边的刻度让地方。</summary>
-        static void AddCandleChart(TradingAgent agent, Material chartMaterial)
+        static CandleChartView AddCandleChart(TradingAgent agent, Material chartMaterial)
         {
             Rect area = PlayLayout.Chart;
             var chartObject = new GameObject("CandleChart");
@@ -195,6 +229,7 @@ namespace Gym.Editor
             chart.Agent = agent;
             chart.Width = area.width;
             chart.Height = area.height;
+            return chart;
         }
 
         public static void SetBuildScenes()

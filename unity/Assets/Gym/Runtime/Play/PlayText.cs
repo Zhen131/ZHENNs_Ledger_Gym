@@ -42,6 +42,9 @@ namespace Gym.Runtime.Play
                 [PlayTextKey.KeysOther] = ("P 自动播放  R 重来  L 切换语言", "P auto-play   R restart   L language"),
                 [PlayTextKey.UnrealizedPnl] = ("未实现盈亏", "Unrealized P&L"),
                 [PlayTextKey.RealizedPnl] = ("已实现盈亏", "Realized P&L"),
+                [PlayTextKey.AvatarBuy] = ("买入 {0}", "BUY {0}"),
+                [PlayTextKey.AvatarSell] = ("卖出 {0}", "SELL {0}"),
+                [PlayTextKey.AvatarRejected] = ("被拒", "REJECTED"),
             };
 
         public static IEnumerable<PlayTextKey> Keys => Table.Keys;
