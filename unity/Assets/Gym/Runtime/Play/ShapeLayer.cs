@@ -26,10 +26,7 @@ namespace Gym.Runtime.Play
             var renderer = go.AddComponent<MeshRenderer>();
             renderer.sharedMaterial = SharedMaterial;
             renderer.sortingOrder = sortingOrder;
-            GameObject = go;
         }
-
-        public GameObject GameObject { get; }
         public ColoredMeshBuilder Shapes { get; } = new ColoredMeshBuilder();
 
         /// <summary>清空，准备重画。</summary>
