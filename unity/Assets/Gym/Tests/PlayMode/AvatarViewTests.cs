@@ -91,7 +91,7 @@ namespace Gym.Tests.PlayMode
         {
             using var logs = new LogGuard();
             yield return LoadPlayScene();
-            int newHighs = 0, hintsChecked = 0;
+            int newHighs = 0, hintsChecked = 0, lifted = 0;
             for (int i = 0; i < 200; i++)
             {
                 if (i % 20 == 5) controller.PressBuy(0.25f);
@@ -103,21 +103,27 @@ namespace Gym.Tests.PlayMode
                 Assert.AreEqual(high.x, avatar.StandPoint.x, 1e-5, when);
                 Assert.AreEqual(high.y, avatar.StandPoint.y, 1e-5, when);
                 Assert.Greater(avatar.ReachArea.yMin, high.y, $"{when}: nothing of the avatar reaches down to the newest candle's high");
+                float underneath = chart.HighestHighY(env, avatar.ReachArea.xMin, avatar.ReachArea.xMax);
+                Assert.Greater(avatar.RestFrame.yMin, underneath, $"{when}: the frame covers none of the candles under it");
+                if (avatar.StalkLength > 0) lifted++;
                 Assert.GreaterOrEqual(avatar.RestFrame.xMin, chart.WorldArea.xMin - 1e-4f, $"{when}: inside the chart on the left");
-                Assert.LessOrEqual(avatar.RestFrame.xMax, chart.WorldArea.xMax + 1e-4f, $"{when}: not over the price labels");
+                Assert.LessOrEqual(avatar.RestFrame.xMax, chart.WorldArea.xMax + 1e-4f, $"{when}: standing inside the chart on the right");
+                Assert.LessOrEqual(avatar.ReachArea.xMax, PlayLayout.PriceLabels.xMin + 1e-4f, $"{when}: no motion reaches the price labels");
                 Assert.IsTrue(InCamera(avatar.ReachArea), $"{when}: the whole frame, hopping or not, is on screen ({avatar.ReachArea})");
                 if (avatar.HintText.gameObject.activeSelf)
                 {
                     Bounds b = avatar.HintText.GetComponent<MeshRenderer>().bounds;
                     Assert.IsTrue(InCamera(new Rect(b.min, b.size)), $"{when}: the hint is on screen");
                     Assert.Greater(b.min.y, avatar.ReachArea.yMax - 1e-4f, $"{when}: the hint sits above the highest hop");
+                    Assert.LessOrEqual(b.max.x, PlayLayout.PriceLabels.xMin + 1e-4f, $"{when}: the hint stays left of the price labels");
                     hintsChecked++;
                 }
                 if (NewestIsTheHighestVisible(env)) newHighs++;
             }
             Assert.Greater(newHighs, 0, "premise: some step made a new high in the visible range");
             Assert.Greater(hintsChecked, 0, "premise: some step showed a hint");
-            Debug.Log($"[Gym] avatar placement: 200 steps, {newHighs} new visible highs, {hintsChecked} hints");
+            Assert.Greater(lifted, 0, "premise: some step had older, higher candles under the frame");
+            Debug.Log($"[Gym] avatar placement: 200 steps, {newHighs} new visible highs, {lifted} lifted over older candles, {hintsChecked} hints");
             logs.AssertNoErrors();
         }
 

@@ -17,7 +17,7 @@ namespace Gym.Runtime.Play
         public readonly float HopHeight;
         /// <summary>买入跳到最高时放大的比例（0.15 = 大 15 %）。</summary>
         public readonly float BuyGrowth;
-        /// <summary>卖出跳到最高时往右歪的角度。</summary>
+        /// <summary>卖出跳到最高时往左歪（逆时针）的角度。</summary>
         public readonly float SellLeanDegrees;
         /// <summary>被拒时左右晃的最大距离，世界单位。</summary>
         public readonly float ShakeDistance;

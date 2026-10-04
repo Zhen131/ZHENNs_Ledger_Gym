@@ -21,7 +21,7 @@ namespace Gym.Runtime.Play
         /// <summary>离站立位置的偏移，世界单位；y 向上。</summary>
         public readonly Vector2 Offset;
         public readonly float Scale;
-        /// <summary>往右歪的角度。</summary>
+        /// <summary>往左歪（逆时针）的角度。小人站在图表最右边，往左歪才不会压到右边的价格数字。</summary>
         public readonly float TiltDegrees;
 
         public static AvatarPose Rest => new AvatarPose(Vector2.zero, 1f, 0f);

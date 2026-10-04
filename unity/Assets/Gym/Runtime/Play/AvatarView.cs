@@ -8,7 +8,9 @@ namespace Gym.Runtime.Play
     /// <summary>
     /// 头像框小人：站在最新那根 candle 的最高点上方，每走一步做一个动作（<see cref="AvatarMotion"/>），买入、卖出、
     /// 被拒时头上冒提示字。框里的图从贴图文件夹读（<see cref="AvatarPictureLoader"/>），没有就用占位图。
-    /// 框横向不出图表的左右两边（右边是价格数字），底下伸出一只小脚，指着那根 candle 的最高点。
+    /// 框横向不出图表的左右两边（右边是价格数字），也不压住脚下任何一根 K 线：前几根比最新那根高时，框抬到它们
+    /// 上面，用一根细杆连着小脚，小脚尖指着最新那根的最高点。动作也不往右越过价格数字那一列：卖出往左歪，
+    /// 左右晃得很小，提示字和框的右边对齐。
     /// 动作按 <see cref="Advance"/> 拨的时钟走；<see cref="ManualClock"/> 为 true 时只有测试和截图工具拨它。
     /// </summary>
     public class AvatarView : MonoBehaviour
@@ -19,7 +21,8 @@ namespace Gym.Runtime.Play
         const float PictureMargin = 0.05f;
         const float FootHeight = 0.13f;
         const float FootHalfWidth = 0.09f;
-        /// <summary>小脚尖离最高点多高：要让开卖出时画在最高点上方的 ▼。</summary>
+        const float StalkHalfWidth = 0.015f;
+        /// <summary>小脚尖离最高点多高、框底离脚下别的 K 线多高：要让开卖出时画在最高点上方的 ▼。</summary>
         const float FootGap = 0.22f;
         const float HintSize = 0.22f;
         const float HintGap = 0.06f;
@@ -39,10 +42,10 @@ namespace Gym.Runtime.Play
         [SerializeField] float hopHeight = 0.30f;
         [Tooltip("How much bigger the avatar gets at the top of a buy hop (0.15 = 15 %).")]
         [SerializeField] float buyGrowth = 0.15f;
-        [Tooltip("How far, in degrees, the avatar leans at the top of a sell hop.")]
+        [Tooltip("How far, in degrees, the avatar leans to the left at the top of a sell hop.")]
         [SerializeField] float sellLeanDegrees = 15f;
         [Tooltip("How far, in world units, the avatar shakes sideways when an order is rejected.")]
-        [SerializeField] float shakeDistance = 0.12f;
+        [SerializeField] float shakeDistance = 0.06f;
 
         AvatarAnimation moves;
         Transform body;
@@ -53,6 +56,7 @@ namespace Gym.Runtime.Play
         string pictureFolder;
         double hintFraction;
         float footOffset;
+        float stalkLength;
         bool frozen;
 
         public TradingAgent Agent
@@ -97,17 +101,24 @@ namespace Gym.Runtime.Play
         /// <summary>站着不动时框的位置（不含小脚），世界坐标。</summary>
         public Rect RestFrame { get; private set; }
 
-        /// <summary>做动作时框和小脚可能到的最大范围：站着的框加上跳高、变大、歪、左右晃。</summary>
+        /// <summary>
+        /// 做动作时框、细杆和小脚可能到的最大范围：站着的框加上跳高、变大、左右晃，以及往左歪（绕框底边中点逆时针转，
+        /// 只往左边伸出去）。下边是小脚尖。
+        /// </summary>
         public Rect ReachArea
         {
             get
             {
                 float growth = FrameSize * buyGrowth;
-                float side = Mathf.Max(shakeDistance, growth / 2, FrameSize * Mathf.Sin(sellLeanDegrees * Mathf.Deg2Rad));
+                float right = Mathf.Max(shakeDistance, growth / 2);
+                float left = Mathf.Max(right, FrameSize * Mathf.Sin(sellLeanDegrees * Mathf.Deg2Rad));
                 Rect r = RestFrame;
-                return Rect.MinMaxRect(r.xMin - side, r.yMin - FootHeight, r.xMax + side, r.yMax + hopHeight + growth);
+                return Rect.MinMaxRect(r.xMin - left, r.yMin - stalkLength - FootHeight, r.xMax + right, r.yMax + hopHeight + growth);
             }
         }
+
+        /// <summary>框底下那根细杆的长度：最新那根就是脚下最高的一根时为 0。</summary>
+        public float StalkLength => stalkLength;
 
         /// <summary>头上的提示字；不显示时它的物体是关着的。</summary>
         public TextMesh HintText => hint;
@@ -190,11 +201,17 @@ namespace Gym.Runtime.Play
             Rect area = chart.WorldArea;
             float half = FrameSize / 2;
             float centerX = Mathf.Clamp(high.x, area.xMin + half, area.xMax - half);
-            // 最高的那根离图表顶还隔着一截边距，所以按现在的版面这里碰不到上限；留着兜底，保证整个小人在画面里。
-            float highestBottom = PlayLayout.Screen.yMax - ScreenMargin - HintSize - HintGap - FrameSize * (1 + buyGrowth) - hopHeight;
-            float bottom = Mathf.Min(high.y + FootGap + FootHeight, highestBottom);
             StandPoint = high;
+            RestFrame = new Rect(centerX - half, 0f, FrameSize, FrameSize);
+            float footTip = high.y + FootGap;
+            // 框底要高过框（连同动作）横跨的那几根 K 线里最高的一根，至少高过最新那根加上小脚。
+            float underneath = chart.HighestHighY(env, ReachArea.xMin, ReachArea.xMax);
+            float bottom = Mathf.Max(footTip + FootHeight, underneath + FootGap);
+            // 可见范围最高的那根离图表顶还隔着一截边距，所以按现在的版面碰不到这个上限；留着兜底，保证整个小人在画面里。
+            float highestBottom = PlayLayout.Screen.yMax - ScreenMargin - HintSize - HintGap - FrameSize * (1 + buyGrowth) - hopHeight;
+            bottom = Mathf.Min(bottom, highestBottom);
             RestFrame = new Rect(centerX - half, bottom, FrameSize, FrameSize);
+            stalkLength = Mathf.Max(0f, bottom - FootHeight - footTip);
             footOffset = Mathf.Clamp(high.x - centerX, -half + FootHalfWidth, half - FootHalfWidth);
             Placed = true;
             body.gameObject.SetActive(true);
@@ -226,6 +243,9 @@ namespace Gym.Runtime.Play
             Moves.Stop();
             Refresh();
         }
+
+        /// <summary>按当前语言重画边框和提示字（editor 的截图工具换了语言以后调它；运行时跟着语言切换自己重画）。</summary>
+        public void Redraw() => Refresh();
 
         /// <summary>改从 <paramref name="folder"/> 读头像图（测试和截图工具用临时文件夹），马上换上。</summary>
         public void UsePictureFrom(string folder)
@@ -260,21 +280,26 @@ namespace Gym.Runtime.Play
             AvatarPose pose = Moves.Pose;
             body.position = new Vector3(RestFrame.center.x + pose.Offset.x, RestFrame.yMin + pose.Offset.y, 0f);
             body.localScale = new Vector3(pose.Scale, pose.Scale, 1f);
-            body.rotation = Quaternion.Euler(0f, 0f, -pose.TiltDegrees);
+            body.rotation = Quaternion.Euler(0f, 0f, pose.TiltDegrees);
         }
 
-        /// <summary>边框和小脚，按 body 的本地坐标画（原点在框底边的中点）。</summary>
+        /// <summary>边框、细杆和小脚，按 body 的本地坐标画（原点在框底边的中点）。</summary>
         void DrawBorder()
         {
             if (border == null) return;
             border.Begin();
             border.Shapes.AddFrame(FrameRect, BorderThickness, BorderColor);
-            border.Shapes.AddTriangle(new Vector3(footOffset - FootHalfWidth, 0f), new Vector3(footOffset + FootHalfWidth, 0f),
-                new Vector3(footOffset, -FootHeight), BorderColor);
+            if (stalkLength > 0)
+                border.Shapes.AddQuad(footOffset - StalkHalfWidth, -stalkLength, footOffset + StalkHalfWidth, 0f, BorderColor);
+            border.Shapes.AddTriangle(new Vector3(footOffset - FootHalfWidth, -stalkLength), new Vector3(footOffset + FootHalfWidth, -stalkLength),
+                new Vector3(footOffset, -stalkLength - FootHeight), BorderColor);
             border.End();
         }
 
-        /// <summary>提示字放在框的正上方，高过跳到最高、变到最大时的框顶，所以动作时不会压住它。</summary>
+        /// <summary>
+        /// 提示字放在框的上方、和框的右边对齐（字往左写，不会伸进右边的价格数字），高过跳到最高、变到最大时的框顶，
+        /// 所以动作时不会压住它。
+        /// </summary>
         void DrawHint()
         {
             if (hint == null) return;
@@ -284,7 +309,7 @@ namespace Gym.Runtime.Play
             if (!show) return;
             hint.text = text;
             hint.color = ColorFor(Moves.Motion);
-            WorldText.Move(hint, new Vector2(RestFrame.center.x, RestFrame.yMax + hopHeight + FrameSize * buyGrowth + HintGap));
+            WorldText.Move(hint, new Vector2(RestFrame.xMax, RestFrame.yMax + hopHeight + FrameSize * buyGrowth + HintGap));
         }
 
         void BuildIfNeeded()
@@ -307,7 +332,7 @@ namespace Gym.Runtime.Play
             pictureRenderer.sortingOrder = PictureOrder;
 
             border = new ShapeLayer(body, "Avatar border", 0f, BorderOrder);
-            hint = WorldText.Create(transform, "Avatar hint", Vector2.zero, HintSize, TextAnchor.LowerCenter, PlayPalette.AvatarFrame);
+            hint = WorldText.Create(transform, "Avatar hint", Vector2.zero, HintSize, TextAnchor.LowerRight, PlayPalette.AvatarFrame);
             hint.gameObject.SetActive(false);
 
             LoadPicture();

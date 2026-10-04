@@ -9,7 +9,7 @@ namespace Gym.Runtime.Play
         Hold,
         /// <summary>买入成交：跳，跳到最高时变大一点。</summary>
         Buy,
-        /// <summary>卖出成交：跳，跳到最高时往右歪一下。</summary>
+        /// <summary>卖出成交：跳，跳到最高时往左歪一下。</summary>
         Sell,
         /// <summary>被拒：不跳，左右晃。和别的动作有意不同，一眼分得出来。</summary>
         Rejected,

@@ -96,6 +96,27 @@ namespace Gym.Runtime.Play
             return transform.TransformPoint(new Vector3(CandleX(last - first), PriceToY(env.Series[last].High, low, high)));
         }
 
+        /// <summary>
+        /// 世界坐标 x 在 [<paramref name="worldXMin"/>, <paramref name="worldXMax"/>] 里（碰到一点也算）的那些可见 candle，
+        /// 最高点在世界坐标里最高的 y；这一段里没有 candle 时为负无穷。小人用它让开自己脚下的 K 线。
+        /// </summary>
+        public float HighestHighY(TradingEnv env, float worldXMin, float worldXMax)
+        {
+            int last = env.CurrentIndex;
+            int first = Math.Max(0, last - VisibleCandles + 1);
+            (double low, double high) = PriceRange(env.Series, first, last);
+            float left = transform.InverseTransformPoint(new Vector3(worldXMin, 0)).x - SlotWidth / 2;
+            float right = transform.InverseTransformPoint(new Vector3(worldXMax, 0)).x + SlotWidth / 2;
+            float highest = float.NegativeInfinity;
+            for (int i = first; i <= last; i++)
+            {
+                float x = CandleX(i - first);
+                if (x < left || x > right) continue;
+                highest = Math.Max(highest, transform.TransformPoint(new Vector3(x, PriceToY(env.Series[i].High, low, high))).y);
+            }
+            return highest;
+        }
+
         bool frozen;
 
         /// <summary>
