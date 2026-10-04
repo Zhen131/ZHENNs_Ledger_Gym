@@ -41,6 +41,12 @@ namespace Gym.Core.Accounting
         public double FeesPaid { get; private set; }
         public double TurnoverNotional { get; private set; }
 
+        /// <summary>
+        /// 累计的已实现盈亏（USDT），开局为 0。每笔卖出加上「卖出金额 − 这笔的 fee − 卖出数量 × 卖出前的
+        /// <see cref="AvgCost"/>」。只给 Play scene 的画面看：observation、reward 和 episode 的规则都不读它。
+        /// </summary>
+        public double RealizedPnl { get; private set; }
+
         public double Quantity => Rules.Quantity(CoinUnits);
 
         /// <summary>记下一笔没有到达账户的订单，例如被 action mask 挡掉的 action。</summary>
@@ -100,6 +106,8 @@ namespace Gym.Core.Accounting
             double fee = notional * Cost.FeeRate + Cost.FixedFee;
             if (units == 0 || notional < Rules.MinNotional || notional - fee <= 0) return Reject();
 
+            // 移动平均成本：卖出时 AvgCost 不变，所以这部分持仓的成本就是卖出数量 × 现在的 AvgCost。
+            RealizedPnl += notional - fee - Rules.Quantity(units) * AvgCost;
             Cash += notional - fee;
             CoinUnits -= units;
             if (CoinUnits == 0) AvgCost = 0;
@@ -127,6 +135,15 @@ namespace Gym.Core.Accounting
             double cost = quantity * AvgCost;
             return (quantity * price * (1 - Cost.FeeRate) - Cost.FixedFee - cost) / cost;
         }
+
+        /// <summary>
+        /// 按 <paramref name="price"/> 估的未实现盈亏金额（USDT）：持币数量 ×（price − <see cref="AvgCost"/>），
+        /// 空仓时为 0。和 <see cref="UnrealizedReturn"/> 不是一回事：这里不预扣将来卖出的 fee，所以
+        /// <see cref="RealizedPnl"/> 加上它，正好等于 <see cref="Equity"/> 减去开局 equity（开局带的 coin 按开局价记成本）；
+        /// UnrealizedReturn 是 observation 用的收益率，假设整个持仓按 price 卖掉、扣掉卖出的 fee。
+        /// 只给 Play scene 的画面看：observation、reward 和 episode 的规则都不读它。
+        /// </summary>
+        public double UnrealizedPnl(double price) => CoinUnits == 0 ? 0 : Quantity * (price - AvgCost);
 
         double Notional(long units, double fillPrice) => (double)(units * Rules.StepSize * (decimal)fillPrice);
 
