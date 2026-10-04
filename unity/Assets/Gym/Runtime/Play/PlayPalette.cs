@@ -20,5 +20,14 @@ namespace Gym.Runtime.Play
         public static readonly Color Pocket = new Color(0.55f, 0.38f, 0.20f, 1f);
         public static readonly Color PocketDark = new Color(0.40f, 0.27f, 0.13f, 1f);
         public static readonly Color PocketStitch = new Color(0.85f, 0.70f, 0.45f, 1f);
+
+        /// <summary>头像框的底色和平时的边框；买入、卖出时边框换成图上买卖三角的颜色。</summary>
+        public static readonly Color AvatarBackground = new Color(0.10f, 0.12f, 0.16f, 1f);
+        public static readonly Color AvatarFrame = new Color(0.85f, 0.70f, 0.45f, 1f);
+        /// <summary>占位图的底和剪影。</summary>
+        public static readonly Color AvatarPlaceholderBackground = new Color(0.22f, 0.26f, 0.33f, 1f);
+        public static readonly Color AvatarPlaceholderFigure = new Color(0.58f, 0.63f, 0.71f, 1f);
+        /// <summary>被拒：小人的提示字和边框都是灰色。</summary>
+        public static readonly Color Rejected = new Color(0.62f, 0.62f, 0.62f, 1f);
     }
 }
