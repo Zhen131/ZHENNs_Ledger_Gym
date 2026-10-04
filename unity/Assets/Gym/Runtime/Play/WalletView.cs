@@ -77,6 +77,25 @@ namespace Gym.Runtime.Play
         /// <summary>口袋口的高度：卖出的飘字落到这里消失。</summary>
         public float PocketTop => PlayLayout.Wallet.yMin + PocketInset + PocketHeight;
 
+        bool frozen;
+
+        /// <summary>
+        /// 定格：为 true 时不理会 Agent 的「一局开始」，口袋停在打开它那一刻的数字（观战走到段尾时用，默认关）。
+        /// 只在组件启用时切换才有效。
+        /// </summary>
+        public bool Frozen
+        {
+            get => frozen;
+            set
+            {
+                if (frozen == value) return;
+                frozen = value;
+                if (agent == null || !isActiveAndEnabled) return;
+                agent.EpisodeStarted -= OnEpisodeStarted;
+                if (!frozen) agent.EpisodeStarted += OnEpisodeStarted;
+            }
+        }
+
         Rect PocketArea => new Rect(PlayLayout.Wallet.xMin + PocketInset, PlayLayout.Wallet.yMin + PocketInset, PocketWidth, PocketHeight);
 
         PlayLanguage CurrentLanguage => language != null ? language.Current : PlayLanguage.Chinese;

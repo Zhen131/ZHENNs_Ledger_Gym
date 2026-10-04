@@ -96,6 +96,25 @@ namespace Gym.Runtime.Play
             return transform.TransformPoint(new Vector3(CandleX(last - first), PriceToY(env.Series[last].High, low, high)));
         }
 
+        bool frozen;
+
+        /// <summary>
+        /// 定格：为 true 时不理会 Agent 的「一局开始」，图停在打开它那一刻（观战走到段尾时用，默认关）。
+        /// 只在组件启用时切换才有效。
+        /// </summary>
+        public bool Frozen
+        {
+            get => frozen;
+            set
+            {
+                if (frozen == value) return;
+                frozen = value;
+                if (agent == null || !isActiveAndEnabled) return;
+                agent.EpisodeStarted -= Redraw;
+                if (!frozen) agent.EpisodeStarted += Redraw;
+            }
+        }
+
         void Awake() => EnsureMesh();
 
         void OnEnable()

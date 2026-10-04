@@ -51,6 +51,18 @@ namespace Gym.Runtime.Agents
         /// <summary>由 Play scene 的 PlayController 设置；为 null 时，heuristic 一律不动。</summary>
         public IActionSource ActionSource { get; set; }
 
+        /// <summary>
+        /// 观战用：有值时 <see cref="Initialize"/> 走这个评估分段，不看 -gymSegment。要在 Agent 启用之前设。
+        /// 训练和评估都不设它（为 null），走原来的路。
+        /// </summary>
+        public EvaluationSegment? SegmentOverride { get; set; }
+
+        /// <summary>
+        /// 观战用：有值时每个 episode 都用这份费用，不读 trainer 的环境参数、命令行和 Inspector 默认值。
+        /// 训练和评估都不设它（为 null），走原来的路。
+        /// </summary>
+        public CostModel CostOverride { get; set; }
+
         public GymSettings Settings { get; private set; }
         public TradingEnv Env { get; private set; }
         public int MasterSeed { get; private set; }
@@ -81,7 +93,9 @@ namespace Gym.Runtime.Agents
             Settings = GymConfigLoader.LoadForRuntime();
             GymConfig c = Settings.Config;
             AgentStartMode mode = EffectiveMode;
-            SegmentSpec segment = mode == AgentStartMode.Evaluation ? Settings.EvalSegment : Settings.Train;
+            SegmentSpec segment;
+            if (SegmentOverride.HasValue) segment = SegmentFor(SegmentOverride.Value);
+            else segment = mode == AgentStartMode.Evaluation ? Settings.EvalSegment : Settings.Train;
             Env = TradingEnv.ForSegment(Settings.Series, Settings.Rules, segment,
                 c.initialCash, c.episodeLength, c.randomInitialPositionShare);
             Academy academy = Academy.Instance; // 先连上 trainer，seed 由 trainer 发来
@@ -182,12 +196,17 @@ namespace Gym.Runtime.Agents
         /// </summary>
         CostModel ReadCost()
         {
+            if (CostOverride != null) return CostOverride; // 观战设的费用；训练和评估时它为 null
             EnvironmentParameters parameters = Academy.Instance.EnvironmentParameters;
             return new CostModel(
                 ReadParameter(parameters, FeeRateKey, Settings.FeeRateArg ?? defaultFeeRate),
                 ReadParameter(parameters, FixedFeeKey, Settings.FixedFeeArg ?? defaultFixedFee),
                 ReadParameter(parameters, SlippageKey, Settings.SlippageArg ?? defaultSlippage));
         }
+
+        /// <summary><see cref="SegmentOverride"/> 选的那个评估分段。</summary>
+        SegmentSpec SegmentFor(EvaluationSegment which) =>
+            which == EvaluationSegment.Validation ? Settings.Validation : Settings.Test;
 
         /// <summary>
         /// 环境参数传过来是 float。先转成 decimal，0.001f 就变成 0.001，而不是 0.0010000000474974513。

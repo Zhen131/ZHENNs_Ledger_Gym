@@ -35,5 +35,15 @@ namespace Gym.Runtime.Play
         AvatarBuy,
         AvatarSell,
         AvatarRejected,
+        WatchStatus,
+        WatchSegmentValidation,
+        WatchSegmentTest,
+        WatchSpeed,
+        WatchPaused,
+        WatchFinished,
+        WatchKeysFirst,
+        WatchKeysSecond,
+        WatchNoModel,
+        WatchEnd,
     }
 }

@@ -51,6 +51,40 @@ namespace Gym.Runtime.Play
 
         public HudSnapshot Shown { get; private set; }
 
+        IReadoutControls controls;
+        bool frozen;
+
+        /// <summary>
+        /// 换掉面板最下面的按键提示和「下单比例」那一行（观战这类场景用，写自己的按键和状态）。
+        /// 为 null 时（键盘试玩）面板照原样画。
+        /// </summary>
+        public IReadoutControls Controls
+        {
+            get => controls;
+            set
+            {
+                controls = value;
+                Draw();
+            }
+        }
+
+        /// <summary>
+        /// 定格：为 true 时不理会 Agent 的「一局开始」，面板停在打开它那一刻的数字（观战走到段尾时用，默认关）。
+        /// 走到段尾时环境在同一步里就回到了段首，不定格的话数字会马上刷回段首。只在组件启用时切换才有效。
+        /// </summary>
+        public bool Frozen
+        {
+            get => frozen;
+            set
+            {
+                if (frozen == value) return;
+                frozen = value;
+                if (agent == null || !isActiveAndEnabled) return;
+                agent.EpisodeStarted -= Refresh;
+                if (!frozen) agent.EpisodeStarted += Refresh;
+            }
+        }
+
         PlayLanguage CurrentLanguage => language != null ? language.Current : PlayLanguage.Chinese;
 
         void OnEnable()
@@ -158,6 +192,17 @@ namespace Gym.Runtime.Play
             keysOther.text = PlayText.Get(PlayTextKey.KeysOther, lang);
             shownFraction = fraction ?? -1;
             shownAutoPlay = autoPlay;
+            if (controls != null) DrawControls(lang);
+        }
+
+        /// <summary>用 <see cref="Controls"/> 给的字盖掉「下单比例」那一行和两行按键提示。</summary>
+        void DrawControls(PlayLanguage lang)
+        {
+            int row = System.Array.IndexOf(HudReadout.Rows, PlayTextKey.Fraction);
+            labels[row].text = controls.StatusLabel(lang);
+            values[row].text = controls.StatusValue(lang);
+            keysTrade.text = controls.KeysFirstLine(lang);
+            keysOther.text = controls.KeysSecondLine(lang);
         }
 
         void BuildIfNeeded()

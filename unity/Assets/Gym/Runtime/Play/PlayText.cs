@@ -45,6 +45,17 @@ namespace Gym.Runtime.Play
                 [PlayTextKey.AvatarBuy] = ("买入 {0}", "BUY {0}"),
                 [PlayTextKey.AvatarSell] = ("卖出 {0}", "SELL {0}"),
                 [PlayTextKey.AvatarRejected] = ("被拒", "REJECTED"),
+                [PlayTextKey.WatchStatus] = ("观战（{0}）", "Watching ({0})"),
+                [PlayTextKey.WatchSegmentValidation] = ("验证段", "validation"),
+                [PlayTextKey.WatchSegmentTest] = ("测试段", "test"),
+                [PlayTextKey.WatchSpeed] = ("每秒 {0} 步", "{0} steps/s"),
+                [PlayTextKey.WatchPaused] = ("暂停中", "PAUSED"),
+                [PlayTextKey.WatchFinished] = ("走完了", "finished"),
+                [PlayTextKey.WatchKeysFirst] = ("P 暂停/继续  N 单步  [ 慢  ] 快", "P pause   N one step   [ slower   ] faster"),
+                [PlayTextKey.WatchKeysSecond] = ("R 重来  L 切换语言", "R restart   L language"),
+                [PlayTextKey.WatchNoModel] = ("还没有选模型。\n在 Unity 菜单里点 Gym > Watch a Model...，\n选一个训练好的 .onnx 文件，模型就开始交易。",
+                    "No model chosen yet.\nIn the Unity menu, click Gym > Watch a Model...\nand pick a trained .onnx file to watch it trade."),
+                [PlayTextKey.WatchEnd] = ("这一段走完了。按 R 从头再看。", "End of the segment. Press R to watch it again."),
             };
 
         public static IEnumerable<PlayTextKey> Keys => Table.Keys;

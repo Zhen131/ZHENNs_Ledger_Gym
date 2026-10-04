@@ -34,5 +34,13 @@ namespace Gym.Runtime.Play
 
         /// <summary>面板和按钮的内边距。</summary>
         public const float Padding = 0.12f;
+
+        /// <summary>
+        /// 观战走到段尾时的提示：图表上方那一条的左边。小人总站在最右边那根最新的 candle 上，碰不到这里。
+        /// </summary>
+        public static readonly Rect WatchEndNotice = Rect.MinMaxRect(-2.70f, 3.95f, 4.20f, 4.80f);
+
+        /// <summary>观战没给模型时的提示：图表正中（这时图表是空的）。</summary>
+        public static readonly Rect WatchNoModelNotice = Rect.MinMaxRect(-1.95f, -1.75f, 6.80f, 0.85f);
     }
 }
