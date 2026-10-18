@@ -9,6 +9,7 @@ What the `Trading/*` curves in TensorBoard mean is in the [Training curves](../d
 | File | What it is |
 | --- | --- |
 | `ppo_base.yaml` | PPO with the hyperparameters of ML-Agents' hybrid-action example FoodCollector (Release 23): batch 1024, buffer 10240, learning rate 3e-4 (linear), beta 0.005, epsilon 0.2, lambda 0.95, 3 epochs, 1 × 256 network without normalisation, gamma 0.99, time horizon 64, 2M steps, fee 0.1 % |
+| `ppo_base-curve.yaml` | Base with `checkpoint_interval` 200000 and `keep_checkpoints` 10: the same 2M-step training keeps ten checkpoints (200k, 400k, … 2M steps), so each can be evaluated on the validation segment for the learning curve (steps → return) |
 | `smoke.yaml` | Base with 30k steps (`summary_freq` 5000, `checkpoint_interval` 30000) |
 | `smoke-fee0003.yaml` | `smoke.yaml` with `fee_rate` 0.003 and 15k steps: the first episodes end at 16 agents × 720 steps = 11,520 steps, and only then do the `Trading/*` tags (including `Trading/FeeRate`) appear |
 | `smoke-100k.yaml` | Base with 100k steps, to measure the speed of a new machine |
