@@ -225,7 +225,7 @@ namespace Gym.Runtime.Evaluation
                 { "timestamp_utc", record.TimestampUtc },
                 { "kind", record.Kind },
                 { "policy", record.Policy },
-                { "generated_by", "Gym.Runtime.EvalRunner" },
+                { "generated_by", "Gym.Runtime.Evaluation.EvalRunner" },
                 { "model_run_id", record.ModelRunId },
                 { "model_sha256", record.ModelSha256 },
                 { "model_file", RecordPaths.FileNameOnly(info?.model_file) },
