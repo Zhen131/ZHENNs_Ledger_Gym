@@ -1,4 +1,4 @@
-# Differs from ppo_base.yaml only in checkpoint_interval 200000 and keep_checkpoints 10: the same training saved ten times (200k, 400k, ... 2M steps), for the learning curve on the validation segment.
+# Differs from ppo_base.yaml only in checkpoint_interval 200000 and keep_checkpoints 11: the same training saved ten times (200k, 400k, ... 2M steps), for the learning curve on the validation segment.
 behaviors:
   TradingAgent:
     trainer_type: ppo
@@ -19,7 +19,7 @@ behaviors:
       extrinsic:
         gamma: 0.99
         strength: 1.0
-    keep_checkpoints: 10
+    keep_checkpoints: 11
     checkpoint_interval: 200000
     max_steps: 2000000
     time_horizon: 64
