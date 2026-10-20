@@ -1,6 +1,6 @@
 # Training configs
 
-All configs train the behavior `TradingAgent` on the CPU (the one exception is `smoke-100k-cuda.yaml`, below) and pass the costs to the environment as `environment_parameters` (`fee_rate`, `fixed_fee`, `slippage`); the two `obs-*` variants also pass the observation set (`obs_set`), and the three `risk-*` variants the reward's risk coefficient (`risk_aversion`). The first line of every file says how it differs from `ppo_base.yaml`.
+All configs train the behavior `TradingAgent` on the CPU (the one exception is `smoke-100k-cuda.yaml`, below) and pass the costs to the environment as `environment_parameters` (`fee_rate`, `fixed_fee`, `slippage`); the two `obs-*` variants also pass the observation set (`obs_set`), and the three `risk-*` variants the reward's risk coefficient (`risk_aversion`); so do round two's files in `v2/`. The first line of every file says how it differs from its base: `ppo_base.yaml`, unless the line declares another one, as every file in `v2/` does, for example `# base: config/v2/ppo_v2.yaml — Differs from ppo_v2.yaml only in …`.
 
 What the `Trading/*` curves in TensorBoard mean is in the [Training curves](../docs/training.md#training-curves-trading-in-tensorboard) table of `docs/training.md`. Note that `Trading/Turnover` divides the traded value by the **starting** equity of the episode, while `turnover` in the evaluation log divides by the **average** equity.
 
@@ -36,12 +36,28 @@ Each variant changes one thing, so a difference in the results can be traced to 
 | `risk-0.01.yaml` | `risk_aversion` 0.01 | The same, twice as strong |
 | `risk-0.02.yaml` | `risk_aversion` 0.02 | The same, four times as strong |
 
+## Round two (`v2/`)
+
+Round two builds on the setting that won round one (`normalize: true`) and then on the `long` observation set. Each file changes one thing from the base its first line declares, so the files form a chain: `ppo_base.yaml` → `ppo_v2.yaml` → `long.yaml` → `long-risk-*.yaml`.
+
+| File | Base (first line) | Changed from its base | Why compare |
+| --- | --- | --- | --- |
+| `ppo_v2.yaml` | `config/ppo_base.yaml` | `normalize: true` (as `variants/normalize-on.yaml`) | Round two's base: the setting that won round one |
+| `long.yaml` | `config/v2/ppo_v2.yaml` | `obs_set` 1: the `long` observation set (41 numbers) | The main line: does a longer view stop the agent from simply holding? |
+| `long-ta.yaml` | `config/v2/ppo_v2.yaml` | `obs_set` 2: the `long-ta` observation set (43 numbers) | Control group for `long.yaml` |
+| `long-risk-0.005.yaml` | `config/v2/long.yaml` | `risk_aversion` 0.005 | Does a small penalty on the squared loss make the agent cut losses? |
+| `long-risk-0.01.yaml` | `config/v2/long.yaml` | `risk_aversion` 0.01 | The same, twice as strong |
+| `long-risk-0.02.yaml` | `config/v2/long.yaml` | `risk_aversion` 0.02 | The same, four times as strong |
+| `smoke-long.yaml` | `config/v2/long.yaml` (not compared: a smoke config) | `max_steps` 15000, `checkpoint_interval` 15000, `summary_freq` 1000 | The PC's smoke run of round two: `Trading/*` appears from 12,000 steps, after the first episodes end at 11,520. Check that `obs_set` and the costs arrived (see [docs/pc-training.md](../docs/pc-training.md)) |
+
+The coins are not in these files: training on several coins is given on the player's command line, `--env-args "-gymTrainSymbols BTCUSDT,ETHUSDT,ADAUSDT,XRPUSDT"` (Windows: `-EnvArgs "…"`) for the series scripts, which record it in `results/<run-id>/env-args.txt`. The observation set comes from `obs_set` in the file, which `config-used.yaml` keeps with every run; do not also pass `-gymObs` (the environment parameter wins over it, so the two could disagree without an error).
+
 Check the variants after editing any of them:
 
 ```bash
 python scripts/train/check_configs.py
 ```
 
-It fails unless every single-change variant differs from the base in exactly one setting, every file (smoke configs included) has the `TradingAgent` behavior, the three cost parameters inside the ranges the environment accepts (`fee_rate` in [0, 1), `slippage` in [0, 0.1), `fixed_fee` ≥ 0), `obs_set` (optional) 0, 1 or 2, `risk_aversion` (optional) a number in [0, 100], and the CPU device (cuda in `smoke-100k-cuda.yaml`), and ML-Agents itself accepts the file. Adding `obs_set` or `risk_aversion` counts as the one setting a variant changes; `ppo_base.yaml` has neither, which means the observation set of `gym-config.json` (`base`) and λ = 0. The range [0, 100] for `risk_aversion` is stricter on purpose than the player, which accepts any finite value ≥ 0: above 100 the penalty dwarfs the return, so it is almost certainly a typo. What the numbers of each set are and how the risk coefficient enters the reward: [docs/architecture.md](../docs/architecture.md#observation-action-reward).
+It reads every `*.yaml` in `variants/` and `v2/`, and `config/smoke*.yaml`. A file whose name starts with `smoke` is a smoke config wherever it is: it is not compared with any base, only checked as below. It fails unless every single-change variant differs from its base (`ppo_base.yaml`, or the one its first line declares, which must exist) in exactly one setting, every file (smoke configs included) has the `TradingAgent` behavior, the three cost parameters inside the ranges the environment accepts (`fee_rate` in [0, 1), `slippage` in [0, 0.1), `fixed_fee` ≥ 0), `obs_set` (optional) 0, 1 or 2, `risk_aversion` (optional) a number in [0, 100], and the CPU device (cuda in `smoke-100k-cuda.yaml`), and ML-Agents itself accepts the file. Adding `obs_set` or `risk_aversion` counts as the one setting a variant changes; `ppo_base.yaml` has neither, which means the observation set of `gym-config.json` (`base`) and λ = 0. The range [0, 100] for `risk_aversion` is stricter on purpose than the player, which accepts any finite value ≥ 0: above 100 the penalty dwarfs the return, so it is almost certainly a typo. What the numbers of each set are and how the risk coefficient enters the reward: [docs/architecture.md](../docs/architecture.md#observation-action-reward).
 
 Run a series (every config × every seed) with `scripts/train/run_series.sh` on macOS or `scripts/train/run_series.ps1` on Windows; see [docs/training.md](../docs/training.md) and [docs/pc-training.md](../docs/pc-training.md).
