@@ -15,10 +15,11 @@ namespace Gym.Core.Market
 
         /// <summary>
         /// 连同额外的评估段一起检查：每一段都要落在数据里，任何两段（训练段、验证段、测试段和额外段之间，
-        /// 以及额外段彼此之间）都不许重叠。
+        /// 以及额外段彼此之间）都不许重叠。训练段从 max(段首, 观测集的历史长度) 起要够一个 episode。
         /// </summary>
         public static SplitReport Validate(SegmentSpec train, SegmentSpec validation, SegmentSpec test,
-            IReadOnlyList<SegmentSpec> extra, CandleSeries series, int episodeLength)
+            IReadOnlyList<SegmentSpec> extra, CandleSeries series, int episodeLength,
+            ObservationSet observationSet = ObservationSet.Base)
         {
             if (series == null) throw new ArgumentNullException(nameof(series));
             if (extra == null) throw new ArgumentNullException(nameof(extra));
@@ -41,7 +42,7 @@ namespace Gym.Core.Market
 
             if (train.IsInside(series))
             {
-                int decisions = TrainingDecisionBars(train, series);
+                int decisions = TrainingDecisionBars(train, series, observationSet);
                 int needed = Math.Max(episodeLength, 1) + 1;
                 if (decisions < needed)
                     report.Errors.Add($"too short: {train} has {decisions} decision bars, an episode needs {needed}");
@@ -54,15 +55,17 @@ namespace Gym.Core.Market
         }
 
         /// <summary>
-        /// 从第一个有完整 lookback 窗口的下标（max(first, 32)）到最后一根 bar，一共几根 bar，首尾都算。
-        /// 一个 L 个 step 的 episode 需要 L + 1 根。
+        /// 从第一个历史够长的下标（max(first, 观测集的历史长度)：base 32，long 和 long-ta 2160）到最后一根 bar，
+        /// 一共几根 bar，首尾都算。一个 L 个 step 的 episode 需要 L + 1 根。
         /// </summary>
-        public static int TrainingDecisionBars(SegmentSpec segment, CandleSeries series)
+        public static int TrainingDecisionBars(SegmentSpec segment, CandleSeries series,
+            ObservationSet observationSet = ObservationSet.Base)
         {
+            int history = observationSet.HistoryLength();
             int first = segment.FirstIndex(series);
             int last = segment.LastIndex(series);
             if (first < 0 || last < 0) return 0;
-            return Math.Max(0, last - Math.Max(first, ObservationBuilder.Lookback) + 1);
+            return Math.Max(0, last - Math.Max(first, history) + 1);
         }
     }
 }

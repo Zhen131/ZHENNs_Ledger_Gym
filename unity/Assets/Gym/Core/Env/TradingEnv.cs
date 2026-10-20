@@ -21,16 +21,19 @@ namespace Gym.Core.Env
         readonly List<double> equityCurve = new List<double>();
         readonly List<TradeRecord> trades = new List<TradeRecord>();
 
+        /// <param name="observationSet">Agent 看到哪一档观测；它的历史长度决定最早能决策的下标。默认 base。</param>
         public TradingEnv(CandleSeries series, SymbolRules rules, int first, int last,
             double initialCash = DefaultInitialCash, int episodeLength = TrainingEpisodeLength,
-            double randomInitialPositionShare = DefaultRandomInitialPositionShare)
+            double randomInitialPositionShare = DefaultRandomInitialPositionShare,
+            ObservationSet observationSet = ObservationSet.Base)
         {
             Series = series ?? throw new ArgumentNullException(nameof(series));
             Rules = rules ?? throw new ArgumentNullException(nameof(rules));
+            int history = observationSet.HistoryLength(); // 不是三档之一时在这里就抛异常
             if (first < 0 || last >= series.Count || first >= last)
                 throw new ArgumentOutOfRangeException(nameof(first), $"Need 0 <= first < last < {series.Count}, got [{first}, {last}].");
-            if (Math.Max(first, ObservationBuilder.Lookback) >= last)
-                throw new ArgumentOutOfRangeException(nameof(last), $"Segment [{first}, {last}] has no step after index {ObservationBuilder.Lookback}.");
+            if (Math.Max(first, history) >= last)
+                throw new ArgumentOutOfRangeException(nameof(last), $"Segment [{first}, {last}] has no step after index {history}.");
             if (!(initialCash > 0) || double.IsInfinity(initialCash))
                 throw new ArgumentOutOfRangeException(nameof(initialCash), initialCash, "Must be a finite value > 0.");
             if (episodeLength < 0) throw new ArgumentOutOfRangeException(nameof(episodeLength), episodeLength, "Must be >= 0.");
@@ -39,6 +42,7 @@ namespace Gym.Core.Env
 
             First = first;
             Last = last;
+            ObservationSet = observationSet;
             InitialCash = initialCash;
             EpisodeLength = episodeLength;
             RandomInitialPositionShare = randomInitialPositionShare;
@@ -47,13 +51,14 @@ namespace Gym.Core.Env
         /// <summary>建在一个日期分段的 candle 上的环境。</summary>
         public static TradingEnv ForSegment(CandleSeries series, SymbolRules rules, SegmentSpec segment,
             double initialCash = DefaultInitialCash, int episodeLength = TrainingEpisodeLength,
-            double randomInitialPositionShare = DefaultRandomInitialPositionShare)
+            double randomInitialPositionShare = DefaultRandomInitialPositionShare,
+            ObservationSet observationSet = ObservationSet.Base)
         {
             int first = segment.FirstIndex(series);
             int last = segment.LastIndex(series);
             if (first < 0 || last < 0 || !segment.IsInside(series))
                 throw new ArgumentException($"Segment {segment} is outside the data.", nameof(segment));
-            return new TradingEnv(series, rules, first, last, initialCash, episodeLength, randomInitialPositionShare);
+            return new TradingEnv(series, rules, first, last, initialCash, episodeLength, randomInitialPositionShare, observationSet);
         }
 
         public CandleSeries Series { get; }
@@ -64,6 +69,14 @@ namespace Gym.Core.Env
         /// <summary>每个训练 episode 的 step 数；为 0 时一直运行到分段结束。</summary>
         public int EpisodeLength { get; }
         public double RandomInitialPositionShare { get; }
+        /// <summary>Agent 看到哪一档观测。</summary>
+        public ObservationSet ObservationSet { get; }
+        /// <summary>这一档每一步写几个数（<see cref="WriteObservation"/> 要的数组长度）。</summary>
+        public int ObservationSize => ObservationSet.Size();
+        /// <summary>这一档的历史长度：base 32，long 和 long-ta 2160。</summary>
+        public int HistoryLength => ObservationSet.HistoryLength();
+        /// <summary>最早能决策的下标：max(<see cref="First"/>, <see cref="HistoryLength"/>)。评估从这里开始，训练起点不早于它。</summary>
+        public int FirstDecisionIndex => Math.Max(First, HistoryLength);
 
         public Account Account { get; private set; }
         public CostModel Cost { get; private set; }
@@ -94,7 +107,7 @@ namespace Gym.Core.Env
         public bool SellEnabled => ActionCodec.SellEnabled(RequireAccount(), Series.CloseAt(CurrentIndex));
 
         /// <summary>
-        /// 开始一个训练 episode：起点在 [max(First, 32), Last − EpisodeLength] 里随机取
+        /// 开始一个训练 episode：起点在 [max(First, 历史长度), Last − EpisodeLength] 里随机取
         /// （EpisodeLength 为 0 时上限是 Last − 1）；并且以 <see cref="RandomInitialPositionShare"/> 的概率，
         /// 让 equity 里随机的一部分一开始就是 coin（不收 fee）。
         /// </summary>
@@ -104,7 +117,7 @@ namespace Gym.Core.Env
             Seed = seed;
             Evaluation = false;
 
-            int lo = Math.Max(First, ObservationBuilder.Lookback);
+            int lo = FirstDecisionIndex;
             double cash = InitialCash;
             long units = 0;
             double avgCost = 0;
@@ -134,7 +147,7 @@ namespace Gym.Core.Env
         }
 
         /// <summary>
-        /// 开始一个评估 episode：从 max(First, 32) 开始，全是现金，一直运行到 Last。
+        /// 开始一个评估 episode：从 max(First, 历史长度) 开始（base 是 32，long 和 long-ta 是 2160），全是现金，一直运行到 Last。
         /// 没有任何随机；seed 只记在 <see cref="Seed"/> 里。
         /// </summary>
         public void ResetForEvaluation(int seed, CostModel cost)
@@ -142,7 +155,7 @@ namespace Gym.Core.Env
             Cost = cost ?? throw new ArgumentNullException(nameof(cost));
             Seed = seed;
             Evaluation = true;
-            StartEpisode(Math.Max(First, ObservationBuilder.Lookback), InitialCash, 0, 0);
+            StartEpisode(FirstDecisionIndex, InitialCash, 0, 0);
         }
 
         /// <summary>
@@ -151,7 +164,7 @@ namespace Gym.Core.Env
         /// </summary>
         public void Reset(CostModel cost, int startIndex)
         {
-            int lo = Math.Max(First, ObservationBuilder.Lookback);
+            int lo = FirstDecisionIndex;
             if (startIndex < lo || startIndex >= Last)
                 throw new ArgumentOutOfRangeException(nameof(startIndex), startIndex, $"Must be in [{lo}, {Last - 1}].");
             Cost = cost ?? throw new ArgumentNullException(nameof(cost));
@@ -179,8 +192,9 @@ namespace Gym.Core.Env
             equityCurve.Add(CurrentEquity);
         }
 
+        /// <summary>按 <see cref="ObservationSet"/> 写 <see cref="ObservationSize"/> 个数。</summary>
         public void WriteObservation(float[] dst, int offset = 0) =>
-            ObservationBuilder.Write(Series, CurrentIndex, RequireAccount(), StepsSinceTrade, dst, offset);
+            ObservationBuilder.Write(ObservationSet, Series, CurrentIndex, RequireAccount(), StepsSinceTrade, dst, offset);
 
         /// <summary>
         /// 执行一个 action。被 action mask 挡掉、却仍然发过来的选择（例如来自键盘），记为一笔被拒绝的订单。
