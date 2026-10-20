@@ -13,6 +13,7 @@ Usage, from the repository root, in the mlagents environment (matplotlib install
         --run-id ppo_base-curve-s1-20261019 --out plots/learning-curve.csv
 
     # checkpoint steps -> validation return, with buy-and-hold from the log as a dashed line
+    # (--symbol picks whose buy-and-hold; default BTCUSDT)
     python scripts/eval/plot_curves.py curve plots/learning-curve.csv \
         --log evaluations/log.csv --out plots/learning-curve.png
 
@@ -162,14 +163,16 @@ def command_curve_csv(args: argparse.Namespace) -> int:
     return 0
 
 
-def baseline_return(log_path: Path, segment: str, fee_rate: float) -> float:
-    """流水里 buy_and_hold、指定段和费率那一行的 total_return；有多行取最新一行。"""
+def baseline_return(log_path: Path, segment: str, fee_rate: float, symbol: str = "BTCUSDT") -> float:
+    """流水里 buy_and_hold、指定币、段和费率那一行的 total_return；有多行取最新一行。
+    流水里有好几只币的买入持有，不按币筛就会混进别的币。"""
     matches = [
         row for row in read_log(log_path)
-        if row["policy"] == "buy_and_hold" and row["segment"] == segment and float(row["fee_rate"]) == fee_rate
+        if row["policy"] == "buy_and_hold" and row["symbol"] == symbol and row["segment"] == segment
+        and float(row["fee_rate"]) == fee_rate
     ]
     if not matches:
-        raise SystemExit(f"error: no buy_and_hold,{segment},{fee_rate} row in {log_path}")
+        raise SystemExit(f"error: no buy_and_hold,{symbol},{segment},{fee_rate} row in {log_path}")
     latest = max(matches, key=lambda row: row["timestamp_utc"])
     return float(latest["total_return"])
 
@@ -180,7 +183,7 @@ def command_curve(args: argparse.Namespace) -> int:
     if not points:
         print(f"error: {args.csv} has no rows", file=sys.stderr)
         return 1
-    hold = baseline_return(Path(args.log), args.segment, args.fee_rate)
+    hold = baseline_return(Path(args.log), args.segment, args.fee_rate, args.symbol)
 
     figure, axes = new_figure()
     steps = [step for step, _ in points]
@@ -221,6 +224,7 @@ def main(argv=None) -> int:
     curve.add_argument("--log", required=True, help="evaluations/log.csv, for the buy_and_hold row")
     curve.add_argument("--segment", default="validation")
     curve.add_argument("--fee-rate", type=float, default=0.001)
+    curve.add_argument("--symbol", default="BTCUSDT", help="whose buy_and_hold row to draw (default: BTCUSDT)")
     curve.add_argument("--out", required=True, help="output PNG")
     curve.set_defaults(func=command_curve)
 

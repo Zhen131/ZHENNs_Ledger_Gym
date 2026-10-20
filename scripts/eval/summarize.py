@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Summarise an evaluation log as Markdown tables, one per segment and cost setting.
+"""Summarise an evaluation log as Markdown tables, one per symbol, segment and cost setting.
 
 Usage, from the repository root:
 
@@ -8,9 +8,10 @@ Usage, from the repository root:
 Standard library only. Each row of the log becomes one table row: policy, total
 return, max drawdown, Sharpe, trades, fees as a share of the starting equity and
 exposure (share of steps holding coin). Random baselines are medians over their seeds.
-Rows are grouped by segment, fee rate, fixed fee and slippage, so runs with
-different costs never share a table; the heading names a fixed fee or slippage
-only when it is not zero.
+Rows are grouped by symbol, segment, fee rate, fixed fee and slippage, so runs on
+different coins or with different costs never share a table. The heading reads
+"symbol · segment (dates) · costs" and names a fixed fee or slippage only when it
+is not zero.
 """
 
 from __future__ import annotations
@@ -45,10 +46,11 @@ def format_number(text: str, digits: int = 2) -> str:
 
 
 def group_by_costs(rows: list[dict]) -> dict[tuple, list[dict]]:
-    """把行按（分段、费率、固定 fee、slippage）分组。"""
+    """把行按（币、分段、费率、固定 fee、slippage）分组。"""
     groups: dict[tuple, list[dict]] = defaultdict(list)
     for row in rows:
-        key = (row["segment"], float(row["fee_rate"]), float(row["fixed_fee"] or 0), float(row["slippage"] or 0))
+        key = (row["symbol"], row["segment"], float(row["fee_rate"]), float(row["fixed_fee"] or 0),
+               float(row["slippage"] or 0))
         groups[key].append(row)
     return groups
 
@@ -88,10 +90,10 @@ def summarize(path: Path) -> str:
         return f"{path}: no rows\n"
 
     out = []
-    for (segment, fee, fixed_fee, slippage), items in sorted(group_by_costs(rows).items()):
+    for (symbol, segment, fee, fixed_fee, slippage), items in sorted(group_by_costs(rows).items()):
         first = items[0]
         costs = cost_text(fee, fixed_fee, slippage)
-        out.append(f"### {segment} ({first['segment_start']} to {first['segment_end']}), {costs}\n")
+        out.append(f"### {symbol} · {segment} ({first['segment_start']} to {first['segment_end']}) · {costs}\n")
         out.extend(table_lines(items))
         out.append("")
     return "\n".join(out)
