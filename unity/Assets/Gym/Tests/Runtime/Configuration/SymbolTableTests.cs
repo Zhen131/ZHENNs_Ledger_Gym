@@ -8,7 +8,7 @@ namespace Gym.Tests.Runtime.Configuration
     public class SymbolTableTests
     {
         [Test]
-        public void DefaultSymbolsFile_ListsThreeSymbols()
+        public void DefaultSymbolsFile_ListsSixSymbols()
         {
             SymbolTable table = JsonUtility.FromJson<SymbolTable>(File.ReadAllText(GymConfigLoader.DefaultSymbolsPath));
             Assert.AreEqual(6, table.symbols.Length); // BTC、ETH、ADA，加上 12 批的 DOGE、BNB、XRP
