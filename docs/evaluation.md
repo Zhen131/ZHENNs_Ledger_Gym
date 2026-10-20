@@ -60,6 +60,8 @@ Options: `-gymSegment <name>` (**required**: without it nothing is written and t
 
 A trained model is evaluated in its own build (`BuildMacEval` / `BuildWindowsEval` with `-gymModel`), which records the run id and the model's SHA-256 in every row; `-gymFixedFee` and `-gymSlippage` set the other costs, and `-gymSymbol` the coin. The evaluation player refuses to start (exit code 1, nothing written) without `-gymMode eval`, `-gymSegment <name>` and `-gymOut <dir>`; it has no default segment, so the test segment is never evaluated by accident. A name that is not an evaluation segment in `gym-config.json` also stops it with exit code 1 before anything is written; the player's log lists the names.
 
+`-gymRiskAversion` (the reward's risk coefficient, see [architecture.md](architecture.md#observation-action-reward)) changes no metric: the evaluation measures the equity, not the reward. The evaluation player and the baseline tool still check it like the costs (a negative value stops them with exit code 1 before anything is written); the baselines always run with 0.
+
 ## Observation set and the model's input size
 
 `-gymObs base|long|long-ta` chooses the observation set for the evaluation player, the baseline tool and the Play scene; without it they use `observationSet` in `gym-config.json` (default `base`), and another name is refused (exit code 1, nothing written). The set's history length moves the first evaluated candle to max(segment start, history length): 32 candles for `base`, 2160 for `long` and `long-ta`; with the committed data every evaluation segment starts much later, so the baselines are the same for every set.

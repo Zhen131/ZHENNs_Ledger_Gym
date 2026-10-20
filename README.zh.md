@@ -1,6 +1,6 @@
 # ZHENN Ledger Gym（中文说明）
 
-一个 Unity ML-Agents 环境：强化学习智能体按小时一根一根地走过 BTC/USDT 的历史 K 线，每小时决定买、卖还是不动、动多少；每一笔成交都要付手续费。另有四只币（ETH、ADA、DOGE、XRP）用来评估。智能体看到的是三档观测集里的一档：`base` 是第一轮的 35 个数（最近 32 根收盘价、仓位、浮盈、距上次交易多久；默认就是它），`long` 再加 6 个长周期的数（过去 1 天、1 周、30 天、90 天的收益率按波动率归一，过去 30 天的波动率，距过去 90 天最高点的回撤），`long-ta` 在 `long` 上再加按天算的 MACD 和 RSI，只当对照组。
+一个 Unity ML-Agents 环境：强化学习智能体按小时一根一根地走过 BTC/USDT 的历史 K 线，每小时决定买、卖还是不动、动多少；每一笔成交都要付手续费。另有四只币（ETH、ADA、DOGE、XRP）用来评估。智能体看到的是三档观测集里的一档：`base` 是第一轮的 35 个数（最近 32 根收盘价、仓位、浮盈、距上次交易多久；默认就是它），`long` 再加 6 个长周期的数（过去 1 天、1 周、30 天、90 天的收益率按波动率归一，过去 30 天的波动率，距过去 90 天最高点的回撤），`long-ta` 在 `long` 上再加按天算的 MACD 和 RSI，只当对照组。每小时的得分是资产的对数收益（乘 100、截到 ±1）；可选的风险系数（环境参数 `risk_aversion`，默认 0，此时得分不变）在每个亏损的小时再扣一笔「亏损的平方」的罚款。
 
 这是一个大学课程项目（德布勒森大学「强化学习导论」，2026 年秋）。它**不是**交易策略，**不是**投资建议，也不承诺任何收益。它要回答的问题是：手续费怎样改变智能体学到的做法，而不是它能不能赚钱。
 
@@ -71,10 +71,10 @@ python scripts/eval/summarize.py evaluations/smoke/log.csv
 除了 PC 训练指南有中文版，其余都是英文。
 
 - [docs/setup.md](docs/setup.md)：版本、Python 环境（macOS 和 Windows）、用 VS Code 看代码
-- [docs/architecture.md](docs/architecture.md)：三层结构、一步怎么走、三档观测集和它们的公式、动作、奖励和种子、从哪个文件开始读
+- [docs/architecture.md](docs/architecture.md)：三层结构、一步怎么走、三档观测集和它们的公式、动作、奖励和它的风险系数、种子、从哪个文件开始读
 - [docs/data.md](docs/data.md)：五只币的数据、许可、怎么重新生成、缺口怎么补、各币和 BTC 的相关性、分段（训练段 2017-08-17～2021-12-31；验证段三段：validation-bear 2022 年、validation-recovery 2023-01～2024-08、validation 2024-09～2025-08；测试段 2025-09～2026-08）
 - [docs/evaluation.md](docs/evaluation.md)：评估流水、指标、评估段、用 `-gymSymbol` 选币、用 `-gymObs` 选观测集、模型输入维数的核对，和六个对照组（买入持有、一直拿现金、随机，加三条简单规则：`momentum_90d` 过去 90 天涨才持有、`sma_cross` 1 周均线在 1 月均线之上才持有、`vol_target` 按波动率调仓）
-- [docs/training.md](docs/training.md)：在 Mac 上跑成批训练、观测集 `obs_set`，以及 `Trading/*` 曲线的意思
+- [docs/training.md](docs/training.md)：在 Mac 上跑成批训练、观测集 `obs_set`、风险系数 `risk_aversion`，以及 `Trading/*` 曲线的意思
 - [docs/development.md](docs/development.md)：重建场景、试玩核对表和截图、要训练好的模型才能跑的测试；Unity 会自己写哪些文件
 - [docs/pc-training.zh.md](docs/pc-training.zh.md)（[英文版](docs/pc-training.md)）：在 Windows 电脑上训练
 - [config/README.md](config/README.md)：训练配置和对比组
