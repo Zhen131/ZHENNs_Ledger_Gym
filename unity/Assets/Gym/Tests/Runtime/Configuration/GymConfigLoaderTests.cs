@@ -1,5 +1,7 @@
 using System;
+using System.Globalization;
 using System.IO;
+using System.Linq;
 using Gym.Core.Market;
 using Gym.Runtime.Configuration;
 using NUnit.Framework;
@@ -102,6 +104,7 @@ namespace Gym.Tests.Runtime.Configuration
         {
             GymConfig config = DefaultConfig();
             config.extraSegments = new NamedDateRange[0]; // 只看训练段和测试段；额外段会和这里的训练段重叠
+            config.symbols = new SymbolDataEntry[0]; // 只看主币；晚上市的币的数据里没有这里的测试段
             config.train = new DateRange { start = "2019-01-01", end = "2024-08-31" };
             config.test = new DateRange { start = "2017-08-17", end = "2018-12-31" };
             GymSettings s = GymConfigLoader.Load(WriteConfig(config), GymConfigLoader.DefaultSymbolsPath);
@@ -299,6 +302,171 @@ namespace Gym.Tests.Runtime.Configuration
             config.initialCash = GymConfigLoader.MaxInitialCash;
             Assert.AreEqual(1e9, GymConfigLoader.Load(WriteConfig(config), GymConfigLoader.DefaultSymbolsPath).Config.initialCash);
             Assert.AreEqual(10_000, GymConfigLoader.Load(GymConfigLoader.DefaultConfigPath, GymConfigLoader.DefaultSymbolsPath).Config.initialCash);
+        }
+
+        // ---- 多币（symbols）和 -gymSymbol
+
+        /// <summary>默认配置里的币，按配置里的顺序：主币 BTC、ETH、ADA、只考不训的 DOGE、第五只。</summary>
+        static readonly string[] DefaultSymbols = { "BTCUSDT", "ETHUSDT", "ADAUSDT", "DOGEUSDT", "XRPUSDT" };
+
+        [Test]
+        public void DefaultConfig_ListsFiveSymbolsAndLoadsEachOne()
+        {
+            GymSettings s = LoadDefault();
+            CollectionAssert.AreEqual(DefaultSymbols, s.SymbolNames);
+            Assert.AreEqual("BTCUSDT", s.Current.Symbol, "without -gymSymbol the current symbol is the main one");
+            Assert.AreSame(s.Current.Series, s.Series);
+            Assert.AreSame(s.Current.Rules, s.Rules);
+            Assert.AreEqual("data/BTCUSDT-1h.csv", s.DataFile);
+            SymbolTable table = JsonUtility.FromJson<SymbolTable>(File.ReadAllText(GymConfigLoader.DefaultSymbolsPath));
+            foreach (string name in DefaultSymbols)
+            {
+                Assert.IsTrue(s.TryGetSymbol(name, out SymbolSettings symbol), name);
+                SymbolEntry entry = Array.Find(table.symbols, e => e.symbol == name);
+                Assert.IsNotNull(entry, $"{name} has rules in symbols.json");
+                Assert.AreEqual(name, symbol.Rules.Symbol);
+                Assert.AreEqual(entry.minNotional, symbol.Rules.MinNotional, name);
+                Assert.AreEqual(decimal.Parse(entry.stepSize, CultureInfo.InvariantCulture), symbol.Rules.StepSize, name);
+                Assert.AreEqual($"data/{name}-1h.csv", symbol.DataFile);
+                StringAssert.EndsWith($"{name}-1h.csv", symbol.DataPath);
+                Assert.Greater(symbol.Series.Count, 50_000, name);
+                Assert.AreEqual(name == "DOGEUSDT", symbol.EvalOnly, $"{name}: only DOGE is evalOnly");
+                Assert.AreEqual(s.Train.EndDate, symbol.Train.EndDate, name);
+            }
+            Assert.IsFalse(s.TryGetSymbol("SOLUSDT", out _));
+            Assert.IsEmpty(s.Warnings);
+        }
+
+        [TestCase("ETHUSDT")]
+        [TestCase("adausdt")]
+        [TestCase("DOGEUSDT")]
+        [TestCase("XRPUSDT")]
+        public void SymbolArgument_MakesThatSymbolTheCurrentOne(string name)
+        {
+            GymSettings s = LoadDefault("x", "-gymMode", "eval", "-gymSegment", "validation-bear", "-gymSymbol", name);
+            string upper = name.ToUpperInvariant();
+            Assert.IsTrue(s.TryGetSymbol(upper, out SymbolSettings symbol));
+            Assert.AreSame(symbol, s.Current);
+            Assert.AreEqual(upper, s.Rules.Symbol);
+            Assert.AreSame(symbol.Series, s.Series);
+            Assert.AreEqual(symbol.DataPath, s.DataPath);
+            Assert.AreEqual($"data/{upper}-1h.csv", s.DataFile);
+            Assert.AreEqual(symbol.Train.ToString(), s.Train.ToString());
+            Assert.AreEqual("validation-bear 2022-01-01..2022-12-31", s.EvalSegment.ToString());
+            Assert.AreEqual(s.PlayStart, s.Series.OpenTimeUtc(s.PlayStartIndex), "the play start index is found in this symbol's candles");
+            Assert.AreEqual("BTCUSDT", s.Config.symbol, "the main symbol stays the same");
+            Assert.IsEmpty(s.Warnings);
+        }
+
+        [TestCase("SOLUSDT")]
+        [TestCase("BTC")]
+        [TestCase("BNBUSDT")] // 在 symbols.json 里有规则，但不是配置里的币
+        public void SymbolArgument_RefusesANameThatIsNotInTheConfigAndListsTheNames(string name)
+        {
+            var e = Assert.Throws<GymConfigException>(() =>
+                LoadDefault("x", "-gymMode", "eval", "-gymSegment", "validation", "-gymSymbol", name));
+            Assert.AreEqual(1, e.Errors.Count, string.Join("; ", e.Errors));
+            StringAssert.StartsWith($"-gymSymbol {name} is not one of the symbols in the config", e.Errors[0]);
+            StringAssert.EndsWith("use " + string.Join(", ", DefaultSymbols, 0, DefaultSymbols.Length - 1) + " or " + DefaultSymbols[DefaultSymbols.Length - 1], e.Errors[0]);
+        }
+
+        [Test]
+        public void ALateListedSymbol_HasItsTrainingSegmentClippedToItsFirstCandleAndStillPassesTheSplitChecks()
+        {
+            GymSettings s = LoadDefault();
+            SegmentSpec configured = SegmentSpec.Parse("train", DefaultConfig().train.start, DefaultConfig().train.end);
+            int clipped = 0;
+            foreach (SymbolSettings symbol in s.Symbols)
+            {
+                DateTime firstDay = symbol.Series.OpenTimeUtc(0).Date;
+                if (firstDay > configured.StartDate)
+                {
+                    clipped++;
+                    Assert.IsTrue(symbol.TrainClipped, symbol.Symbol);
+                    Assert.AreEqual(firstDay, symbol.Train.StartDate, $"{symbol.Symbol}: starts on the day of its first candle");
+                }
+                else
+                {
+                    Assert.IsFalse(symbol.TrainClipped, symbol.Symbol);
+                    Assert.AreEqual(configured.ToString(), symbol.Train.ToString(), symbol.Symbol);
+                }
+                Assert.AreEqual(configured.EndDate, symbol.Train.EndDate, symbol.Symbol);
+                Assert.IsTrue(symbol.Train.IsInside(symbol.Series), symbol.Symbol);
+                SplitReport report = SplitValidator.Validate(symbol.Train, s.Validation, s.Test, s.ExtraSegments,
+                    symbol.Series, s.Config.episodeLength);
+                Assert.IsEmpty(report.Errors, $"{symbol.Symbol}: {string.Join("; ", report.Errors)}");
+            }
+            Assert.GreaterOrEqual(clipped, 2, "premise: ADA and DOGE start after 2017-08-17");
+            Assert.AreEqual(clipped, s.Notes.Count, "one note per clipped symbol");
+            foreach (string note in s.Notes) StringAssert.Contains("is clipped to train ", note);
+            Assert.IsEmpty(s.Warnings, "clipping is not a warning");
+            Assert.AreEqual(configured.ToString(), s.Train.ToString(), "the main symbol is not clipped");
+
+            GymSettings ada = LoadDefault("x", "-gymSymbol", "ADAUSDT");
+            Assert.AreEqual("train 2018-04-17..2021-12-31", ada.Train.ToString(), "ADA's first candle is 2018-04-17 04:00 UTC");
+            Assert.AreEqual(ada.PlayStart, ada.Series.OpenTimeUtc(ada.PlayStartIndex));
+        }
+
+        [Test]
+        public void AnEvaluationSegmentOutsideASymbolsData_IsAnError()
+        {
+            // 配置旁边放一份只到 2023-12-31 的 ETH 数据：验证段（2024-09～2025-08）、测试段和 validation-recovery 都不在里面
+            string dataDir = Path.Combine(tempDir, "data");
+            Directory.CreateDirectory(dataDir);
+            const long cut = 1704067200000; // 2024-01-01 00:00 UTC
+            string[] lines = File.ReadAllLines(Path.Combine(GymConfigLoader.DefaultDirectory, "data", "ETHUSDT-1h.csv"));
+            File.WriteAllLines(Path.Combine(dataDir, "ETHUSDT-1h.csv"),
+                lines.Where((line, i) => i == 0 || long.Parse(line.Split(',')[0], CultureInfo.InvariantCulture) < cut));
+            string path = WriteConfig(DefaultConfig());
+
+            var e = Assert.Throws<GymConfigException>(() => GymConfigLoader.Load(path, GymConfigLoader.DefaultSymbolsPath));
+            string all = string.Join("; ", e.Errors);
+            Assert.That(e.Errors, Has.Some.StartsWith("ETHUSDT: out of range: validation 2024-09-01..2025-08-31"), all);
+            Assert.That(e.Errors, Has.Some.StartsWith("ETHUSDT: out of range: test 2025-09-01..2026-08-31"), all);
+            Assert.That(e.Errors, Has.All.StartsWith("ETHUSDT: "), "the other symbols' data covers every segment: " + all);
+
+            // 当前币就是它时，同样的问题不带币名前缀
+            var f = Assert.Throws<GymConfigException>(() =>
+                GymConfigLoader.Load(path, GymConfigLoader.DefaultSymbolsPath, new[] { "x", "-gymSymbol", "ETHUSDT" }));
+            Assert.That(f.Errors, Has.Some.StartsWith("out of range: validation 2024-09-01..2025-08-31"), string.Join("; ", f.Errors));
+        }
+
+        [TestCase("twice", "symbols[2]: ethusdt is listed twice")]
+        [TestCase("no data file", "symbols[1]: ETHUSDT needs a dataFile")]
+        [TestCase("no name", "symbols[1] needs a symbol")]
+        [TestCase("main missing", "symbol BTCUSDT is not listed in the symbols of the config")]
+        [TestCase("main elsewhere", "symbols[0]: BTCUSDT is the main symbol, so its dataFile must be the same file as dataFile")]
+        public void SymbolsList_IsChecked(string problem, string expected)
+        {
+            GymConfig config = DefaultConfig();
+            var btc = new SymbolDataEntry { symbol = "BTCUSDT", dataFile = "data/BTCUSDT-1h.csv" };
+            var eth = new SymbolDataEntry { symbol = "ETHUSDT", dataFile = "data/ETHUSDT-1h.csv" };
+            switch (problem)
+            {
+                case "twice": config.symbols = new[] { btc, eth, new SymbolDataEntry { symbol = "ethusdt", dataFile = "data/ETHUSDT-1h.csv" } }; break;
+                case "no data file": config.symbols = new[] { btc, new SymbolDataEntry { symbol = "ETHUSDT", dataFile = "" } }; break;
+                case "no name": config.symbols = new[] { btc, new SymbolDataEntry { symbol = "", dataFile = "data/ETHUSDT-1h.csv" } }; break;
+                case "main missing": config.symbols = new[] { eth }; break;
+                case "main elsewhere": config.symbols = new[] { new SymbolDataEntry { symbol = "BTCUSDT", dataFile = "data/ETHUSDT-1h.csv" }, eth }; break;
+            }
+            var e = Assert.Throws<GymConfigException>(() =>
+                GymConfigLoader.Load(WriteConfig(config), GymConfigLoader.DefaultSymbolsPath));
+            Assert.AreEqual(1, e.Errors.Count, string.Join("; ", e.Errors));
+            StringAssert.StartsWith(expected, e.Errors[0]);
+        }
+
+        [Test]
+        public void WithoutASymbolsList_OnlyTheMainSymbolIsKnown()
+        {
+            GymConfig config = DefaultConfig();
+            config.symbols = new SymbolDataEntry[0];
+            string path = WriteConfig(config);
+            GymSettings s = GymConfigLoader.Load(path, GymConfigLoader.DefaultSymbolsPath);
+            CollectionAssert.AreEqual(new[] { "BTCUSDT" }, s.SymbolNames);
+            Assert.AreEqual(s.Series, s.Current.Series);
+            var e = Assert.Throws<GymConfigException>(() =>
+                GymConfigLoader.Load(path, GymConfigLoader.DefaultSymbolsPath, new[] { "x", "-gymSymbol", "ETHUSDT" }));
+            StringAssert.EndsWith("use BTCUSDT", e.Errors[0]);
         }
     }
 }

@@ -4,15 +4,21 @@ using Gym.Core.Market;
 
 namespace Gym.Runtime.Configuration
 {
-    /// <summary>载入并检查过的配置，连同它的数据。</summary>
+    /// <summary>
+    /// 载入并检查过的配置，连同它的数据。DataPath、DataFile、Rules、Series、Train 和 PlayStartIndex 都是
+    /// 当前币（<see cref="Current"/>）的；验证段、测试段和额外的评估段所有币共用。
+    /// </summary>
     public sealed class GymSettings
     {
         public GymConfig Config;
         public string ConfigPath;
         public string SymbolsPath;
         public string DataPath;
+        /// <summary>当前币的数据文件，按配置里的写法（写进评估记录的 data_file）。</summary>
+        public string DataFile;
         public SymbolRules Rules;
         public CandleSeries Series;
+        /// <summary>当前币的训练段（按它的数据起点裁过，见 <see cref="SymbolSettings.Train"/>）。</summary>
         public SegmentSpec Train;
         public SegmentSpec Validation;
         public SegmentSpec Test;
@@ -28,6 +34,41 @@ namespace Gym.Runtime.Configuration
         public double? FixedFeeArg;
         public double? SlippageArg;
         public IReadOnlyList<string> Warnings;
+        /// <summary>
+        /// 不是问题、但要写进日志的事，例如某只币的训练段按它的数据起点裁过。和 <see cref="Warnings"/> 分开，
+        /// 默认配置载入时 Warnings 仍是空的。
+        /// </summary>
+        public IReadOnlyList<string> Notes = Array.Empty<string>();
+
+        /// <summary>配置里的每只币，按配置里的顺序；配置没有币数组时只有主币。</summary>
+        public IReadOnlyList<SymbolSettings> Symbols = Array.Empty<SymbolSettings>();
+        /// <summary>当前币：-gymSymbol 选的那只，没给时是主币（配置里的 symbol）。</summary>
+        public SymbolSettings Current;
+
+        /// <summary>-gymSymbol 接受的名字，按配置里的顺序。</summary>
+        public IReadOnlyList<string> SymbolNames
+        {
+            get
+            {
+                var names = new List<string>();
+                foreach (SymbolSettings symbol in Symbols) names.Add(symbol.Symbol);
+                return names;
+            }
+        }
+
+        /// <summary>按名字取一只币的规则、数据和裁过的训练段，不分大小写。找不到时返回 false。</summary>
+        public bool TryGetSymbol(string name, out SymbolSettings symbol)
+        {
+            symbol = null;
+            if (string.IsNullOrEmpty(name)) return false;
+            foreach (SymbolSettings candidate in Symbols)
+            {
+                if (!string.Equals(candidate.Symbol, name, StringComparison.OrdinalIgnoreCase)) continue;
+                symbol = candidate;
+                return true;
+            }
+            return false;
+        }
 
         /// <summary>评估模式下 -gymSegment 接受的名字：validation、配置里的额外段、test，按这个顺序。</summary>
         public IReadOnlyList<string> EvaluationSegmentNames

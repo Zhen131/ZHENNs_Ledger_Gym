@@ -1,6 +1,13 @@
 {
   "symbol": "BTCUSDT",
   "dataFile": "data/BTCUSDT-1h.csv",
+  "symbols": [
+    { "symbol": "BTCUSDT",  "dataFile": "data/BTCUSDT-1h.csv",  "evalOnly": false },
+    { "symbol": "ETHUSDT",  "dataFile": "data/ETHUSDT-1h.csv",  "evalOnly": false },
+    { "symbol": "ADAUSDT",  "dataFile": "data/ADAUSDT-1h.csv",  "evalOnly": false },
+    { "symbol": "DOGEUSDT", "dataFile": "data/DOGEUSDT-1h.csv", "evalOnly": true },
+    { "symbol": "XRPUSDT",  "dataFile": "data/XRPUSDT-1h.csv",  "evalOnly": false }
+  ],
   "initialCash": 10000,
   "episodeLength": 720,
   "randomInitialPositionShare": 0.5,

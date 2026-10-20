@@ -11,7 +11,7 @@ namespace Gym.Runtime.Configuration
 {
     /// <summary>
     /// 从 StreamingAssets/Gym（或者 -gymConfig 给的文件）读 gym-config.json 和 symbols.json，
-    /// 载入数据，并检查分段的划分。
+    /// 载入配置里每只币的数据，并对每只币检查分段的划分。-gymSymbol 选当前币，不给时是主币。
     /// </summary>
     public static class GymConfigLoader
     {
@@ -21,6 +21,7 @@ namespace Gym.Runtime.Configuration
         public const string FeeRateArg = "-gymFeeRate";
         public const string FixedFeeArg = "-gymFixedFee";
         public const string SlippageArg = "-gymSlippage";
+        public const string SymbolArg = "-gymSymbol";
 
         /// <summary>
         /// 能接受的最大 initialCash。从大约 1e12 起，double 能分辨的最小金额差达到 0.0001 USDT 甚至更大，
@@ -51,8 +52,9 @@ namespace Gym.Runtime.Configuration
                 try
                 {
                     GymSettings settings = Load(configPath, DefaultSymbolsPath, args);
+                    foreach (string note in settings.Notes) Debug.Log("[Gym] " + note);
                     foreach (string warning in settings.Warnings) Debug.LogWarning("[Gym] " + warning);
-                    Debug.Log($"[Gym] config {settings.ConfigPath}, data {settings.DataPath} ({settings.Series.Count} candles), mode {settings.Mode}");
+                    Debug.Log($"[Gym] config {settings.ConfigPath}, symbol {settings.Rules.Symbol}, data {settings.DataPath} ({settings.Series.Count} candles), mode {settings.Mode}");
                     runtimeSettings = settings;
                     runtimeKey = key;
                     return settings;
@@ -87,16 +89,19 @@ namespace Gym.Runtime.Configuration
             settings.FeeRateArg = ReadCostArg(args, FeeRateArg, errors, v => new CostModel(v, 0, 0));
             settings.FixedFeeArg = ReadCostArg(args, FixedFeeArg, errors, v => new CostModel(0, v, 0));
             settings.SlippageArg = ReadCostArg(args, SlippageArg, errors, v => new CostModel(0, 0, v));
-            settings.Rules = FindSymbol(config.symbol, table, settings.SymbolsPath, errors);
             CheckNumbers(config, errors);
             var extraNames = new List<string>();
             bool datesOk = ReadDates(config, settings, errors, extraNames);
-            LoadData(config, settings, errors);
+            List<SymbolSettings> symbols = LoadSymbols(config, table, settings, errors);
+            settings.Symbols = symbols;
+            settings.Current = ChooseSymbol(args, config, symbols, errors);
+            UseCurrentSymbol(settings);
             CheckEvalSegmentName(evalSegmentName, extraNames, errors);
 
+            var notes = new List<string>();
             if (settings.Series != null && datesOk)
             {
-                ValidateSplit(config, settings, errors, warnings);
+                ValidateSplits(config, settings, errors, warnings, notes);
                 settings.EvalSegment = settings.TryGetEvaluationSegment(evalSegmentName ?? SegmentNames.Test, out SegmentSpec chosen)
                     ? chosen
                     : settings.Test; // 名字不对时上面已经记了错误，这里的值不会被用到
@@ -105,6 +110,7 @@ namespace Gym.Runtime.Configuration
 
             if (errors.Count > 0) throw new GymConfigException(errors);
             settings.Warnings = warnings;
+            settings.Notes = notes;
             return settings;
         }
 
@@ -204,39 +210,182 @@ namespace Gym.Runtime.Configuration
             items.Count < 2 ? string.Join("", items)
                 : string.Join(", ", items.GetRange(0, items.Count - 1)) + " or " + items[items.Count - 1];
 
-        /// <summary>设置 DataPath 和 Series；或者加上 candle 文件用不了的原因。</summary>
-        static void LoadData(GymConfig config, GymSettings settings, List<string> errors)
+        /// <summary>
+        /// 配置里的每只币：去 symbols.json 找下单规则，读数据。没有币数组（或是空的）时只有主币（symbol、dataFile）。
+        /// 有币数组时：每项要有 symbol 和 dataFile，不许重名（不分大小写），主币必须列在里面，而且它的数据文件和
+        /// 顶层的 dataFile 是同一个文件；主币的 DataFile 记顶层 dataFile 的写法。
+        /// </summary>
+        static List<SymbolSettings> LoadSymbols(GymConfig config, SymbolTable table, GymSettings settings, List<string> errors)
         {
-            if (string.IsNullOrEmpty(config.dataFile))
+            var symbols = new List<SymbolSettings>();
+            string configDir = Path.GetDirectoryName(settings.ConfigPath);
+            string main = config.symbol;
+            if (string.IsNullOrEmpty(main)) errors.Add("symbol is missing");
+            string mainPath = null;
+            if (string.IsNullOrEmpty(config.dataFile)) errors.Add("dataFile is missing");
+            else mainPath = ResolveDataPath(config.dataFile, configDir);
+
+            SymbolDataEntry[] entries = config.symbols;
+            if (entries == null || entries.Length == 0)
             {
-                errors.Add("dataFile is missing");
-                return;
+                if (!string.IsNullOrEmpty(main))
+                    symbols.Add(LoadSymbol(main, config.dataFile, mainPath, false, table, settings.SymbolsPath, errors));
+                return symbols;
             }
-            settings.DataPath = ResolveDataPath(config.dataFile, Path.GetDirectoryName(settings.ConfigPath));
-            if (!File.Exists(settings.DataPath))
+
+            bool mainListed = false;
+            for (int i = 0; i < entries.Length; i++)
             {
-                errors.Add($"data file not found: {settings.DataPath}");
-                return;
+                SymbolDataEntry entry = entries[i];
+                string where = $"symbols[{i}]";
+                if (entry == null || string.IsNullOrEmpty(entry.symbol))
+                {
+                    errors.Add($"{where} needs a symbol");
+                    continue;
+                }
+                string name = entry.symbol;
+                if (string.IsNullOrEmpty(entry.dataFile))
+                {
+                    errors.Add($"{where}: {name} needs a dataFile");
+                    continue;
+                }
+                if (symbols.Exists(s => string.Equals(s.Symbol, name, StringComparison.OrdinalIgnoreCase)))
+                {
+                    errors.Add($"{where}: {name} is listed twice");
+                    continue;
+                }
+                string dataFile = entry.dataFile;
+                string path = ResolveDataPath(dataFile, configDir);
+                if (name == main)
+                {
+                    mainListed = true;
+                    if (mainPath != null && path != mainPath)
+                    {
+                        errors.Add($"{where}: {name} is the main symbol, so its dataFile must be the same file as dataFile " +
+                                   $"({config.dataFile}), not {dataFile}");
+                        continue;
+                    }
+                    if (mainPath != null) dataFile = config.dataFile;
+                }
+                symbols.Add(LoadSymbol(name, dataFile, path, entry.evalOnly, table, settings.SymbolsPath, errors));
+            }
+            if (!string.IsNullOrEmpty(main) && !mainListed)
+            {
+                errors.Add($"symbol {main} is not listed in the symbols of the config; the main symbol must be one of them");
+                FindSymbol(main, table, settings.SymbolsPath, errors); // 顺便说清 symbols.json 里有没有它
+            }
+            return symbols;
+        }
+
+        /// <summary>一只币：规则和数据；用不了时记下原因（规则或数据为 null）。</summary>
+        static SymbolSettings LoadSymbol(string symbol, string dataFile, string path, bool evalOnly, SymbolTable table,
+            string symbolsPath, List<string> errors)
+        {
+            var loaded = new SymbolSettings { Symbol = symbol, DataFile = dataFile, DataPath = path, EvalOnly = evalOnly };
+            loaded.Rules = FindSymbol(symbol, table, symbolsPath, errors);
+            if (path == null) return loaded;
+            if (!File.Exists(path))
+            {
+                errors.Add($"data file not found: {path}");
+                return loaded;
             }
             try
             {
-                settings.Series = GymDataCache.Get(settings.DataPath);
+                loaded.Series = GymDataCache.Get(path);
             }
             catch (FormatException e)
             {
-                errors.Add($"data file {settings.DataPath} is malformed: {e.Message}");
+                errors.Add($"data file {path} is malformed: {e.Message}");
+            }
+            return loaded;
+        }
+
+        /// <summary>
+        /// 当前币：-gymSymbol 给的名字（不分大小写），没给时是主币。名字不是配置里的币时记一条错误，列出能用的名字。
+        /// </summary>
+        static SymbolSettings ChooseSymbol(string[] args, GymConfig config, List<SymbolSettings> symbols, List<string> errors)
+        {
+            string wanted = CommandLineArgs.ValueOf(args, SymbolArg);
+            if (wanted == null) return symbols.Find(s => s.Symbol == config.symbol);
+            SymbolSettings chosen = symbols.Find(s => string.Equals(s.Symbol, wanted, StringComparison.OrdinalIgnoreCase));
+            if (chosen == null)
+                errors.Add($"{SymbolArg} {wanted} is not one of the symbols in the config; " +
+                           $"use {JoinWithOr(symbols.ConvertAll(s => s.Symbol))}");
+            return chosen;
+        }
+
+        /// <summary>DataPath、DataFile、Rules、Series 指向当前币。</summary>
+        static void UseCurrentSymbol(GymSettings settings)
+        {
+            SymbolSettings current = settings.Current;
+            if (current == null) return;
+            settings.DataPath = current.DataPath;
+            settings.DataFile = current.DataFile;
+            settings.Rules = current.Rules;
+            settings.Series = current.Series;
+        }
+
+        /// <summary>
+        /// 每只币各查一次分段：先按它的数据起点裁训练段（裁剪记进 <paramref name="notes"/>，是普通日志，不算警告），
+        /// 再过 <see cref="SplitValidator"/>：验证段们和测试段必须完整落在这只币的数据里，裁过的训练段也要够长。
+        /// 当前币先查，它的问题照原样报；别的币的问题前面加「币名: 」，和当前币一字不差的不再重复报。
+        /// 最后 settings.Train 换成当前币的训练段。
+        /// </summary>
+        static void ValidateSplits(GymConfig config, GymSettings settings, List<string> errors, List<string> warnings,
+            List<string> notes)
+        {
+            SegmentSpec configured = settings.Train;
+            int episodeLength = Math.Max(config.episodeLength, 0);
+            var currentErrors = new List<string>();
+            var currentWarnings = new List<string>();
+            var ordered = new List<SymbolSettings> { settings.Current };
+            foreach (SymbolSettings symbol in settings.Symbols)
+                if (symbol != settings.Current) ordered.Add(symbol);
+
+            foreach (SymbolSettings symbol in ordered)
+            {
+                symbol.Train = configured;
+                if (symbol.Series == null) continue; // 读不了数据，上面已经记了错误
+                ClipTraining(symbol, configured, notes);
+                bool isCurrent = symbol == settings.Current;
+                string prefix = isCurrent ? "" : symbol.Symbol + ": ";
+                SplitReport report = SplitValidator.Validate(symbol.Train, settings.Validation, settings.Test,
+                    settings.ExtraSegments, symbol.Series, episodeLength);
+                AddOnce(report.Errors, isCurrent, prefix, currentErrors, errors);
+                AddOnce(report.Warnings, isCurrent, prefix, currentWarnings, warnings);
+            }
+            settings.Train = settings.Current.Train;
+        }
+
+        /// <summary>当前币的条目原样加；别的币的条目和当前币一字不差时跳过，否则加上币名前缀。</summary>
+        static void AddOnce(List<string> found, bool isCurrent, string prefix, List<string> current, List<string> into)
+        {
+            foreach (string item in found)
+            {
+                if (isCurrent) current.Add(item);
+                else if (current.Contains(item)) continue;
+                into.Add(prefix + item);
             }
         }
 
-        static void ValidateSplit(GymConfig config, GymSettings settings, List<string> errors, List<string> warnings)
+        /// <summary>
+        /// 配置里的训练段早于这只币的第一根 candle、但终点在它之后时，起点裁到第一根 candle 那天，终点不变。
+        /// 终点也早于第一根时不裁，让分段检查报「out of range」。
+        /// </summary>
+        static void ClipTraining(SymbolSettings symbol, SegmentSpec configured, List<string> notes)
         {
-            SplitReport report = SplitValidator.Validate(settings.Train, settings.Validation, settings.Test,
-                settings.ExtraSegments, settings.Series, Math.Max(config.episodeLength, 0));
-            errors.AddRange(report.Errors);
-            warnings.AddRange(report.Warnings);
+            symbol.Train = configured;
+            symbol.TrainClipped = false;
+            DateTime firstCandle = symbol.Series.OpenTimeUtc(0);
+            DateTime firstDay = firstCandle.Date;
+            if (configured.StartDate >= firstDay || configured.EndDate < firstDay) return;
+            symbol.Train = new SegmentSpec(configured.Name, firstDay, configured.EndDate);
+            symbol.TrainClipped = true;
+            notes.Add($"{symbol.Symbol}: data starts {firstCandle:yyyy-MM-dd HH:mm} UTC, so its training segment " +
+                      $"{configured} is clipped to {symbol.Train}");
         }
 
-        /// <summary>设置 PlayStartIndex，并检查 playStart 落在训练段里。</summary>
+        /// <summary>设置 PlayStartIndex（按当前币的序列），并检查 playStart 落在当前币的训练段里。</summary>
         static void CheckPlayStart(GymConfig config, GymSettings settings, List<string> errors)
         {
             int trainLast = settings.Train.LastIndex(settings.Series);
