@@ -68,9 +68,22 @@ DEFAULT_OFF_HOUR = "drop"  # 提交的数据丢掉了 2018-02 那 43 根不在�
 # 要加更新的月份，传 --end。
 DEFAULT_END_MONTH = (2026, 8)
 # 已知提交的数据里有什么。重建之后出现别的情况就打印警告：被丢掉的 candle 会变成平的填充，
-# 不警告的话，它们只会在 manifest 里显示成一个计数。
-KNOWN_OFF_HOUR_ROWS = {("BTCUSDT", "1h"): 43}
-KNOWN_LONG_GAPS = {("BTCUSDT", "1h"): {"2018-02-08T01:00:00Z"}}
+# 不警告的话，它们只会在 manifest 里显示成一个计数。数字从各自的 manifest 抄
+# （off_hour_rows.count 和 filled_gaps.over_24h）；0 和空集合是查过、确实没有。
+# ETHUSDT 实测也是 43 根、2018-02-08T01:00:00Z 起 75 小时；下面的自测拿 ETHUSDT 当「没有登记的币」，
+# 所以它暂时没登记，重跑时会照旧警告。
+KNOWN_OFF_HOUR_ROWS = {
+    ("BTCUSDT", "1h"): 43,
+    ("ADAUSDT", "1h"): 0,
+    ("DOGEUSDT", "1h"): 0,
+    ("XRPUSDT", "1h"): 0,
+}
+KNOWN_LONG_GAPS = {
+    ("BTCUSDT", "1h"): {"2018-02-08T01:00:00Z"},
+    ("ADAUSDT", "1h"): set(),
+    ("DOGEUSDT", "1h"): set(),
+    ("XRPUSDT", "1h"): set(),
+}
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_RAW_DIR = REPO_ROOT / "data" / "raw"
