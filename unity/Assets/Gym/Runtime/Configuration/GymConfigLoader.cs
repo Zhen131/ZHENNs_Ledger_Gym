@@ -83,19 +83,23 @@ namespace Gym.Runtime.Configuration
             settings.Config = config;
 
             args = args ?? Array.Empty<string>();
-            settings.Mode = ReadMode(args, errors, out EvaluationSegment evalSegment);
+            settings.Mode = ReadMode(args, errors, out string evalSegmentName);
             settings.FeeRateArg = ReadCostArg(args, FeeRateArg, errors, v => new CostModel(v, 0, 0));
             settings.FixedFeeArg = ReadCostArg(args, FixedFeeArg, errors, v => new CostModel(0, v, 0));
             settings.SlippageArg = ReadCostArg(args, SlippageArg, errors, v => new CostModel(0, 0, v));
             settings.Rules = FindSymbol(config.symbol, table, settings.SymbolsPath, errors);
             CheckNumbers(config, errors);
-            bool datesOk = ReadDates(config, settings, errors);
+            var extraNames = new List<string>();
+            bool datesOk = ReadDates(config, settings, errors, extraNames);
             LoadData(config, settings, errors);
+            CheckEvalSegmentName(evalSegmentName, extraNames, errors);
 
             if (settings.Series != null && datesOk)
             {
                 ValidateSplit(config, settings, errors, warnings);
-                settings.EvalSegment = evalSegment == EvaluationSegment.Validation ? settings.Validation : settings.Test;
+                settings.EvalSegment = settings.TryGetEvaluationSegment(evalSegmentName ?? SegmentNames.Test, out SegmentSpec chosen)
+                    ? chosen
+                    : settings.Test; // 名字不对时上面已经记了错误，这里的值不会被用到
                 CheckPlayStart(config, settings, errors);
             }
 
@@ -115,12 +119,90 @@ namespace Gym.Runtime.Configuration
                 errors.Add($"randomInitialPositionShare must be in [0, 1] (got {config.randomInitialPositionShare})");
         }
 
-        /// <summary>读三个分段和 playStart。任何一个缺失或格式不对时返回 false；但每一个都照样检查。</summary>
-        static bool ReadDates(GymConfig config, GymSettings settings, List<string> errors) =>
+        /// <summary>
+        /// 读三个分段、额外的评估段和 playStart。任何一个日期缺失或格式不对时返回 false；但每一个都照样检查。
+        /// 名字合格的额外段（不管日期对不对）记进 <paramref name="extraNames"/>。
+        /// </summary>
+        static bool ReadDates(GymConfig config, GymSettings settings, List<string> errors, List<string> extraNames) =>
             TryRange(SegmentNames.Train, config.train, errors, out settings.Train)
             & TryRange(SegmentNames.Validation, config.validation, errors, out settings.Validation)
             & TryRange(SegmentNames.Test, config.test, errors, out settings.Test)
+            & ReadExtraSegments(config, settings, errors, extraNames)
             & TryDate("playStart", config.playStart, errors, out settings.PlayStart);
+
+        /// <summary>
+        /// 读 extraSegments。名字只许小写字母、数字和连字符，不许重名，不许叫 train、validation、test；
+        /// 名字不合格的那一项记一条错误后跳过。名字合格的记进 <paramref name="names"/>，日期也合格的才进
+        /// <see cref="GymSettings.ExtraSegments"/>。有日期不对的项时返回 false。
+        /// </summary>
+        static bool ReadExtraSegments(GymConfig config, GymSettings settings, List<string> errors, List<string> names)
+        {
+            var segments = new List<SegmentSpec>();
+            bool datesOk = true;
+            NamedDateRange[] entries = config.extraSegments ?? Array.Empty<NamedDateRange>();
+            for (int i = 0; i < entries.Length; i++)
+            {
+                NamedDateRange entry = entries[i];
+                string where = $"extraSegments[{i}]";
+                if (entry == null || string.IsNullOrEmpty(entry.name))
+                {
+                    errors.Add($"{where} needs a name");
+                    continue;
+                }
+                string name = entry.name;
+                if (!IsSegmentName(name))
+                {
+                    errors.Add($"{where}: name '{name}' may only use lower-case letters, digits and hyphens");
+                    continue;
+                }
+                if (name == SegmentNames.Train || name == SegmentNames.Validation || name == SegmentNames.Test)
+                {
+                    errors.Add($"{where}: name '{name}' is taken by the {name} segment");
+                    continue;
+                }
+                if (names.Contains(name))
+                {
+                    errors.Add($"{where}: name '{name}' is used twice");
+                    continue;
+                }
+                names.Add(name);
+                if (TryRange(name, new DateRange { start = entry.start, end = entry.end }, errors, out SegmentSpec segment))
+                    segments.Add(segment);
+                else
+                    datesOk = false;
+            }
+            settings.ExtraSegments = segments;
+            return datesOk;
+        }
+
+        /// <summary>只有小写字母、数字和连字符，并且不是空的。</summary>
+        static bool IsSegmentName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return false;
+            foreach (char c in name)
+                if (!(c >= 'a' && c <= 'z') && !(c >= '0' && c <= '9') && c != '-')
+                    return false;
+            return true;
+        }
+
+        /// <summary>
+        /// 评估模式下 -gymSegment 给的名字必须是配置里的一个评估段：validation、额外段或 test。
+        /// 不是时记一条错误，列出能用的名字。<paramref name="name"/> 为 null（没给，或不是评估模式）时不查。
+        /// </summary>
+        static void CheckEvalSegmentName(string name, List<string> extraNames, List<string> errors)
+        {
+            if (name == null) return;
+            var names = new List<string> { SegmentNames.Validation };
+            names.AddRange(extraNames);
+            names.Add(SegmentNames.Test);
+            if (!names.Contains(name))
+                errors.Add($"{SegmentArg} {name} is not an evaluation segment; use {JoinWithOr(names)}");
+        }
+
+        /// <summary>拼成 "a"、"a or b"、"a, b or c" 这样。</summary>
+        static string JoinWithOr(List<string> items) =>
+            items.Count < 2 ? string.Join("", items)
+                : string.Join(", ", items.GetRange(0, items.Count - 1)) + " or " + items[items.Count - 1];
 
         /// <summary>设置 DataPath 和 Series；或者加上 candle 文件用不了的原因。</summary>
         static void LoadData(GymConfig config, GymSettings settings, List<string> errors)
@@ -149,7 +231,7 @@ namespace Gym.Runtime.Configuration
         static void ValidateSplit(GymConfig config, GymSettings settings, List<string> errors, List<string> warnings)
         {
             SplitReport report = SplitValidator.Validate(settings.Train, settings.Validation, settings.Test,
-                settings.Series, Math.Max(config.episodeLength, 0));
+                settings.ExtraSegments, settings.Series, Math.Max(config.episodeLength, 0));
             errors.AddRange(report.Errors);
             warnings.AddRange(report.Warnings);
         }
@@ -166,14 +248,15 @@ namespace Gym.Runtime.Configuration
         }
 
         /// <summary>
-        /// -gymMode train（默认）只接受 train 这一个分段。-gymMode eval 接受
-        /// -gymSegment validation 或 test（默认 test）。
+        /// -gymMode train（默认）只接受 train 这一个分段。-gymMode eval 接受任何一个评估段的名字
+        /// （validation、test 和配置里的额外段），不给时是 test；名字对不对等读完配置再查
+        /// （<see cref="CheckEvalSegmentName"/>）。<paramref name="evalSegmentName"/> 只在评估模式下有值。
         /// </summary>
-        static GymMode ReadMode(string[] args, List<string> errors, out EvaluationSegment evalSegment)
+        static GymMode ReadMode(string[] args, List<string> errors, out string evalSegmentName)
         {
             string mode = CommandLineArgs.ValueOf(args, ModeArg)?.ToLowerInvariant();
             string segment = CommandLineArgs.ValueOf(args, SegmentArg)?.ToLowerInvariant();
-            evalSegment = EvaluationSegment.Test;
+            evalSegmentName = null;
             if (mode == null || mode == "train")
             {
                 if (segment != null && segment != SegmentNames.Train)
@@ -182,9 +265,7 @@ namespace Gym.Runtime.Configuration
             }
             if (mode == "eval")
             {
-                if (segment == SegmentNames.Validation) evalSegment = EvaluationSegment.Validation;
-                else if (segment != null && segment != SegmentNames.Test)
-                    errors.Add($"{SegmentArg} {segment} is not an evaluation segment; use validation or test");
+                evalSegmentName = segment;
                 return GymMode.Eval;
             }
             errors.Add($"{ModeArg} {mode} is not a mode; use train or eval");

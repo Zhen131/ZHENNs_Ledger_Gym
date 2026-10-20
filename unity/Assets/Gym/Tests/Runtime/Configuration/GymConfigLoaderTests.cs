@@ -48,7 +48,7 @@ namespace Gym.Tests.Runtime.Configuration
             Assert.AreEqual(0.00001m, s.Rules.StepSize);
             Assert.AreEqual(DefaultSplits.Train.StartDate, s.Train.StartDate);
             Assert.AreEqual(DefaultSplits.Test.EndDate, s.Test.EndDate);
-            Assert.AreEqual(new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), s.Series.OpenTimeUtc(s.PlayStartIndex));
+            Assert.AreEqual(s.PlayStart, s.Series.OpenTimeUtc(s.PlayStartIndex)); // 试玩从配置里的起点开始
             Assert.IsEmpty(s.Warnings);
             Assert.AreEqual(GymMode.Train, s.Mode);
         }
@@ -57,7 +57,7 @@ namespace Gym.Tests.Runtime.Configuration
         public void TestSegmentOverlappingTraining_IsAnError()
         {
             GymConfig config = DefaultConfig();
-            config.test = new DateRange { start = "2024-06-01", end = "2026-08-31" };
+            config.test = new DateRange { start = "2021-06-01", end = "2021-12-31" }; // 落在训练段（到 2021-12-31）里
             var e = Assert.Throws<GymConfigException>(() =>
                 GymConfigLoader.Load(WriteConfig(config), GymConfigLoader.DefaultSymbolsPath));
             StringAssert.Contains("overlap", e.Message);
@@ -101,6 +101,7 @@ namespace Gym.Tests.Runtime.Configuration
         public void TestBeforeTraining_IsOnlyAWarning()
         {
             GymConfig config = DefaultConfig();
+            config.extraSegments = new NamedDateRange[0]; // 只看训练段和测试段；额外段会和这里的训练段重叠
             config.train = new DateRange { start = "2019-01-01", end = "2024-08-31" };
             config.test = new DateRange { start = "2017-08-17", end = "2018-12-31" };
             GymSettings s = GymConfigLoader.Load(WriteConfig(config), GymConfigLoader.DefaultSymbolsPath);
@@ -162,6 +163,125 @@ namespace Gym.Tests.Runtime.Configuration
             Assert.AreEqual(0.999, s.FeeRateArg);
             Assert.AreEqual(0.0999, s.SlippageArg);
             Assert.AreEqual(0.0, s.FixedFeeArg);
+        }
+
+        // ---- 额外的评估段（extraSegments）
+
+        static GymSettings LoadDefault(params string[] args) =>
+            GymConfigLoader.Load(GymConfigLoader.DefaultConfigPath, GymConfigLoader.DefaultSymbolsPath, args);
+
+        static string[] Eval(string segment) => new[] { "x", "-gymMode", "eval", "-gymSegment", segment };
+
+        [Test]
+        public void DefaultConfig_HasAShorterTrainingSegmentAndTwoMoreValidationSegments()
+        {
+            GymSettings s = LoadDefault();
+            Assert.AreEqual("train 2017-08-17..2021-12-31", s.Train.ToString());
+            Assert.AreEqual("validation 2024-09-01..2025-08-31", s.Validation.ToString());
+            Assert.AreEqual("test 2025-09-01..2026-08-31", s.Test.ToString());
+            Assert.AreEqual(2, s.ExtraSegments.Count);
+            Assert.AreEqual("validation-bear 2022-01-01..2022-12-31", s.ExtraSegments[0].ToString());
+            Assert.AreEqual("validation-recovery 2023-01-01..2024-08-31", s.ExtraSegments[1].ToString());
+            CollectionAssert.AreEqual(new[] { "validation", "validation-bear", "validation-recovery", "test" }, s.EvaluationSegmentNames);
+            Assert.AreEqual(new DateTime(2021, 1, 1, 0, 0, 0, DateTimeKind.Utc), s.PlayStart);
+            Assert.IsTrue(s.PlayStart >= s.Train.StartDate && s.PlayStart <= s.Train.EndDate, "playStart lies in the training segment");
+        }
+
+        [TestCase("validation", "2024-09-01", "2025-08-31")]
+        [TestCase("validation-bear", "2022-01-01", "2022-12-31")]
+        [TestCase("Validation-Recovery", "2023-01-01", "2024-08-31")]
+        [TestCase("test", "2025-09-01", "2026-08-31")]
+        public void EvalMode_AcceptsEveryConfiguredEvaluationSegment(string name, string start, string end)
+        {
+            GymSettings s = LoadDefault(Eval(name));
+            Assert.AreEqual(GymMode.Eval, s.Mode);
+            Assert.AreEqual($"{name.ToLowerInvariant()} {start}..{end}", s.EvalSegment.ToString());
+            Assert.IsTrue(s.TryGetEvaluationSegment(name, out SegmentSpec found));
+            Assert.AreEqual(s.EvalSegment.ToString(), found.ToString());
+        }
+
+        [TestCase("validation-bull")]
+        [TestCase("train")]
+        [TestCase("bear")]
+        public void EvalMode_RefusesAnUnknownSegmentAndListsTheNames(string name)
+        {
+            var e = Assert.Throws<GymConfigException>(() => LoadDefault(Eval(name)));
+            Assert.AreEqual(1, e.Errors.Count, string.Join("; ", e.Errors));
+            StringAssert.StartsWith($"-gymSegment {name} is not an evaluation segment", e.Errors[0]);
+            StringAssert.EndsWith("use validation, validation-bear, validation-recovery or test", e.Errors[0]);
+            Assert.IsFalse(LoadDefault().TryGetEvaluationSegment(name, out _));
+        }
+
+        [Test]
+        public void TrainMode_RefusesAnExtraSegment()
+        {
+            var e = Assert.Throws<GymConfigException>(() => LoadDefault("x", "-gymMode", "train", "-gymSegment", "validation-bear"));
+            Assert.AreEqual(1, e.Errors.Count, string.Join("; ", e.Errors));
+            StringAssert.Contains("needs -gymMode eval", e.Errors[0]);
+        }
+
+        [TestCase("Bear", "lower-case letters, digits and hyphens")]
+        [TestCase("bear_2022", "lower-case letters, digits and hyphens")]
+        [TestCase("", "needs a name")]
+        [TestCase("train", "is taken by the train segment")]
+        [TestCase("validation", "is taken by the validation segment")]
+        [TestCase("test", "is taken by the test segment")]
+        [TestCase("validation-bear", "is used twice")]
+        public void ExtraSegmentNames_AreChecked(string name, string expected)
+        {
+            GymConfig config = DefaultConfig();
+            // 第二项换成要检查的名字，日期沿用 validation-recovery 的，这样只有名字这一个问题
+            config.extraSegments = new[]
+            {
+                config.extraSegments[0],
+                new NamedDateRange { name = name, start = "2023-01-01", end = "2024-08-31" },
+            };
+            var e = Assert.Throws<GymConfigException>(() =>
+                GymConfigLoader.Load(WriteConfig(config), GymConfigLoader.DefaultSymbolsPath));
+            Assert.AreEqual(1, e.Errors.Count, string.Join("; ", e.Errors));
+            StringAssert.StartsWith("extraSegments[1]", e.Errors[0]);
+            StringAssert.Contains(expected, e.Errors[0]);
+        }
+
+        [TestCase("2021-12-31", "2022-06-30", "overlap: train 2017-08-17..2021-12-31 and extra ")]
+        [TestCase("2022-06-01", "2022-12-31", "overlap: validation-bear 2022-01-01..2022-12-31 and extra ")]
+        [TestCase("2024-08-01", "2024-09-30", "overlap: validation 2024-09-01..2025-08-31 and extra ")]
+        [TestCase("2026-08-01", "2026-09-30", "out of range: extra ")]
+        public void ExtraSegmentsTakePartInTheSplitChecks(string start, string end, string expected)
+        {
+            GymConfig config = DefaultConfig();
+            config.extraSegments = new[]
+            {
+                config.extraSegments[0],
+                new NamedDateRange { name = "extra", start = start, end = end },
+            };
+            var e = Assert.Throws<GymConfigException>(() =>
+                GymConfigLoader.Load(WriteConfig(config), GymConfigLoader.DefaultSymbolsPath));
+            Assert.That(e.Errors, Has.Some.StartsWith(expected), $"expected '{expected}…'; got: {string.Join("; ", e.Errors)}");
+        }
+
+        [Test]
+        public void ExtraSegmentWithABadDate_IsAnErrorButItsNameIsStillKnown()
+        {
+            GymConfig config = DefaultConfig();
+            config.extraSegments[1].end = "2024-02-30";
+            var e = Assert.Throws<GymConfigException>(() =>
+                GymConfigLoader.Load(WriteConfig(config), GymConfigLoader.DefaultSymbolsPath,
+                    new[] { "x", "-gymMode", "eval", "-gymSegment", "validation-recovery" }));
+            Assert.AreEqual(1, e.Errors.Count, string.Join("; ", e.Errors));
+            StringAssert.StartsWith("validation-recovery", e.Errors[0]);
+        }
+
+        [Test]
+        public void ConfigWithoutExtraSegments_StillLoads()
+        {
+            GymConfig config = DefaultConfig();
+            config.extraSegments = null;
+            string path = WriteConfig(config);
+            File.WriteAllText(path, File.ReadAllText(path).Replace("\"extraSegments\"", "\"unusedField\""));
+            GymSettings s = GymConfigLoader.Load(path, GymConfigLoader.DefaultSymbolsPath);
+            Assert.AreEqual(0, s.ExtraSegments.Count);
+            CollectionAssert.AreEqual(new[] { "validation", "test" }, s.EvaluationSegmentNames);
         }
 
         [Test]

@@ -66,7 +66,7 @@ namespace Gym.Tests.PlayMode
             GymConfig c = s.Config;
             var reference = TradingEnv.ForSegment(s.Series, s.Rules, s.Train, c.initialCash, c.episodeLength, c.randomInitialPositionShare);
             reference.Reset(new CostModel(agent.DefaultFeeRate, agent.DefaultFixedFee, agent.DefaultSlippage), s.PlayStartIndex);
-            Assert.AreEqual(new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), s.Series.OpenTimeUtc(reference.CurrentIndex));
+            Assert.AreEqual(s.PlayStart, s.Series.OpenTimeUtc(reference.CurrentIndex)); // 试玩从配置里的起点开始
             Assert.AreEqual(reference.CurrentIndex, agent.Env.CurrentIndex);
 
             controller.PressBuy(0.25f);

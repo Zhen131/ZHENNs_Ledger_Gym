@@ -4,8 +4,12 @@
   "initialCash": 10000,
   "episodeLength": 720,
   "randomInitialPositionShare": 0.5,
-  "train":      { "start": "2017-08-17", "end": "2024-08-31" },
+  "train":      { "start": "2017-08-17", "end": "2021-12-31" },
   "validation": { "start": "2024-09-01", "end": "2025-08-31" },
   "test":       { "start": "2025-09-01", "end": "2026-08-31" },
-  "playStart": "2024-01-01"
+  "extraSegments": [
+    { "name": "validation-bear",     "start": "2022-01-01", "end": "2022-12-31" },
+    { "name": "validation-recovery", "start": "2023-01-01", "end": "2024-08-31" }
+  ],
+  "playStart": "2021-01-01"
 }

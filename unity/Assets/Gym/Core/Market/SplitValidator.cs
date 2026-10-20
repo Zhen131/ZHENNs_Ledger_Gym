@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Gym.Core.Env;
 
 namespace Gym.Core.Market
@@ -7,15 +8,26 @@ namespace Gym.Core.Market
     {
         public const string BackwardTestWarning = "backward test";
 
+        /// <summary>只检查训练段、验证段和测试段。</summary>
         public static SplitReport Validate(SegmentSpec train, SegmentSpec validation, SegmentSpec test,
-            CandleSeries series, int episodeLength)
+            CandleSeries series, int episodeLength) =>
+            Validate(train, validation, test, Array.Empty<SegmentSpec>(), series, episodeLength);
+
+        /// <summary>
+        /// 连同额外的评估段一起检查：每一段都要落在数据里，任何两段（训练段、验证段、测试段和额外段之间，
+        /// 以及额外段彼此之间）都不许重叠。
+        /// </summary>
+        public static SplitReport Validate(SegmentSpec train, SegmentSpec validation, SegmentSpec test,
+            IReadOnlyList<SegmentSpec> extra, CandleSeries series, int episodeLength)
         {
             if (series == null) throw new ArgumentNullException(nameof(series));
+            if (extra == null) throw new ArgumentNullException(nameof(extra));
             var report = new SplitReport();
-            var segments = new[] { train, validation, test };
+            var segments = new List<SegmentSpec> { train, validation, test };
+            segments.AddRange(extra);
 
-            for (int i = 0; i < segments.Length; i++)
-                for (int j = i + 1; j < segments.Length; j++)
+            for (int i = 0; i < segments.Count; i++)
+                for (int j = i + 1; j < segments.Count; j++)
                     if (segments[i].Overlaps(segments[j]))
                         report.Errors.Add($"overlap: {segments[i]} and {segments[j]}");
 

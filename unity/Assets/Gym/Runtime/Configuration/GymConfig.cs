@@ -14,6 +14,11 @@ namespace Gym.Runtime.Configuration
         public DateRange train;
         public DateRange validation;
         public DateRange test;
+        /// <summary>
+        /// validation、test 之外的评估段（例如 validation-bear、validation-recovery），每个有自己的名字和日期。
+        /// 评估模式下 -gymSegment 可以写它们的名字。JsonUtility 不支持字典，所以用数组。
+        /// </summary>
+        public NamedDateRange[] extraSegments;
         public string playStart;
     }
 }
