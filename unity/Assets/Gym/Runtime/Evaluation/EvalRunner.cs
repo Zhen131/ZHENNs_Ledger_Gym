@@ -19,6 +19,7 @@ namespace Gym.Runtime.Evaluation
     /// 直到 Agent 的 episode 结束；把结果追加到 &lt;-gymOut&gt;/log.csv，另写一份 JSON 明细文件；
     /// 然后退出（成功为 0，失败为 1）。只有带着 -gymMode eval、-gymSegment &lt;段名&gt; 和
     /// -gymOut &lt;folder&gt; 启动时才运行；段名是 gym-config.json 里的一个评估段，由 GymConfigLoader 检查。
+    /// 开工前还核对打包时记下的模型输入维数和当前观测集的大小，对不上就退出码 1、什么都不写。
     /// </summary>
     public class EvalRunner : MonoBehaviour
     {
@@ -36,6 +37,8 @@ namespace Gym.Runtime.Evaluation
         int steps;
         int stepLimit;
         Stopwatch watch;
+        EvalBuildInfo buildInfo;
+        bool buildInfoRead;
 
         public TradingAgent Agent
         {
@@ -89,6 +92,33 @@ namespace Gym.Runtime.Evaluation
                    $"{player} -batchmode -nographics -gymMode eval -gymSegment validation -gymFeeRate 0.001 -gymOut evaluations/smoke";
         }
 
+        /// <summary>
+        /// 评估包里的模型和当前观测集对不对得上：对不上返回报错（写明两个数，Nothing was written），对得上返回 null。
+        /// 没有 build-info.json（editor 里、没挂模型的 Eval scene）或它没记维数（13 批之前打的包）时不查，返回 null，
+        /// 原因写进 <paramref name="notChecked"/>。
+        /// </summary>
+        public static string CheckModelInput(EvalBuildInfo info, ObservationSet set, out string notChecked)
+        {
+            notChecked = null;
+            if (info == null)
+            {
+                notChecked = $"no {BuildInfoFile}, so the model's input size is not checked against the observation set {set.Name()}";
+                return null;
+            }
+            if (info.vector_observation_size <= 0)
+            {
+                notChecked = $"{BuildInfoFile} does not record the model's input size (built before observation sets existed), " +
+                             $"so it is not checked against the observation set {set.Name()}";
+                return null;
+            }
+            string problem = ObservationSets.ModelInputProblem(info.vector_observation_size, set);
+            return problem == null ? null : $"{problem} (from {BuildInfoFile}, model run {info.run_id}). Nothing was written.";
+        }
+
+        /// <summary>评估流水 agent 行的 notes 列：推理设置、走了几步、观测集。</summary>
+        public static string AgentNotes(bool deterministicInference, string inferenceDevice, int steps, ObservationSet set) =>
+            $"deterministic={deterministicInference}; device={inferenceDevice}; steps={steps}; obs={set.Name()}";
+
         /// <summary>拼成 "a"、"a and b"、"a, b and c" 这样。</summary>
         static string JoinWithAnd(List<string> items) =>
             items.Count < 2 ? string.Join("", items)
@@ -113,6 +143,16 @@ namespace Gym.Runtime.Evaluation
             if (agent.Env == null)
             {
                 Debug.LogError("[Gym] the evaluation agent did not initialise; see the errors above");
+                Quit(1);
+                yield break;
+            }
+            buildInfo = ReadBuildInfo();
+            buildInfoRead = true;
+            string mismatch = CheckModelInput(buildInfo, agent.Env.ObservationSet, out string notChecked);
+            if (notChecked != null) Debug.LogWarning("[Gym] " + notChecked);
+            if (mismatch != null)
+            {
+                Debug.LogError("[Gym] " + mismatch);
                 Quit(1);
                 yield break;
             }
@@ -185,7 +225,7 @@ namespace Gym.Runtime.Evaluation
         void Write(TradingAgent source, EpisodeMetrics metrics)
         {
             string outDir = Path.GetFullPath(CommandLineArgs.ValueOf(Environment.GetCommandLineArgs(), OutArg)); // 已在 Start 里检查过
-            EvalBuildInfo info = ReadBuildInfo();
+            EvalBuildInfo info = buildInfoRead ? buildInfo : ReadBuildInfo(); // 开工时已经读过一次
             GymSettings s = source.Settings;
             TradingEnv env = source.Env;
             SegmentSpec segment = s.EvalSegment; // Eval scene 的 Agent 总是运行这个分段
@@ -201,7 +241,7 @@ namespace Gym.Runtime.Evaluation
                 ModelSha256 = info?.model_sha256 ?? "",
                 Symbol = s.Rules.Symbol,
                 Seeds = 1,
-                Notes = $"deterministic={behavior.DeterministicInference}; device={behavior.InferenceDevice}; steps={metrics.Steps}",
+                Notes = AgentNotes(behavior.DeterministicInference, behavior.InferenceDevice.ToString(), metrics.Steps, env.ObservationSet),
             };
             record.SetSegment(segment);
             record.SetCost(env.Cost);
@@ -215,7 +255,7 @@ namespace Gym.Runtime.Evaluation
 
         /// <summary>
         /// 一次 Agent 评估的明细 JSON。symbol 和 data_file 是当前币（-gymSymbol）的，数据文件按配置里的写法记录，模型只记文件名（靠 SHA-256 识别），
-        /// 这样提交进仓库的文件里不带任何机器的文件夹或用户名。
+        /// 这样提交进仓库的文件里不带任何机器的文件夹或用户名。observation_set 和 history_length 是环境实际用的那一档。
         /// </summary>
         public static JsonObject Details(EvaluationRecord record, EvalBuildInfo info, GymSettings settings, TradingEnv env,
             EpisodeMetrics metrics, string behaviorType, bool deterministicInference, string inferenceDevice)
@@ -237,6 +277,8 @@ namespace Gym.Runtime.Evaluation
                 { "inference_device", inferenceDevice },
                 { "symbol", settings.Rules.Symbol },
                 { "data_file", RecordPaths.PathForRecords(settings.DataFile) }, // 当前币的数据文件
+                { "observation_set", env.ObservationSet.Name() },
+                { "history_length", env.HistoryLength },
                 { "segment", new JsonObject
                     {
                         { "name", segment.Name },
