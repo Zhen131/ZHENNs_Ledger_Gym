@@ -18,9 +18,11 @@ namespace Gym.Editor
     /// 从命令行跑对照组评估：
     ///
     ///   Unity -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.EvalTools.RunBaselines
-    ///         -gymSegment test -gymFeeRates 0,0.001,0.003 -gymRandomSeeds 100 -gymOut "$PWD/evaluations"
+    ///         -gymSegment validation -gymFeeRates 0,0.001,0.003 -gymRandomSeeds 100 -gymOut "$PWD/evaluations"
     ///         [-gymPolicies buyhold,cash,random] -quit
     ///
+    /// -gymSegment 必须给（gym-config.json 里的一个评估段）：没给时抛异常、什么都不写，免得误考测试段
+    /// ——评估流水只追加，写进去就撤不回。
     /// 对每一个费率，让选中的 policy（默认三个都跑：买入持有、一直拿现金，以及 seed 0 … n−1 上的
     /// 随机 policy，seed 经 SeedMixer 打散）在评估模式下走 TradingEnv；每个 policy 往 log.csv 追加一行，
     /// 并在 runs/ 下写一份明细 JSON。
@@ -56,7 +58,9 @@ namespace Gym.Editor
         /// <summary>按给定的参数做 <see cref="RunBaselines"/> 的活；有任何问题就抛异常。返回评估流水的路径。</summary>
         public static string Run(string[] args)
         {
-            string segmentName = CommandLineArgs.ValueOf(args, GymConfigLoader.SegmentArg) ?? SegmentNames.Test;
+            if (string.IsNullOrWhiteSpace(CommandLineArgs.ValueOf(args, GymConfigLoader.SegmentArg)))
+                throw new ArgumentException($"{GymConfigLoader.SegmentArg} is required: give a segment name from gym-config.json " +
+                                            "(for example validation). Nothing was written.");
             double[] feeRates = ParseFeeRates(CommandLineArgs.ValueOf(args, FeeRatesArg) ?? "0,0.001,0.003");
             int seeds = int.Parse(CommandLineArgs.ValueOf(args, RandomSeedsArg) ?? "100", Inv);
             string outDir = Path.GetFullPath(CommandLineArgs.ValueOf(args, OutArg) ?? Path.Combine(RepositoryRoot(), "evaluations"));
@@ -64,8 +68,7 @@ namespace Gym.Editor
             if (seeds < 1) throw new ArgumentOutOfRangeException(RandomSeedsArg, seeds, "Need at least one seed.");
             HashSet<string> policies = ParsePolicies(CommandLineArgs.ValueOf(args, PoliciesArg));
 
-            GymSettings settings = GymConfigLoader.Load(configPath, GymConfigLoader.DefaultSymbolsPath,
-                new[] { GymConfigLoader.ModeArg, "eval", GymConfigLoader.SegmentArg, segmentName });
+            GymSettings settings = GymConfigLoader.Load(configPath, GymConfigLoader.DefaultSymbolsPath, LoaderArgs(args));
             SegmentSpec segment = settings.EvalSegment;
             var env = TradingEnv.ForSegment(settings.Series, settings.Rules, segment, settings.Config.initialCash, 0, 0);
             JsonObject market = Market(env);
@@ -95,6 +98,27 @@ namespace Gym.Editor
             string logPath = Path.Combine(outDir, EvaluationLog.FileName);
             Debug.Log($"[Gym] baselines written to {logPath}");
             return logPath;
+        }
+
+        /// <summary>
+        /// 交给 <see cref="GymConfigLoader.Load"/> 的参数：命令行里每一个 -gym* 参数连同它后面的值原样转交
+        /// （以后加的 -gymSymbol 之类也就跟着到了），只有 -gymMode 强制成 eval。别的参数（Unity 自己的）不转交；
+        /// Load 不认识的 -gym* 参数（-gymFeeRates、-gymOut 等）它照旧不管。对每一个 -gym* 名字，
+        /// CommandLineArgs.ValueOf 在转交后的参数里读到的值和在原命令行里读到的一样。
+        /// </summary>
+        public static string[] LoaderArgs(string[] args)
+        {
+            var keep = new bool[args.Length];
+            for (int i = 0; i < args.Length - 1; i++)
+            {
+                if (!args[i].StartsWith("-gym", StringComparison.OrdinalIgnoreCase)) continue;
+                if (string.Equals(args[i], GymConfigLoader.ModeArg, StringComparison.OrdinalIgnoreCase)) continue;
+                keep[i] = keep[i + 1] = true;
+            }
+            var forwarded = new List<string> { GymConfigLoader.ModeArg, "eval" };
+            for (int i = 0; i < args.Length; i++)
+                if (keep[i]) forwarded.Add(args[i]);
+            return forwarded.ToArray();
         }
 
         /// <summary>-gymFeeRates：用逗号分隔的数字，按 invariant culture 解析。</summary>

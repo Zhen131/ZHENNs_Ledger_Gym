@@ -199,11 +199,17 @@ namespace Gym.Tests.PlayMode
             return found;
         }
 
-        /// <summary>评估流水旁边 runs/ 里那次评估的明细 JSON 写的 final_equity（最后一个 agent、validation 的文件）。</summary>
+        /// <summary>
+        /// 评估流水旁边 runs/ 里那次评估的明细 JSON 写的 final_equity（最后一个 agent、validation 的文件）。
+        /// 只认 validation 这一段本身的文件：-agent-validation.json，以及重名时加了编号的 -agent-validation-2.json 这种；
+        /// validation-bear、validation-recovery 的文件不算。
+        /// </summary>
         static string EvaluationFinalEquity(string logPath)
         {
             string runs = Path.Combine(Path.GetDirectoryName(logPath) ?? ".", EvaluationLog.RunsFolder);
-            string details = Directory.GetFiles(runs, "*-agent-validation*.json").OrderBy(f => f, StringComparer.Ordinal).LastOrDefault();
+            string details = Directory.GetFiles(runs, "*-agent-validation*.json")
+                .Where(f => Regex.IsMatch(Path.GetFileName(f), @"-agent-validation(-[0-9]+)?\.json$"))
+                .OrderBy(f => f, StringComparer.Ordinal).LastOrDefault();
             Assert.IsNotNull(details, $"{runs} has the evaluation's details file");
             Match match = Regex.Match(File.ReadAllText(details), "\"final_equity\": ([^,\\s}]+)");
             Assert.IsTrue(match.Success, $"{details} has a final_equity");

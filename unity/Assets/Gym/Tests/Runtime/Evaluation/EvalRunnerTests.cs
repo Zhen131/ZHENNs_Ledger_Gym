@@ -14,7 +14,7 @@ namespace Gym.Tests.Runtime.Evaluation
         public void WithoutEvalModeOrOutputFolder_TheArgumentsAreRefused()
         {
             string none = EvalRunner.CheckArguments(new[] { "GymEval" });
-            StringAssert.Contains("missing -gymMode eval, -gymSegment validation|test and -gymOut <folder>", none);
+            StringAssert.Contains("missing -gymMode eval, -gymSegment <segment> and -gymOut <folder>", none);
             StringAssert.Contains("Nothing was written", none);
             StringAssert.Contains("missing -gymOut <folder>.",
                 EvalRunner.CheckArguments(new[] { "GymEval", "-gymMode", "eval", "-gymSegment", "validation" }));
@@ -34,12 +34,20 @@ namespace Gym.Tests.Runtime.Evaluation
             // 而在 PC 上 -gymOut 就是只追加的评估流水。
             string noSegment = EvalRunner.CheckArguments(new[] { "GymEval", "-gymMode", "eval", "-gymOut", "x" });
             Assert.IsNotNull(noSegment);
-            StringAssert.Contains("missing -gymSegment validation|test.", noSegment);
+            StringAssert.Contains("missing -gymSegment <segment>.", noSegment);
+            StringAssert.Contains("a segment name from gym-config.json", noSegment);
             StringAssert.Contains("Nothing was written", noSegment);
             StringAssert.Contains("Example: GymEval -batchmode -nographics -gymMode eval -gymSegment validation", noSegment);
-            StringAssert.Contains("missing -gymSegment validation|test.",
-                EvalRunner.CheckArguments(new[] { "GymEval", "-gymMode", "eval", "-gymSegment", "train", "-gymOut", "x" }));
+            // CheckArguments 拿不到配置，只查给没给；段名对不对由 GymConfigLoader 在读配置时查，
+            // train 不是评估段，在那里被拒绝（player 退出码 1，什么都不写）。
+            string[] train = { "GymEval", "-gymMode", "eval", "-gymSegment", "train", "-gymOut", "x" };
+            Assert.IsNull(EvalRunner.CheckArguments(train));
+            var refused = Assert.Throws<GymConfigException>(() =>
+                GymConfigLoader.Load(GymConfigLoader.DefaultConfigPath, GymConfigLoader.DefaultSymbolsPath, train));
+            StringAssert.Contains("-gymSegment train is not an evaluation segment; use validation, validation-bear, validation-recovery or test",
+                refused.Message);
             Assert.IsNull(EvalRunner.CheckArguments(new[] { "GymEval", "-gymMode", "eval", "-gymSegment", "validation", "-gymOut", "x" }));
+            Assert.IsNull(EvalRunner.CheckArguments(new[] { "GymEval", "-gymMode", "eval", "-gymSegment", "validation-bear", "-gymOut", "x" }));
             Assert.IsNull(EvalRunner.CheckArguments(new[] { "GymEval", "-gymMode", "eval", "-gymSegment", "test", "-gymOut", "x" }));
         }
 

@@ -17,8 +17,8 @@ namespace Gym.Runtime.Evaluation
     /// <summary>
     /// 在 Eval scene 里驱动一个评估 episode：关掉自动 step，每帧成批调用 Academy.EnvironmentStep，
     /// 直到 Agent 的 episode 结束；把结果追加到 &lt;-gymOut&gt;/log.csv，另写一份 JSON 明细文件；
-    /// 然后退出（成功为 0，失败为 1）。只有带着 -gymMode eval、-gymSegment validation|test 和
-    /// -gymOut &lt;folder&gt; 启动时才运行。
+    /// 然后退出（成功为 0，失败为 1）。只有带着 -gymMode eval、-gymSegment &lt;段名&gt; 和
+    /// -gymOut &lt;folder&gt; 启动时才运行；段名是 gym-config.json 里的一个评估段，由 GymConfigLoader 检查。
     /// </summary>
     public class EvalRunner : MonoBehaviour
     {
@@ -69,22 +69,23 @@ namespace Gym.Runtime.Evaluation
         /// 命令行确实要求一次评估时返回 null，否则返回缺了什么。
         /// 没有 -gymMode eval，player 会悄悄地评估测试段；没有 -gymSegment，它也会退回到测试段
         /// （测试段留给最终数字，而评估流水撤不回）；没有 -gymOut，它会写到启动它的位置旁边。
+        /// 这里只看命令行、拿不到配置，所以只查三样给没给；段名是不是配置里的评估段，由 GymConfigLoader
+        /// 在 Agent 初始化读配置时检查（不是时列出能用的名字，player 以退出码 1 退出，什么都不写）。
         /// </summary>
         public static string CheckArguments(string[] args)
         {
             var missing = new List<string>();
             if (!string.Equals(CommandLineArgs.ValueOf(args, GymConfigLoader.ModeArg), "eval", StringComparison.OrdinalIgnoreCase))
                 missing.Add($"{GymConfigLoader.ModeArg} eval");
-            string segment = CommandLineArgs.ValueOf(args, GymConfigLoader.SegmentArg);
-            if (!string.Equals(segment, SegmentNames.Validation, StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(segment, SegmentNames.Test, StringComparison.OrdinalIgnoreCase))
-                missing.Add($"{GymConfigLoader.SegmentArg} validation|test");
+            if (string.IsNullOrWhiteSpace(CommandLineArgs.ValueOf(args, GymConfigLoader.SegmentArg)))
+                missing.Add($"{GymConfigLoader.SegmentArg} <segment>");
             if (string.IsNullOrWhiteSpace(CommandLineArgs.ValueOf(args, OutArg)))
                 missing.Add($"{OutArg} <folder>");
             if (missing.Count == 0) return null;
             string player = args.Length > 0 ? RecordPaths.FileNameOnly(args[0]) : "GymEval";
-            return $"the evaluation player needs {GymConfigLoader.ModeArg} eval, {GymConfigLoader.SegmentArg} validation|test " +
-                   $"and {OutArg} <folder>; missing {JoinWithAnd(missing)}. Nothing was written. Example: " +
+            return $"the evaluation player needs {GymConfigLoader.ModeArg} eval, {GymConfigLoader.SegmentArg} <segment> " +
+                   $"(a segment name from gym-config.json) and {OutArg} <folder>; missing {JoinWithAnd(missing)}. " +
+                   "Nothing was written. Example: " +
                    $"{player} -batchmode -nographics -gymMode eval -gymSegment validation -gymFeeRate 0.001 -gymOut evaluations/smoke";
         }
 
