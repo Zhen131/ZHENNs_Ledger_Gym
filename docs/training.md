@@ -2,7 +2,7 @@
 
 One smoke training run is step 3 of the README's [quick start](../README.md#quick-start-mac). This page covers a series of runs on the Mac, the two optional environment parameters `obs_set` and `risk_aversion`, training on several coins at once, and what the `Trading/*` curves mean.
 
-Long runs happen on a Windows PC: see [pc-training.md](pc-training.md) (English) or [pc-training.zh.md](pc-training.zh.md) (Chinese). In short: same Unity and Python versions, `BuildWindowsTraining`, 100k-step speed tests on the CPU (`config/smoke-100k.yaml`) and on the graphics card (`config/smoke-100k-cuda.yaml`), then the comparison series with `scripts/train/run_series.ps1` on whichever was faster (`-Device cpu|cuda`).
+Long runs happen on a Windows PC: see [pc-training.md](pc-training.md) (English) or [pc-training.zh.md](pc-training.zh.md) (Chinese). In short: same Unity and Python versions, `BuildWindowsTraining`, 100k-step speed tests on the CPU (`config/smoke-100k.yaml`) and on the graphics card (`config/smoke-100k-cuda.yaml`), then the comparison series with `scripts/train/run_series.ps1` on whichever was faster (`-Device cpu|cuda`). Round two (configs in `config/v2/`, the coins given with `-EnvArgs`) has its own sections there, with the smoke checks the Mac cannot run.
 
 ## A series on the Mac
 
@@ -12,11 +12,19 @@ Long runs happen on a Windows PC: see [pc-training.md](pc-training.md) (English)
 scripts/train/run_series.sh --env unity/Builds/mac/Gym.app --seeds 1 --smoke config/ppo_base.yaml config/variants/fee-0.003.yaml
 ```
 
-What each config changes, and how to check the configs after editing them: [config/README.md](../config/README.md).
+What each config changes, and how to check the configs after editing them: [config/README.md](../config/README.md). Round two's configs are in `config/v2/`: `ppo_v2.yaml` (the base, `normalize: true`), `long.yaml` and `long-ta.yaml` (`obs_set` 1 and 2), three `long-risk-*.yaml` (`risk_aversion`) and `smoke-long.yaml`.
+
+Words for the player go in `--env-args`, as one quoted string; this is how a series trains on several coins:
+
+```bash
+scripts/train/run_series.sh --env unity/Builds/mac/Gym.app --seeds 1 --dry-run --env-args "-gymTrainSymbols BTCUSDT,ETHUSDT,ADAUSDT,XRPUSDT" config/v2/smoke-long.yaml
+```
+
+The script splits the string at spaces and puts the words last on the `mlagents-learn` command line, after its `--env-args`: `mlagents-learn` hands every word after that option to the player, one argument each, so any option after it would go to the player too, and a name with its value in one word (`"-gymObs long"`) would be ignored by the player without an error. `--dry-run` prints the command and shows a word with a space in it in double quotes. Keep the observation set and the risk coefficient in the config (`obs_set`, `risk_aversion`, recorded in `config-used.yaml`); when both are given, the environment parameter wins over `-gymObs` and `-gymRiskAversion`. Do not pass `-gymSegment` (training only takes `train`) or `-logFile` (the clock check reads the player logs ML-Agents writes). Every run also writes `results/<run-id>/env-args.txt` (the words on one line, or an empty file) and copies the training build's `build-info.json` to `results/<run-id>/build-info.json`. `BuildMacTraining` writes that file into the app, `Gym.app/Contents/Resources/Data/StreamingAssets/Gym/build-info.json` (build time, Unity version and the SHA-256 of the build's `gym-config.json`), and signs the app again; a build made before has none, and the script says so at the start. The training player also logs one line `training player: observations …, current symbol …, training symbols …, segment …, gym-config.json sha256 …` with the set its agents really use and the SHA-256 of the `gym-config.json` it read.
 
 ## Observation set (`obs_set`)
 
-Which numbers the agent sees is chosen by the environment parameter `obs_set` in the config's `environment_parameters`: 0 is `base` (the first round's 35 numbers), 1 is `long` (41: six long-horizon numbers added), 2 is `long-ta` (43: daily MACD and RSI added to `long`). The formulas are in [architecture.md](architecture.md#observation-action-reward). `config/variants/obs-long.yaml` and `config/variants/obs-long-ta.yaml` set it; `ppo_base.yaml` leaves it out, and then the player uses `-gymObs` or `observationSet` in `gym-config.json` (default `base`). Any other value stops the training player with exit code 1, and so does a set whose history length (2160 candles for `long` and `long-ta`) leaves the training segment too short or `playStart` too early. Every agent writes its set to the player log, for example `observations long (41 numbers, history 2160)`; check that line in a smoke run, because the Mac tests cannot send environment parameters. A model trained on one set only works with that set.
+Which numbers the agent sees is chosen by the environment parameter `obs_set` in the config's `environment_parameters`: 0 is `base` (the first round's 35 numbers), 1 is `long` (41: six long-horizon numbers added), 2 is `long-ta` (43: daily MACD and RSI added to `long`). The formulas are in [architecture.md](architecture.md#observation-action-reward). `config/variants/obs-long.yaml` and `config/variants/obs-long-ta.yaml` set it; `ppo_base.yaml` leaves it out, and then the player uses `-gymObs` or `observationSet` in `gym-config.json` (default `base`). Any other value stops the training player with exit code 1, and so does a set whose history length (2160 candles for `long` and `long-ta`) leaves the training segment too short or `playStart` too early. Every agent writes its set to the player log, for example `observations long (41 numbers, history 2160)`; check that line in a smoke run, because the Mac tests cannot send environment parameters. The configuration line (`config …, observations …`) is written before the trainer's `obs_set` is read and keeps the config's set. A model trained on one set only works with that set.
 
 ## Risk coefficient (`risk_aversion`)
 

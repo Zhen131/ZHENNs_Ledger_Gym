@@ -58,7 +58,7 @@ python scripts/eval/summarize.py evaluations/smoke/log.csv
 | `unity/Assets/StreamingAssets/Gym/` | `gym-config.json`、`symbols.json` 和数据（BTCUSDT、ETHUSDT、ADAUSDT、DOGEUSDT、XRPUSDT 各一份 `data/<币名>-1h.csv`，各自旁边一份清单，加上 `DATA-LICENSE.md`）；放头像图的 `avatar/`；每个包里都带一份 |
 | `unity/Packages/` | `manifest.json` 和 `packages-lock.json`：Unity 包和它们的版本 |
 | `unity/ProjectSettings/` | Unity 的工程设置，编辑器版本记在 `ProjectVersion.txt` 里 |
-| `config/` | 训练配置（`ppo_base.yaml`、几份冒烟配置）和对比组（`variants/`）；见 [config/README.md](config/README.md) |
+| `config/` | 训练配置（`ppo_base.yaml`、几份冒烟配置）、对比组（`variants/`）和第二轮的配置（`v2/`）；见 [config/README.md](config/README.md) |
 | `scripts/data/` | 从 Binance Vision 下载数据的脚本（`fetch_binance_klines.py`），和算几只币收益率相关性的脚本（`correlation.py`） |
 | `scripts/train/` | 成批训练脚本（`run_series.sh`、`run_series.ps1`）、配置检查（`check_configs.py`）、读 TensorBoard 曲线（`read_scalars.py`） |
 | `scripts/eval/` | 汇总评估流水的 `summarize.py` |
@@ -82,4 +82,4 @@ python scripts/eval/summarize.py evaluations/smoke/log.csv
 
 ## 数据和许可声明
 
-环境回放 [Binance Vision](https://data.binance.vision) 的现货 1 小时 K 线：BTC/USDT（主币，训练用它），以及 ETH、ADA、DOGE、XRP 对 USDT（用 `-gymSymbol` 选）。训练也可以混着用 BTC、ETH、ADA、XRP，每局一只（`gym-config.json` 的 `trainSymbols` 或命令行 `-gymTrainSymbols`，见 [docs/training.md](docs/training.md)，英文）；DOGE 只考不训。数据按 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) 许可；署名和改动清单见 [`DATA-LICENSE.md`](unity/Assets/StreamingAssets/Gym/data/DATA-LICENSE.md)。本项目与 Binance 没有任何关联，也没有得到它的赞助或认可。代码暂时没有许可证文件。数据来源、条款、怎么重新生成、缺口怎么补，见 [docs/data.md](docs/data.md)（英文）。
+环境回放 [Binance Vision](https://data.binance.vision) 的现货 1 小时 K 线：BTC/USDT（主币），以及 ETH、ADA、DOGE、XRP 对 USDT（用 `-gymSymbol` 选）。训练用当前币（`-gymSymbol` 选中的那只，不写时是 BTC）；混训（BTC、ETH、ADA、XRP 每局一只）见训练清单（命令行 `-gymTrainSymbols` 或 `gym-config.json` 的 `trainSymbols`，见 [docs/training.md](docs/training.md)，英文）；DOGE 只考不训。数据按 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) 许可；署名和改动清单见 [`DATA-LICENSE.md`](unity/Assets/StreamingAssets/Gym/data/DATA-LICENSE.md)。本项目与 Binance 没有任何关联，也没有得到它的赞助或认可。代码暂时没有许可证文件。数据来源、条款、怎么重新生成、缺口怎么补，见 [docs/data.md](docs/data.md)（英文）。
