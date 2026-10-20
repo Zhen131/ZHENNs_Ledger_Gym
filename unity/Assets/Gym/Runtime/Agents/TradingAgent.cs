@@ -23,6 +23,8 @@ namespace Gym.Runtime.Agents
         public const string SlippageKey = "slippage";
         /// <summary>训练器的环境参数：0 = base、1 = long、2 = long-ta。没设时用命令行 -gymObs 或配置里的观测集。</summary>
         public const string ObservationSetKey = "obs_set";
+        /// <summary>训练器的环境参数：奖励的风险系数 λ（≥ 0、有限）。没设时用命令行 -gymRiskAversion，再没有用 Inspector 默认值。</summary>
+        public const string RiskAversionKey = "risk_aversion";
 
         [SerializeField] AgentStartMode startMode = AgentStartMode.Training;
         [Tooltip("Instance number; mixed with the clock to seed this agent's episode seeds.")]
@@ -30,6 +32,7 @@ namespace Gym.Runtime.Agents
         [SerializeField] double defaultFeeRate = CostModel.DefaultFeeRate;
         [SerializeField] double defaultFixedFee;
         [SerializeField] double defaultSlippage;
+        [SerializeField] double defaultRiskAversion;
 
         /// <summary>按当前观测集的大小分配（<see cref="Initialize"/> 里）。</summary>
         float[] observation = Array.Empty<float>();
@@ -51,6 +54,7 @@ namespace Gym.Runtime.Agents
         public double DefaultFeeRate => defaultFeeRate;
         public double DefaultFixedFee => defaultFixedFee;
         public double DefaultSlippage => defaultSlippage;
+        public double DefaultRiskAversion => defaultRiskAversion;
 
         /// <summary>由 Play scene 的 PlayController 设置；为 null 时，heuristic 一律不动。</summary>
         public IActionSource ActionSource { get; set; }
@@ -180,16 +184,17 @@ namespace Gym.Runtime.Agents
         void ResetEnv()
         {
             CostModel cost = ReadCost();
+            double riskAversion = ReadRiskAversion();
             AgentStartMode mode = EffectiveMode;
             if (mode == AgentStartMode.PlayFromConfig)
             {
                 EpisodeSeed = 0;
-                Env.Reset(cost, Settings.PlayStartIndex);
+                Env.Reset(cost, Settings.PlayStartIndex, riskAversion);
             }
             else if (mode == AgentStartMode.Evaluation)
             {
                 EpisodeSeed = 0;
-                Env.ResetForEvaluation(0, cost);
+                Env.ResetForEvaluation(0, cost, riskAversion);
             }
             else
             {
@@ -199,7 +204,7 @@ namespace Gym.Runtime.Agents
                     firstEpisodeLogged = true;
                     Debug.Log($"[Gym] {name}: first episode seed {EpisodeSeed}");
                 }
-                Env.ResetForTraining(EpisodeSeed, cost);
+                Env.ResetForTraining(EpisodeSeed, cost, riskAversion);
             }
             HasStepped = false;
             LastAction = TradeAction.Hold;
@@ -220,6 +225,24 @@ namespace Gym.Runtime.Agents
                 ReadParameter(parameters, FeeRateKey, Settings.FeeRateArg ?? defaultFeeRate),
                 ReadParameter(parameters, FixedFeeKey, Settings.FixedFeeArg ?? defaultFixedFee),
                 ReadParameter(parameters, SlippageKey, Settings.SlippageArg ?? defaultSlippage));
+        }
+
+        /// <summary>
+        /// 本局的风险系数：trainer 设了环境参数 risk_aversion 就用它（和费用用同一个 <see cref="ReadParameter"/> 读）；
+        /// 否则用命令行里的 -gymRiskAversion；再没有就用 Inspector 里的默认值（0）。每局开始时和费用一起读。
+        /// 不是有限的非负数时报错（player 以退出码 1 退出）。
+        /// </summary>
+        double ReadRiskAversion()
+        {
+            EnvironmentParameters parameters = Academy.Instance.EnvironmentParameters;
+            double value = ReadParameter(parameters, RiskAversionKey, Settings.RiskAversionArg ?? defaultRiskAversion);
+            if (!RewardFunction.IsValidRiskAversion(value))
+                throw GymConfigLoader.FailAtRuntime(new[]
+                {
+                    $"{RiskAversionKey} = {value.ToString(System.Globalization.CultureInfo.InvariantCulture)} is not a risk coefficient; " +
+                    $"use a finite value >= 0 (the trainer's environment parameter, {GymConfigLoader.RiskAversionArg} or the agent's default)",
+                });
+            return value;
         }
 
         /// <summary>
@@ -303,6 +326,8 @@ namespace Gym.Runtime.Agents
             recorder.Add("Trading/RewardClips", stats.RewardClips, StatAggregationMethod.Average);
             recorder.Add("Trading/FeeRate", (float)stats.FeeRate, StatAggregationMethod.Average);
             recorder.Add("Trading/FixedFee", (float)stats.FixedFee, StatAggregationMethod.Average);
+            recorder.Add("Trading/RiskAversion", (float)stats.RiskAversion, StatAggregationMethod.Average);
+            recorder.Add("Trading/RiskPenalty", (float)stats.RiskPenalty, StatAggregationMethod.Average);
         }
     }
 }

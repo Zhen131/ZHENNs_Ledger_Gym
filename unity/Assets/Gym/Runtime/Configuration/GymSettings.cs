@@ -40,6 +40,8 @@ namespace Gym.Runtime.Configuration
         public double? FeeRateArg;
         public double? FixedFeeArg;
         public double? SlippageArg;
+        /// <summary>来自 -gymRiskAversion 的风险系数（已查过有限、≥ 0）；没给时为 null。</summary>
+        public double? RiskAversionArg;
         public IReadOnlyList<string> Warnings;
         /// <summary>
         /// 不是问题、但要写进日志的事，例如某只币的训练段按它的数据起点裁过。和 <see cref="Warnings"/> 分开，

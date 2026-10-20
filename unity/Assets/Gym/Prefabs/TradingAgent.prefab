@@ -86,6 +86,7 @@ MonoBehaviour:
   defaultFeeRate: 0.001
   defaultFixedFee: 0
   defaultSlippage: 0
+  defaultRiskAversion: 0
 --- !u!114 &1288358944064061672
 MonoBehaviour:
   m_ObjectHideFlags: 0

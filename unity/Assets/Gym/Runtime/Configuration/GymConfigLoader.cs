@@ -12,7 +12,7 @@ namespace Gym.Runtime.Configuration
     /// <summary>
     /// 从 StreamingAssets/Gym（或者 -gymConfig 给的文件）读 gym-config.json 和 symbols.json，
     /// 载入配置里每只币的数据，并对每只币检查分段的划分。-gymSymbol 选当前币，不给时是主币；
-    /// -gymObs 选观测集，不给时是配置里的 observationSet，再没有是 base。
+    /// -gymObs 选观测集，不给时是配置里的 observationSet，再没有是 base。-gymRiskAversion 给奖励的风险系数（≥ 0、有限）。
     /// </summary>
     public static class GymConfigLoader
     {
@@ -24,6 +24,7 @@ namespace Gym.Runtime.Configuration
         public const string SlippageArg = "-gymSlippage";
         public const string SymbolArg = "-gymSymbol";
         public const string ObservationSetArg = "-gymObs";
+        public const string RiskAversionArg = "-gymRiskAversion";
 
         /// <summary>
         /// 能接受的最大 initialCash。从大约 1e12 起，double 能分辨的最小金额差达到 0.0001 USDT 甚至更大，
@@ -103,6 +104,7 @@ namespace Gym.Runtime.Configuration
             settings.FeeRateArg = ReadCostArg(args, FeeRateArg, errors, v => new CostModel(v, 0, 0));
             settings.FixedFeeArg = ReadCostArg(args, FixedFeeArg, errors, v => new CostModel(0, v, 0));
             settings.SlippageArg = ReadCostArg(args, SlippageArg, errors, v => new CostModel(0, 0, v));
+            settings.RiskAversionArg = ReadRiskAversionArg(args, errors);
             settings.ObservationSet = ReadObservationSet(args, config, errors);
             CheckNumbers(config, errors);
             var extraNames = new List<string>();
@@ -512,6 +514,27 @@ namespace Gym.Runtime.Configuration
             {
                 string reason = e.Message.Split('\n')[0].Trim();
                 errors.Add($"{name} {CommandLineArgs.ValueOf(args, name)} is out of range: {reason}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// -gymRiskAversion，用 <see cref="RewardFunction.CheckRiskAversion"/> 的同一套范围（有限、≥ 0）来检查：
+        /// 负数在这里就算配置错误，而不是等到 Agent 第一次重置时才抛异常。没给时为 null。
+        /// </summary>
+        static double? ReadRiskAversionArg(string[] args, List<string> errors)
+        {
+            double? value = ReadNumberArg(args, RiskAversionArg, errors);
+            if (value == null) return null;
+            try
+            {
+                RewardFunction.CheckRiskAversion(value.Value);
+                return value;
+            }
+            catch (ArgumentOutOfRangeException e)
+            {
+                string reason = e.Message.Split('\n')[0].Trim();
+                errors.Add($"{RiskAversionArg} {CommandLineArgs.ValueOf(args, RiskAversionArg)} is out of range: {reason}");
                 return null;
             }
         }

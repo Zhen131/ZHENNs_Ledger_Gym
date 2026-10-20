@@ -20,9 +20,13 @@ namespace Gym.Runtime.Agents
         public readonly double FeeRate;
         public readonly double FixedFee;
         public readonly int Steps;
+        /// <summary>本局的风险系数 λ。</summary>
+        public readonly double RiskAversion;
+        /// <summary>本局罚款累计：Σ λ × min(r, 0)²（λ = 0 时为 0）。</summary>
+        public readonly double RiskPenalty;
 
         EpisodeStats(double ret, int trades, int rejected, double feesPaidPct, double exposure, double turnover,
-            int rewardClips, double feeRate, double fixedFee, int steps)
+            int rewardClips, double feeRate, double fixedFee, int steps, double riskAversion, double riskPenalty)
         {
             Return = ret;
             Trades = trades;
@@ -34,6 +38,8 @@ namespace Gym.Runtime.Agents
             FeeRate = feeRate;
             FixedFee = fixedFee;
             Steps = steps;
+            RiskAversion = riskAversion;
+            RiskPenalty = riskPenalty;
         }
 
         public static EpisodeStats From(TradingEnv env)
@@ -51,7 +57,9 @@ namespace Gym.Runtime.Agents
                 env.ClippedRewards,
                 env.Cost.FeeRate,
                 env.Cost.FixedFee,
-                env.StepCount);
+                env.StepCount,
+                env.RiskAversion,
+                env.RiskPenaltySum);
         }
     }
 }
