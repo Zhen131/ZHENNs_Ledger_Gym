@@ -5,7 +5,8 @@ The macOS/Linux twin is run_series.sh with the same options.
 
 .DESCRIPTION
 Run ids:  [smoke-][Prefix-]<config file name>-s<seed>-<yyyyMMdd, UTC>
-Results:  results\<run-id>\         (ML-Agents output, plus config-used.yaml)
+Results:  results\<run-id>\         (ML-Agents output, plus config-used.yaml,
+                                    seed-used.txt, env-args.txt, build-info.json)
           results\<run-id>.log      (everything mlagents-learn printed; a log left
                                     by an attempt without results is overwritten)
 A run whose results\<run-id> already exists is skipped; --force is never used.
@@ -25,6 +26,18 @@ summary_freq 1000 and checkpoint_interval = max_steps; it only proves the script
 -Device (default cpu) sets torch_settings.device. When a config says something else,
 it is copied to results\_tmp\ with the device changed; the files in config\ are never
 edited. config-used.yaml records the device each run really used.
+-EnvArgs takes one quoted string of words for the player (the Unity build) and splits
+it at spaces (quotes inside are not understood). The words go after mlagents-learn's own
+--env-args, which is always the last option: mlagents-learn hands every word after it to
+the player, one argument each. The player only knows a name and its value as two words;
+"-gymObs long" in one piece would be ignored without an error. Every run writes the words
+to results\<run-id>\env-args.txt (an empty file without -EnvArgs). Training refuses
+-gymSegment (it always uses the train segment); -logFile would hide the player logs that
+the "(clock)" check reads.
+The training build carries build-info.json in its StreamingAssets\Gym\ folder, not next to
+the executable: Gym_Data\StreamingAssets\Gym\ next to Gym.exe on Windows,
+Gym.app\Contents\Resources\Data\StreamingAssets\Gym\ on macOS. If it is there, every run
+copies it to results\<run-id>\build-info.json.
 
 Option names map one to one onto run_series.sh:
   -Env <path>          --env <path>
@@ -35,11 +48,13 @@ Option names map one to one onto run_series.sh:
   -Smoke               --smoke
   -SmokeSteps 15000    --smoke-steps 15000
   -DryRun              --dry-run
+  -EnvArgs "<words>"   --env-args "<words>"
   -Configs a,b         a b   (positional in the .sh)
 
 .EXAMPLE
 conda activate mlagents
 .\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Configs config\ppo_base.yaml,config\variants\fee-0.yaml
+.\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Seeds 1 -Configs config\v2\long.yaml -EnvArgs "-gymTrainSymbols BTCUSDT,ETHUSDT"
 #>
 [CmdletBinding()]
 param(
@@ -51,7 +66,8 @@ param(
     [string]$Device = 'cpu',
     [switch]$Smoke,
     [int]$SmokeSteps = 15000,
-    [switch]$DryRun
+    [switch]$DryRun,
+    [string]$EnvArgs = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -70,6 +86,20 @@ function Test-ClockSeeded([string]$runDir) {
     return $false
 }
 
+# Where the training build keeps build-info.json: BuildScript writes it into the build's StreamingAssets\Gym\, not next to the executable.
+function Get-BuildInfoPath([string]$envPath) {
+    if ($envPath -like '*.app') { return Join-Path $envPath 'Contents\Resources\Data\StreamingAssets\Gym\build-info.json' }
+    $name = [IO.Path]::GetFileNameWithoutExtension($envPath)
+    return Join-Path (Split-Path -Parent $envPath) "${name}_Data\StreamingAssets\Gym\build-info.json"
+}
+
+# One command on one line: a word with white space in it (or an empty one) is shown in double quotes, so one
+# "-gymObs long" stands out from the two words -gymObs long.
+function Format-Words([string[]]$words) {
+    $shown = foreach ($word in $words) { if ($word -eq '' -or $word -match '\s') { '"' + $word + '"' } else { $word } }
+    return ($shown -join ' ')
+}
+
 if (-not (Test-Path -LiteralPath $EnvPath)) { Fail "environment build not found: $EnvPath" }
 if ($NumEnvs -lt 1) { Fail "-NumEnvs must be one whole number >= 1 (got $NumEnvs)" }
 if ($SmokeSteps -lt 1) { Fail '-SmokeSteps must be a whole number >= 1' }
@@ -85,6 +115,11 @@ if (-not $DryRun -and -not (Get-Command $learn -ErrorAction SilentlyContinue)) {
 }
 
 $EnvPath = (Resolve-Path -LiteralPath $EnvPath).Path
+# -EnvArgs is split at white space into single words (quotes are not understood). Passed as one argument, the player would see one unknown word and quietly ignore it.
+$envWords = @($EnvArgs -split '\s+' | Where-Object { $_ -ne '' })
+$buildInfo = Get-BuildInfoPath $EnvPath
+$buildInfoMissing = ''
+if (-not (Test-Path -LiteralPath $buildInfo -PathType Leaf)) { $buildInfoMissing = $buildInfo; $buildInfo = '' }
 $absConfigs = @()
 foreach ($cfg in $Configs) {
     if (-not (Test-Path -LiteralPath $cfg -PathType Leaf)) { Fail "config not found: $cfg" }
@@ -100,6 +135,16 @@ $date = (Get-Date).ToUniversalTime().ToString('yyyyMMdd', [Globalization.Culture
 $ran = 0; $skipped = 0; $failed = 0; $clocked = 0
 $smokeNote = if ($Smoke) { ", smoke $SmokeSteps steps" } else { '' }
 Write-Host "series: $($absConfigs.Count) config(s) x seeds [$($Seeds -join ' ')], -NumEnvs $NumEnvs, device $Device, env $EnvPath$smokeNote"
+if ($envWords.Count -eq 0) {
+    Write-Host 'env args: none (env-args.txt will be empty)'
+} else {
+    Write-Host "env args: $($envWords.Count) word(s), passed last as --env-args: $(Format-Words $envWords)"
+}
+if ($buildInfo) {
+    Write-Host "build info: $buildInfo (copied to results\<run-id>\build-info.json)"
+} else {
+    Write-Host "build info: not found at $buildInfoMissing; rebuild the training player to get one (nothing copied)"
+}
 
 foreach ($cfg in $absConfigs) {
     $name = [IO.Path]::GetFileNameWithoutExtension($cfg)
@@ -135,8 +180,10 @@ foreach ($cfg in $absConfigs) {
         Write-Host "run   $runId"
         $learnSeed = [long]$seed * 1000
         $arguments = @($used, '--env', $EnvPath, '--run-id', $runId, '--seed', "$learnSeed", '--num-envs', "$NumEnvs", '--no-graphics')
+        # --env-args must be last: mlagents-learn hands every word after it (other options too) to the player as given.
+        if ($envWords.Count -gt 0) { $arguments += @('--env-args') + $envWords }
         if ($DryRun) {
-            Write-Host "      $learn $($arguments -join ' ')"
+            Write-Host "      $(Format-Words (@($learn) + $arguments))"
             continue
         }
 
@@ -157,6 +204,10 @@ foreach ($cfg in $absConfigs) {
 
         if (Test-Path -LiteralPath "results\$runId" -PathType Container) {
             Copy-Item -LiteralPath $used -Destination "results\$runId\config-used.yaml"
+            # The words passed to the player, on one line, separated by spaces; an empty file without -EnvArgs.
+            $envNote = if ($envWords.Count -gt 0) { ($envWords -join ' ') + "`n" } else { '' }
+            [IO.File]::WriteAllText((Join-Path $repo "results\$runId\env-args.txt"), $envNote)
+            if ($buildInfo) { Copy-Item -LiteralPath $buildInfo -Destination "results\$runId\build-info.json" }
             $seedNote = "seed (run id): $seed`n--seed passed to mlagents-learn: $learnSeed`n--num-envs: $NumEnvs (environment k gets $learnSeed + k)`n"
             [IO.File]::WriteAllText((Join-Path $repo "results\$runId\seed-used.txt"), $seedNote)
             if (Test-ClockSeeded (Join-Path $repo "results\$runId")) {
