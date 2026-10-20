@@ -600,5 +600,168 @@ namespace Gym.Tests.Runtime.Configuration
             var inEval = Assert.Throws<GymConfigException>(() => LoadDefault("x", "-gymMode", "eval", "-gymSegment", "validation", "-gymRiskAversion", value));
             Assert.AreEqual(1, inEval.Errors.Count, string.Join("; ", inEval.Errors));
         }
+
+        // ---- 训练用的币（混训，15 批）：配置的 trainSymbols、命令行 -gymTrainSymbols
+
+        /// <summary>能训练的币（默认配置里不是 evalOnly 的），按配置里的顺序，错误信息里列的就是它们。</summary>
+        const string TrainableNames = "BTCUSDT, ETHUSDT, ADAUSDT or XRPUSDT";
+
+        [Test]
+        public void TrainSymbols_AreOnlyTheCurrentSymbol_WhenTheListIsEmptyOrMissing()
+        {
+            Assert.AreEqual("-gymTrainSymbols", GymConfigLoader.TrainSymbolsArg);
+            Assert.IsNotNull(DefaultConfig().trainSymbols, "premise: gym-config.json has a trainSymbols array");
+            Assert.AreEqual(0, DefaultConfig().trainSymbols.Length, "premise: and it is empty");
+            GymSettings s = LoadDefault();
+            CollectionAssert.AreEqual(new[] { "BTCUSDT" }, s.TrainSymbolNames, "empty list: the main symbol only");
+            Assert.AreSame(s.Current, s.TrainSymbols[0]);
+            CollectionAssert.IsEmpty(GymConfigLoader.ProblemsWithTraining(s, s.TrainSymbols));
+
+            GymSettings eth = LoadDefault("x", "-gymSymbol", "ETHUSDT");
+            CollectionAssert.AreEqual(new[] { "ETHUSDT" }, eth.TrainSymbolNames, "empty list: the current symbol (-gymSymbol) only");
+            Assert.AreSame(eth.Current, eth.TrainSymbols[0]);
+
+            GymConfig config = DefaultConfig();
+            config.trainSymbols = null;
+            string path = WriteConfig(config);
+            File.WriteAllText(path, File.ReadAllText(path).Replace("\"trainSymbols\"", "\"unusedField\""));
+            StringAssert.DoesNotContain("trainSymbols", File.ReadAllText(path), "premise: the field is missing");
+            GymSettings missing = GymConfigLoader.Load(path, GymConfigLoader.DefaultSymbolsPath);
+            CollectionAssert.AreEqual(new[] { "BTCUSDT" }, missing.TrainSymbolNames, "missing list: the main symbol only");
+            Assert.IsEmpty(missing.Warnings);
+        }
+
+        [Test]
+        public void TrainSymbols_ComeFromTheConfigInItsOrder()
+        {
+            GymConfig config = DefaultConfig();
+            config.trainSymbols = new[] { "ADAUSDT", "btcusdt", "XRPUSDT" };
+            GymSettings s = GymConfigLoader.Load(WriteConfig(config), GymConfigLoader.DefaultSymbolsPath);
+            CollectionAssert.AreEqual(new[] { "ADAUSDT", "BTCUSDT", "XRPUSDT" }, s.TrainSymbolNames, "in the list's order, names as in symbols");
+            foreach (SymbolSettings symbol in s.TrainSymbols)
+            {
+                Assert.IsTrue(s.TryGetSymbol(symbol.Symbol, out SymbolSettings same));
+                Assert.AreSame(same, symbol, "the same loaded symbol: its rules, data and clipped training segment");
+            }
+            Assert.AreEqual("train 2018-04-17..2021-12-31", s.TrainSymbols[0].Train.ToString(), "ADA's clipped training segment");
+            Assert.AreEqual("BTCUSDT", s.Current.Symbol, "the current symbol does not change");
+            CollectionAssert.IsEmpty(GymConfigLoader.ProblemsWithTraining(s, s.TrainSymbols));
+            Assert.IsEmpty(s.Warnings);
+        }
+
+        [Test]
+        public void TrainSymbolsArgument_OverridesTheConfig()
+        {
+            GymSettings s = LoadDefault("x", "-gymTrainSymbols", "ETHUSDT, xrpusdt");
+            CollectionAssert.AreEqual(new[] { "ETHUSDT", "XRPUSDT" }, s.TrainSymbolNames);
+            Assert.AreEqual("BTCUSDT", s.Current.Symbol, "-gymTrainSymbols does not change the current symbol");
+            CollectionAssert.AreEqual(new[] { "BTCUSDT", "ADAUSDT" },
+                LoadDefault("x", "-gymTrainSymbols", "BTCUSDT,ADAUSDT,").TrainSymbolNames, "a trailing comma is ignored");
+
+            GymConfig config = DefaultConfig();
+            config.trainSymbols = new[] { "ADAUSDT", "ETHUSDT" };
+            string path = WriteConfig(config);
+            CollectionAssert.AreEqual(new[] { "ADAUSDT", "ETHUSDT" },
+                GymConfigLoader.Load(path, GymConfigLoader.DefaultSymbolsPath).TrainSymbolNames);
+            CollectionAssert.AreEqual(new[] { "XRPUSDT" },
+                GymConfigLoader.Load(path, GymConfigLoader.DefaultSymbolsPath, new[] { "x", "-gymTrainSymbols", "XRPUSDT" }).TrainSymbolNames,
+                "the command line beats the config");
+        }
+
+        [TestCase("SOLUSDT")]
+        [TestCase("BTC")]
+        [TestCase("BNBUSDT")] // 在 symbols.json 里有规则，但不是配置里的币
+        public void TrainSymbols_RefuseANameThatIsNotInTheConfigAndListTheTrainableNames(string name)
+        {
+            var fromArgs = Assert.Throws<GymConfigException>(() => LoadDefault("x", "-gymTrainSymbols", "BTCUSDT," + name));
+            Assert.AreEqual(1, fromArgs.Errors.Count, fromArgs.Message);
+            Assert.AreEqual($"-gymTrainSymbols: {name} is not one of the symbols in the config; use {TrainableNames}", fromArgs.Errors[0]);
+
+            GymConfig config = DefaultConfig();
+            config.trainSymbols = new[] { name };
+            string path = WriteConfig(config);
+            var fromConfig = Assert.Throws<GymConfigException>(() => GymConfigLoader.Load(path, GymConfigLoader.DefaultSymbolsPath));
+            Assert.AreEqual(1, fromConfig.Errors.Count, fromConfig.Message);
+            Assert.AreEqual($"trainSymbols: {name} is not one of the symbols in the config; use {TrainableNames}", fromConfig.Errors[0]);
+            // 命令行给了对的名字，配置里错的名字照样报（和 observationSet 一样）
+            var both = Assert.Throws<GymConfigException>(() =>
+                GymConfigLoader.Load(path, GymConfigLoader.DefaultSymbolsPath, new[] { "x", "-gymTrainSymbols", "BTCUSDT" }));
+            CollectionAssert.AreEqual(fromConfig.Errors, both.Errors);
+        }
+
+        [Test]
+        public void TrainSymbols_RefuseAnEvalOnlySymbol_InEveryMode()
+        {
+            string expected = $"DOGEUSDT is evalOnly (only evaluated, never trained on); use {TrainableNames}";
+            foreach (string[] mode in new[] { new string[0], new[] { "-gymMode", "eval", "-gymSegment", "validation" } })
+            {
+                var fromArgs = Assert.Throws<GymConfigException>(() =>
+                    LoadDefault(new[] { "x", "-gymTrainSymbols", "BTCUSDT,dogeusdt" }.Concat(mode).ToArray()));
+                Assert.AreEqual(1, fromArgs.Errors.Count, fromArgs.Message);
+                Assert.AreEqual("-gymTrainSymbols: " + expected, fromArgs.Errors[0]);
+            }
+            GymConfig config = DefaultConfig();
+            config.trainSymbols = new[] { "ETHUSDT", "DOGEUSDT" };
+            var fromConfig = Assert.Throws<GymConfigException>(() =>
+                GymConfigLoader.Load(WriteConfig(config), GymConfigLoader.DefaultSymbolsPath));
+            Assert.AreEqual(1, fromConfig.Errors.Count, fromConfig.Message);
+            Assert.AreEqual("trainSymbols: " + expected, fromConfig.Errors[0]);
+        }
+
+        [Test]
+        public void TrainSymbols_RefuseRepeatsEmptyNamesAndAnArgumentWithoutNames()
+        {
+            var twice = Assert.Throws<GymConfigException>(() => LoadDefault("x", "-gymTrainSymbols", "BTCUSDT,ETHUSDT,btcusdt"));
+            CollectionAssert.AreEqual(new[] { "-gymTrainSymbols: BTCUSDT is listed twice" }, twice.Errors);
+            var none = Assert.Throws<GymConfigException>(() => LoadDefault("x", "-gymTrainSymbols", " , "));
+            Assert.AreEqual(1, none.Errors.Count, none.Message);
+            StringAssert.StartsWith("-gymTrainSymbols ' , ' names no symbol", none.Errors[0]);
+            GymConfig config = DefaultConfig();
+            config.trainSymbols = new[] { "BTCUSDT", "" };
+            var empty = Assert.Throws<GymConfigException>(() => GymConfigLoader.Load(WriteConfig(config), GymConfigLoader.DefaultSymbolsPath));
+            CollectionAssert.AreEqual(new[] { "trainSymbols: a symbol name is empty" }, empty.Errors);
+        }
+
+        /// <summary>
+        /// 当前币是只考不训的 DOGE（-gymSymbol DOGEUSDT）：评估、试玩和观战照样能载入，训练模式的 Agent 开工前用
+        /// ProblemsWithTraining 查出来并拒绝（和清单里出现 evalOnly 的币一样，player 以退出码 1 退出）。
+        /// </summary>
+        [Test]
+        public void AnEvalOnlyCurrentSymbol_StillLoads_ButATrainingAgentRefusesIt()
+        {
+            GymSettings doge = LoadDefault("x", "-gymSymbol", "DOGEUSDT");
+            Assert.IsTrue(doge.Current.EvalOnly, "premise: DOGE is evalOnly");
+            CollectionAssert.AreEqual(new[] { "DOGEUSDT" }, doge.TrainSymbolNames, "empty list: the current symbol");
+            CollectionAssert.AreEqual(new[]
+            {
+                "DOGEUSDT is evalOnly (only evaluated, never trained on), so a training agent cannot use it as the current symbol; " +
+                $"choose another -gymSymbol ({TrainableNames})",
+            }, GymConfigLoader.ProblemsWithTraining(doge, doge.TrainSymbols));
+
+            GymSettings dogeWithList = LoadDefault("x", "-gymSymbol", "DOGEUSDT", "-gymTrainSymbols", "BTCUSDT");
+            Assert.AreEqual(1, GymConfigLoader.ProblemsWithTraining(dogeWithList, dogeWithList.TrainSymbols).Count,
+                "an evalOnly current symbol is refused in training even with a list");
+            Assert.DoesNotThrow(() => LoadDefault("x", "-gymMode", "eval", "-gymSegment", "validation", "-gymSymbol", "DOGEUSDT"),
+                "evaluation still takes DOGE");
+            CollectionAssert.IsEmpty(GymConfigLoader.ProblemsWithTraining(LoadDefault(), LoadDefault().TrainSymbols));
+            CollectionAssert.AreEqual(new[] { "there is no symbol to train on" },
+                GymConfigLoader.ProblemsWithTraining(LoadDefault(), new SymbolSettings[0]));
+        }
+
+        [Test]
+        public void ResolveTrainSymbols_ChecksTheTestOverrideTheSameWay()
+        {
+            GymSettings s = LoadDefault();
+            var errors = new System.Collections.Generic.List<string>();
+            var chosen = GymConfigLoader.ResolveTrainSymbols(s, new[] { "xrpusdt", "BTCUSDT" }, "TrainSymbolsOverride", errors);
+            CollectionAssert.IsEmpty(errors);
+            CollectionAssert.AreEqual(new[] { "XRPUSDT", "BTCUSDT" }, chosen.Select(c => c.Symbol).ToArray());
+            GymConfigLoader.ResolveTrainSymbols(s, new[] { "DOGEUSDT", "SOLUSDT" }, "TrainSymbolsOverride", errors);
+            CollectionAssert.AreEqual(new[]
+            {
+                $"TrainSymbolsOverride: DOGEUSDT is evalOnly (only evaluated, never trained on); use {TrainableNames}",
+                $"TrainSymbolsOverride: SOLUSDT is not one of the symbols in the config; use {TrainableNames}",
+            }, errors);
+        }
     }
 }

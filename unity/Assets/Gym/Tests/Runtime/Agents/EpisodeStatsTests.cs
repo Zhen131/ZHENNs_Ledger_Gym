@@ -54,5 +54,27 @@ namespace Gym.Tests.Runtime.Agents
             Assert.AreEqual(0.0, stats.RiskAversion);
             Assert.AreEqual(0.0, stats.RiskPenalty);
         }
+
+        // ---- 混训（15 批）：Trading/SymbolShare/<币名>
+
+        [Test]
+        public void SymbolShares_GiveOneToTheEpisodesCoinAndZeroToEachOtherCoin()
+        {
+            Assert.AreEqual("Trading/SymbolShare/", EpisodeStats.SymbolSharePrefix);
+            CollectionAssert.AreEqual(new[]
+            {
+                ("Trading/SymbolShare/BTCUSDT", 0f), ("Trading/SymbolShare/ADAUSDT", 1f), ("Trading/SymbolShare/ETHUSDT", 0f),
+            }, EpisodeStats.SymbolShares(new[] { "BTCUSDT", "ADAUSDT", "ETHUSDT" }, "ADAUSDT"));
+            CollectionAssert.AreEqual(new[] { ("Trading/SymbolShare/BTCUSDT", 1f) },
+                EpisodeStats.SymbolShares(new[] { "BTCUSDT" }, "BTCUSDT"), "one coin: one curve, always 1");
+            // 平均下来就是占比：四局里三局 BTC、一局 ADA
+            string[] coins = { "BTCUSDT", "ADAUSDT" };
+            float btc = 0, ada = 0;
+            foreach (string episode in new[] { "BTCUSDT", "BTCUSDT", "ADAUSDT", "BTCUSDT" })
+                foreach ((string key, float value) in EpisodeStats.SymbolShares(coins, episode))
+                    if (key.EndsWith("BTCUSDT")) btc += value / 4; else ada += value / 4;
+            Assert.AreEqual(0.75f, btc);
+            Assert.AreEqual(0.25f, ada);
+        }
     }
 }

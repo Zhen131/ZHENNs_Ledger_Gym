@@ -2,6 +2,7 @@ using System;
 using Gym.Core.Accounting;
 using Gym.Core.Env;
 using Gym.Core.Evaluation;
+using Gym.Core.Market;
 using Gym.Runtime.Configuration;
 using Gym.Runtime.Evaluation;
 using NUnit.Framework;
@@ -76,6 +77,33 @@ namespace Gym.Tests.Runtime.Evaluation
                 RecordFileAssert.NoMachinePath(json, model);
                 StringAssert.Contains("\"model_file\": \"TradingAgent.onnx\"", json);
                 StringAssert.Contains("\"data_file\": \"data/BTCUSDT-1h.csv\"", json);
+            }
+        }
+
+        /// <summary>明细里的 symbol 读环境的币（评估只有当前币一个环境；读环境是防将来混用），data_file 仍是当前币的。</summary>
+        [Test]
+        public void AgentDetails_TakeTheSymbolFromTheEnvironment()
+        {
+            GymSettings s = GymConfigLoader.Load(GymConfigLoader.DefaultConfigPath, GymConfigLoader.DefaultSymbolsPath,
+                new[] { "x", "-gymMode", "eval", "-gymSegment", "validation" });
+            Assert.IsTrue(s.TryGetSymbol("ETHUSDT", out SymbolSettings eth));
+            var record = new EvaluationRecord
+            {
+                TimestampUtc = DateTime.UtcNow, Kind = EvaluationRecord.AgentKind, Policy = "agent",
+                ModelRunId = "run", ModelSha256 = "abc", Symbol = "ETHUSDT",
+            };
+            var info = new EvalBuildInfo { run_id = "run", model_sha256 = "abc", model_file = "TradingAgent.onnx" };
+            foreach ((CandleSeries series, SymbolRules rules, string expected) in new[]
+                     {
+                         (s.Series, s.Rules, "BTCUSDT"), (eth.Series, eth.Rules, "ETHUSDT"),
+                     })
+            {
+                TradingEnv env = TradingEnv.ForSegment(series, rules, s.EvalSegment, s.Config.initialCash, 0, 0);
+                env.ResetForEvaluation(0, new CostModel());
+                env.Step(TradeAction.Hold, 0f);
+                string json = JsonWriter.Serialize(EvalRunner.Details(record, info, s, env, Metrics.From(env), "InferenceOnly", true, "Burst"));
+                StringAssert.Contains($"\"symbol\": \"{expected}\"", json);
+                StringAssert.Contains("\"data_file\": \"data/BTCUSDT-1h.csv\"", json, "the data file is still the current symbol's");
             }
         }
 
