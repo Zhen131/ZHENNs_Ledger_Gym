@@ -1,15 +1,27 @@
 #!/usr/bin/env python3
-"""Check the comparison configs in config/variants/ against config/ppo_base.yaml.
+"""Check the comparison configs in config/variants/ and config/v2/ against their base.
 
 Usage, from the repository root, inside the mlagents environment:
 
     python scripts/train/check_configs.py
 
+Every *.yaml in config/variants/ and config/v2/ is a variant, unless its file
+name starts with "smoke": then it is a smoke config, wherever it is, like
+config/smoke*.yaml. A variant's base is config/ppo_base.yaml, unless its first
+line declares another one, for example
+"# base: config/v2/ppo_v2.yaml — Differs from ppo_v2.yaml only in ..."
+(a path from the repository root). Round two's configs in config/v2/ build on
+each other that way: ppo_v2 on ppo_base, long and long-ta on ppo_v2, the
+long-risk-* files on long.
+
 Rules (exit code 1 if any fails):
-- every variant differs from the base in exactly one setting, except the two
+- every variant differs from its base in exactly one setting, except the two
   marked "MULTIPLE CHANGES" in their first line (sac-base, teacher-style);
-- every file, including the smoke configs (config/smoke*.yaml), starts with a
-  comment line saying how it differs and why;
+  a declared base must exist;
+- smoke configs are not compared with any base (they shorten a run in several
+  settings); they only have to pass the rules below;
+- every file, including the smoke configs, starts with a comment line saying
+  how it differs and why;
 - every file has the single behavior TradingAgent, the environment parameters
   fee_rate, fixed_fee and slippage, and torch_settings.device cpu. The one
   exception is smoke-100k-cuda.yaml, the PC's speed test on the graphics card,
@@ -34,12 +46,16 @@ from __future__ import annotations
 import argparse
 import glob
 import math
+import re
 import sys
 from pathlib import Path
 
 import yaml
 
 MULTIPLE_MARK = "MULTIPLE CHANGES"
+# 首行注释里声明基础，例如 "# base: config/v2/ppo_v2.yaml — …"；没声明时和 --base 比。
+BASE_DECLARATION = re.compile(r"^#\s*base:\s*(\S+)")
+SMOKE_PREFIX = "smoke"
 EXPECTED_MULTIPLE = {"sac-base.yaml", "teacher-style.yaml"}
 ENV_PARAMS = ("fee_rate", "fixed_fee", "slippage")
 # 可选的环境参数：观测集。TradingAgent 只认 0、1、2，别的值让训练玩家报错退出。
@@ -150,17 +166,36 @@ def check_base(base_path: Path, base: dict, base_text: str) -> bool:
     return failed
 
 
-def check_variant(path: Path, base: dict) -> tuple[bool, bool]:
-    """打印一个 variant 的各项检查；返回（是否失败，是否标成多处改动）。"""
+def declared_base(first_line: str) -> str | None:
+    """首行注释里声明的基础路径；没声明时返回 None。"""
+    match = BASE_DECLARATION.match(first_line)
+    return match.group(1) if match else None
+
+
+def check_variant(path: Path, default_base_path: Path, bases: dict) -> tuple[bool, bool]:
+    """打印一个 variant 的各项检查（和它声明的基础比，没声明就和默认基础比）；返回（是否失败，是否标成多处改动）。"""
     text = path.read_text()
     first_line = text.split("\n", 1)[0]
     data = yaml.safe_load(text)
-    diffs = differences(base, data)
+    declared = declared_base(first_line)
+    base_path = Path(declared) if declared else default_base_path
+    problems = []
+    base = None
+    if declared and base_path.resolve() == path.resolve():
+        problems.append(f"declares itself as its base ({declared})")
+    elif not base_path.is_file():
+        problems.append(f"declared base {declared} not found")
+    else:
+        key = base_path.resolve()
+        if key not in bases:
+            bases[key] = yaml.safe_load(base_path.read_text())
+        base = bases[key]
+    diffs = differences(base, data) if base is not None else []
     multiple = MULTIPLE_MARK in first_line
-    problems = common_problems(path, data, first_line)
+    problems += common_problems(path, data, first_line)
     if multiple and path.name not in EXPECTED_MULTIPLE:
         problems.append(f"marked {MULTIPLE_MARK!r} but only {sorted(EXPECTED_MULTIPLE)} may be")
-    if not multiple and len(diffs) != 1:
+    if base is not None and not multiple and len(diffs) != 1:
         problems.append(f"must differ from the base in exactly one setting, found {len(diffs)}")
     if multiple and len(diffs) < 2:
         problems.append(f"marked {MULTIPLE_MARK!r} but differs in {len(diffs)} setting(s)")
@@ -170,8 +205,8 @@ def check_variant(path: Path, base: dict) -> tuple[bool, bool]:
 
     status = "FAIL" if problems else "ok"
     kind = "multiple" if multiple else "single"
-    print(f"{status:4} {path.name} ({kind}, {len(diffs)} difference{'s' if len(diffs) != 1 else ''}; "
-          f"mlagents {'ok' if parsed is None else parsed})")
+    print(f"{status:4} {path.as_posix()} ({kind}, {len(diffs)} difference{'s' if len(diffs) != 1 else ''} "
+          f"from {base_path.as_posix()}; mlagents {'ok' if parsed is None else parsed})")
     for diff in diffs:
         print(f"       {diff}")
     for problem in problems:
@@ -186,7 +221,7 @@ def check_smoke(path: Path) -> bool:
     parsed = mlagents_parse(path)
     if parsed not in (None, "skipped"):
         problems.append(f"ML-Agents rejects it: {parsed}")
-    print(f"{'FAIL' if problems else 'ok':4} {path.name} (smoke; mlagents {'ok' if parsed is None else parsed})")
+    print(f"{'FAIL' if problems else 'ok':4} {path.as_posix()} (smoke; mlagents {'ok' if parsed is None else parsed})")
     for problem in problems:
         print(f"     ! {problem}")
     return bool(problems)
@@ -194,8 +229,10 @@ def check_smoke(path: Path) -> bool:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--base", default="config/ppo_base.yaml")
-    parser.add_argument("--variants", default="config/variants")
+    parser.add_argument("--base", default="config/ppo_base.yaml",
+                        help="the base of every variant whose first line declares no other")
+    parser.add_argument("--variants", nargs="+", default=["config/variants", "config/v2"],
+                        help="folders whose *.yaml are variants (files named smoke* in them are smoke configs)")
     parser.add_argument("--smoke", default="config/smoke*.yaml", help="glob of the smoke configs")
     args = parser.parse_args(argv)
 
@@ -204,21 +241,29 @@ def main(argv=None) -> int:
     base = yaml.safe_load(base_text)
     failed = check_base(base_path, base, base_text)
 
-    variants = sorted(Path(args.variants).glob("*.yaml"))
-    if not variants:
-        print(f"FAIL no variants in {args.variants}")
-        return 1
+    # 文件名以 smoke 开头的一律按冒烟配置查，不论在哪个文件夹；其余的是变体。
+    variants, smoke = [], []
+    for folder in args.variants:
+        found = sorted(Path(folder).glob("*.yaml"))
+        if not found:
+            print(f"FAIL no configs in {folder}")
+            return 1
+        for path in found:
+            (smoke if path.name.startswith(SMOKE_PREFIX) else variants).append(path)
+    bases = {base_path.resolve(): base}
     seen_multiple = set()
     for path in variants:
-        variant_failed, multiple = check_variant(path, base)
+        variant_failed, multiple = check_variant(path, base_path, bases)
         if multiple:
             seen_multiple.add(path.name)
         failed |= variant_failed
 
-    smoke = sorted(Path(p) for p in glob.glob(args.smoke))
-    if not smoke:
+    smoke_glob = sorted(Path(p) for p in glob.glob(args.smoke))
+    if not smoke_glob:
         print(f"FAIL no smoke configs match {args.smoke}")
         failed = True
+    in_glob = {path.resolve() for path in smoke_glob}
+    smoke = smoke_glob + [path for path in smoke if path.resolve() not in in_glob]
     for path in smoke:
         failed |= check_smoke(path)
 
