@@ -2,6 +2,9 @@
   "symbols": [
     { "symbol": "BTCUSDT", "minNotional": 5, "stepSize": "0.00001" },
     { "symbol": "ETHUSDT", "minNotional": 5, "stepSize": "0.0001" },
-    { "symbol": "ADAUSDT", "minNotional": 5, "stepSize": "0.1" }
+    { "symbol": "ADAUSDT", "minNotional": 5, "stepSize": "0.1" },
+    { "symbol": "DOGEUSDT", "minNotional": 1, "stepSize": "1" },
+    { "symbol": "BNBUSDT", "minNotional": 5, "stepSize": "0.001" },
+    { "symbol": "XRPUSDT", "minNotional": 5, "stepSize": "0.1" }
   ]
 }
