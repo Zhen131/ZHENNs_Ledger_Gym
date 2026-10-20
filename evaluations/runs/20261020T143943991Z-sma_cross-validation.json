@@ -1,0 +1,45 @@
+{
+  "timestamp_utc": "2026-10-20T14:39:43.991Z",
+  "kind": "baseline",
+  "policy": "sma_cross",
+  "generated_by": "Gym.Editor.EvalTools.RunBaselines",
+  "symbol": "BTCUSDT",
+  "data_file": "data/BTCUSDT-1h.csv",
+  "segment": {
+    "name": "validation",
+    "start_date": "2024-09-01",
+    "end_date": "2025-08-31",
+    "first_candle_utc": "2024-09-01T00:00:00.000Z",
+    "last_candle_utc": "2025-08-31T23:00:00.000Z",
+    "steps": 8759
+  },
+  "market": {
+    "start_candle_utc": "2024-09-01T00:00:00.000Z",
+    "start_open": 58974,
+    "start_close": 58930,
+    "end_candle_utc": "2025-08-31T23:00:00.000Z",
+    "end_close": 108246.35,
+    "change": 0.83686322755811982
+  },
+  "cost": {
+    "fee_rate": 0.001,
+    "fixed_fee": 0,
+    "slippage": 0
+  },
+  "initial_cash": 10000,
+  "seeds": 1,
+  "metrics": {
+    "total_return": 0.47786562121627951,
+    "max_drawdown": 0.24373157961335745,
+    "sharpe": 1.1415948281111845,
+    "trades": 18,
+    "rejected": 0,
+    "turnover": 17.424829112576745,
+    "fees_paid": 234.75009523720004,
+    "fees_pct": 2.347500952372,
+    "exposure": 0.60212353008334285,
+    "steps": 8759,
+    "initial_equity": 10000,
+    "final_equity": 14778.656212162796
+  }
+}
