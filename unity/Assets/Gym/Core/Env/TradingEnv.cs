@@ -80,6 +80,8 @@ namespace Gym.Core.Env
 
         public Account Account { get; private set; }
         public CostModel Cost { get; private set; }
+        /// <summary>本局的风险系数 λ（见 <see cref="RewardFunction"/>）：由三个 Reset* 设，默认 0（得分就是原得分）。</summary>
+        public double RiskAversion { get; private set; }
         public int Seed { get; private set; }
         public bool Evaluation { get; private set; }
 
@@ -98,7 +100,12 @@ namespace Gym.Core.Env
         /// <summary>走完之后账户仍然持有 coin 的 step 个数。</summary>
         public int HoldingSteps { get; private set; }
         public int ClippedRewards { get; private set; }
+        /// <summary>本局得分之和（每一步原得分减罚款）。</summary>
         public double RewardSum { get; private set; }
+        /// <summary>本局罚款累计：Σ λ × min(r, 0)²。λ = 0 时为 0。</summary>
+        public double RiskPenaltySum { get; private set; }
+        /// <summary>本局罚款大于 0 的步数（λ = 0 时为 0，亏损但 λ = 0 的步不算）。</summary>
+        public int RiskPenaltySteps { get; private set; }
 
         public double CurrentClose => Series.CloseAt(CurrentIndex);
         public double CurrentEquity => Account.Equity(Series.CloseAt(CurrentIndex));
@@ -109,11 +116,13 @@ namespace Gym.Core.Env
         /// <summary>
         /// 开始一个训练 episode：起点在 [max(First, 历史长度), Last − EpisodeLength] 里随机取
         /// （EpisodeLength 为 0 时上限是 Last − 1）；并且以 <see cref="RandomInitialPositionShare"/> 的概率，
-        /// 让 equity 里随机的一部分一开始就是 coin（不收 fee）。
+        /// 让 equity 里随机的一部分一开始就是 coin（不收 fee）。<paramref name="riskAversion"/> 是本局的风险系数，默认 0。
         /// </summary>
-        public void ResetForTraining(int seed, CostModel cost)
+        public void ResetForTraining(int seed, CostModel cost, double riskAversion = 0)
         {
+            RewardFunction.CheckRiskAversion(riskAversion);
             Cost = cost ?? throw new ArgumentNullException(nameof(cost));
+            RiskAversion = riskAversion;
             Seed = seed;
             Evaluation = false;
 
@@ -148,11 +157,13 @@ namespace Gym.Core.Env
 
         /// <summary>
         /// 开始一个评估 episode：从 max(First, 历史长度) 开始（base 是 32，long 和 long-ta 是 2160），全是现金，一直运行到 Last。
-        /// 没有任何随机；seed 只记在 <see cref="Seed"/> 里。
+        /// 没有任何随机；seed 只记在 <see cref="Seed"/> 里。<paramref name="riskAversion"/> 是本局的风险系数，默认 0。
         /// </summary>
-        public void ResetForEvaluation(int seed, CostModel cost)
+        public void ResetForEvaluation(int seed, CostModel cost, double riskAversion = 0)
         {
+            RewardFunction.CheckRiskAversion(riskAversion);
             Cost = cost ?? throw new ArgumentNullException(nameof(cost));
+            RiskAversion = riskAversion;
             Seed = seed;
             Evaluation = true;
             StartEpisode(FirstDecisionIndex, InitialCash, 0, 0);
@@ -160,14 +171,16 @@ namespace Gym.Core.Env
 
         /// <summary>
         /// 按评估的方式从选定的 candle 开始：全是现金，没有随机，一直运行到 <see cref="Last"/>。
-        /// Play scene 用它。
+        /// Play scene 用它。<paramref name="riskAversion"/> 是本局的风险系数，默认 0。
         /// </summary>
-        public void Reset(CostModel cost, int startIndex)
+        public void Reset(CostModel cost, int startIndex, double riskAversion = 0)
         {
             int lo = FirstDecisionIndex;
             if (startIndex < lo || startIndex >= Last)
                 throw new ArgumentOutOfRangeException(nameof(startIndex), startIndex, $"Must be in [{lo}, {Last - 1}].");
+            RewardFunction.CheckRiskAversion(riskAversion);
             Cost = cost ?? throw new ArgumentNullException(nameof(cost));
+            RiskAversion = riskAversion;
             Seed = 0;
             Evaluation = true;
             StartEpisode(startIndex, InitialCash, 0, 0);
@@ -187,6 +200,8 @@ namespace Gym.Core.Env
             HoldingSteps = 0;
             ClippedRewards = 0;
             RewardSum = 0;
+            RiskPenaltySum = 0;
+            RiskPenaltySteps = 0;
             trades.Clear();
             equityCurve.Clear();
             equityCurve.Add(CurrentEquity);
@@ -227,9 +242,11 @@ namespace Gym.Core.Env
             if (account.CoinUnits > 0) HoldingSteps++;
 
             double equityAfter = account.Equity(Series.CloseAt(CurrentIndex));
-            double reward = RewardFunction.Compute(equityBefore, equityAfter, out bool clipped);
+            double reward = RewardFunction.Compute(equityBefore, equityAfter, RiskAversion, out bool clipped, out double penalty);
             if (clipped) ClippedRewards++;
             RewardSum += reward;
+            RiskPenaltySum += penalty;
+            if (penalty > 0) RiskPenaltySteps++;
             equityCurve.Add(equityAfter);
 
             EndReason reason = EndReasonAfterStep();
