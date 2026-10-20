@@ -22,7 +22,9 @@ namespace Gym.Editor
     ///   Unity -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.BuildScript.BuildMacTraining -quit -logFile "$PWD/unity/Logs/build-mac.log"
     ///   Unity -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.BuildScript.BuildWindowsTraining -quit -logFile "$PWD/unity/Logs/build-win.log"
     ///
-    /// 打包失败时，batch mode 下的 editor 以退出码 1 退出。
+    /// 打包失败时，batch mode 下的 editor 以退出码 1 退出。打完后在包里的 StreamingAssets/Gym/ 写一份 build-info.json
+    /// （打包时间、Unity 版本、包里那份 gym-config.json 的 SHA-256），Mac 的 .app 写完后重新签名；成批训练脚本把它复制进
+    /// results/&lt;run-id&gt;/。
     ///
     /// 打评估用的 player，把训练好的模型打进包里：
     ///
@@ -193,6 +195,31 @@ namespace Gym.Editor
             Debug.Log($"[Gym] re-signed {app} (ad hoc) and verified the signature");
         }
 
+        /// <summary>训练包里 StreamingAssets/Gym/build-info.json 的内容。评估包那份是 <see cref="EvalBuildInfo"/>，多了模型的信息。</summary>
+        [Serializable]
+        public class TrainingBuildInfo
+        {
+            public string built_at_utc;
+            public string unity_version;
+            /// <summary>打进包里的那份 gym-config.json 的 SHA-256；训练玩家开工时在日志里也写一遍它实际读的那份。</summary>
+            public string gym_config_sha256;
+        }
+
+        /// <summary>把打包时间、Unity 版本和包里 gym-config.json 的 SHA-256 写进训练包的 StreamingAssets/Gym/build-info.json；返回这个文件的路径。</summary>
+        static string WriteTrainingBuildInfo(BuildTarget target, string output)
+        {
+            string folder = StreamingGymFolder(target, output);
+            var info = new TrainingBuildInfo
+            {
+                built_at_utc = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'"),
+                unity_version = Application.unityVersion,
+                gym_config_sha256 = Sha256(Path.Combine(folder, "gym-config.json")), // 包里没有这个文件就打包失败
+            };
+            string infoPath = Path.Combine(folder, EvalRunner.BuildInfoFile);
+            File.WriteAllText(infoPath, JsonUtility.ToJson(info, true));
+            return infoPath;
+        }
+
         /// <summary>打出来的 player 把 StreamingAssets/Gym 放在哪里。</summary>
         static string StreamingGymFolder(BuildTarget target, string output) =>
             target == BuildTarget.StandaloneOSX
@@ -222,6 +249,9 @@ namespace Gym.Editor
             try
             {
                 BuildPlayer(target, output, TrainingScenePath);
+                string infoPath = WriteTrainingBuildInfo(target, output);
+                if (target == BuildTarget.StandaloneOSX) ResignMacApp(output); // 和评估包一样：写进 .app 的文件会破坏签名
+                Debug.Log($"[Gym] training build: wrote {infoPath}");
             }
             catch (Exception e)
             {

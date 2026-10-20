@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Security.Cryptography;
 using Gym.Core.Accounting;
 using Gym.Core.Env;
 using Gym.Core.Evaluation;
@@ -41,6 +43,8 @@ namespace Gym.Runtime.Agents
         TradingEnv[] envs = Array.Empty<TradingEnv>();
         System.Random seedSource;
         bool firstEpisodeLogged;
+        /// <summary>训练玩家开工那一行已经为哪份设置写过（每份设置写一次，不是每个 Agent 一次）。</summary>
+        static GymSettings trainingStartLoggedFor;
 
         public AgentStartMode StartMode
         {
@@ -166,8 +170,11 @@ namespace Gym.Runtime.Agents
                       $"({observationSet.Size()} numbers, history {observationSet.HistoryLength()}), " +
                       $"master seed {MasterSeed} ({MasterSeedChooser.LogName(MasterSeedSource)})");
             if (trainSymbols != null)
+            {
                 Debug.Log($"[Gym] {name}: training symbols {TrainSymbolsText(trainSymbols)}" +
                           (trainSymbols.Count > 1 ? "; each episode picks one from its episode seed" : ""));
+                LogTrainingStart(observationSet, trainSymbols);
+            }
             if (mode != AgentStartMode.Training) ResetEnv(); // 这样 view 和 runner 在第一个 step 之前就能读到起点
         }
 
@@ -353,6 +360,35 @@ namespace Gym.Runtime.Agents
             if (errors.Count == 0) errors.AddRange(GymConfigLoader.ProblemsWithTraining(Settings, chosen));
             if (errors.Count > 0) throw GymConfigLoader.FailAtRuntime(errors);
             return chosen;
+        }
+
+        /// <summary>
+        /// 训练玩家开工时写一行：观测集、当前币、训练币清单（各带裁过的训练段）、当前币的分段日期、实际读的 gym-config.json
+        /// 的 SHA-256。同一份设置只写一次（16 个 Agent 共用一份设置）。观测集是这个 Agent 实际用的档（trainer 的 obs_set 选的档
+        /// 不写回设置，所以 <see cref="GymConfigLoader.LoadForRuntime"/> 那一行写的是配置和命令行的档）。
+        /// </summary>
+        void LogTrainingStart(ObservationSet set, IReadOnlyList<SymbolSettings> trainSymbols)
+        {
+            if (ReferenceEquals(trainingStartLoggedFor, Settings)) return;
+            trainingStartLoggedFor = Settings;
+            Debug.Log($"[Gym] training player: observations {set.Name()} ({set.Size()} numbers), current symbol {Settings.Rules.Symbol}, " +
+                      $"training symbols {TrainSymbolsText(trainSymbols)}, segment {Settings.Train}, " +
+                      $"gym-config.json sha256 {FileSha256(Settings.ConfigPath)} ({Settings.ConfigPath})");
+        }
+
+        /// <summary>文件的 SHA-256（小写十六进制）；读不了时写明读不了，不让训练因为一行日志停下。</summary>
+        static string FileSha256(string path)
+        {
+            try
+            {
+                using (SHA256 sha = SHA256.Create())
+                using (FileStream stream = File.OpenRead(path))
+                    return BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "").ToLowerInvariant();
+            }
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
+            {
+                return $"unreadable ({e.Message})";
+            }
         }
 
         /// <summary>日志里的清单，例如 "BTCUSDT (train 2017-08-17..2021-12-31), ADAUSDT (train 2018-04-17..2021-12-31)"。</summary>
