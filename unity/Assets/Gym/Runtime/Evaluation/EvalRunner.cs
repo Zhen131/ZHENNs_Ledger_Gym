@@ -239,7 +239,7 @@ namespace Gym.Runtime.Evaluation
                 Policy = "agent",
                 ModelRunId = info?.run_id ?? "unknown",
                 ModelSha256 = info?.model_sha256 ?? "",
-                Symbol = s.Rules.Symbol,
+                Symbol = env.Rules.Symbol, // 环境的币；评估只有当前币一个环境，读环境是防将来混用
                 Seeds = 1,
                 Notes = AgentNotes(behavior.DeterministicInference, behavior.InferenceDevice.ToString(), metrics.Steps, env.ObservationSet),
             };
@@ -275,7 +275,7 @@ namespace Gym.Runtime.Evaluation
                 { "behavior_type", behaviorType },
                 { "deterministic_inference", deterministicInference },
                 { "inference_device", inferenceDevice },
-                { "symbol", settings.Rules.Symbol },
+                { "symbol", env.Rules.Symbol }, // 环境的币（评估时就是当前币）
                 { "data_file", RecordPaths.PathForRecords(settings.DataFile) }, // 当前币的数据文件
                 { "observation_set", env.ObservationSet.Name() },
                 { "history_length", env.HistoryLength },

@@ -80,7 +80,7 @@ namespace Gym.Editor
             var env = TradingEnv.ForSegment(settings.Series, settings.Rules, segment, settings.Config.initialCash, 0, 0,
                 settings.ObservationSet);
             JsonObject market = Market(env);
-            Debug.Log($"[Gym] baselines for {settings.Rules.Symbol} ({settings.DataFile}) on {segment}: {Json(market)}");
+            Debug.Log($"[Gym] baselines for {env.Rules.Symbol} ({settings.DataFile}) on {segment}: {Json(market)}");
 
             foreach (double fee in feeRates)
             {
@@ -89,25 +89,25 @@ namespace Gym.Editor
                 if (policies.Contains(BuyAndHoldPolicy))
                 {
                     EpisodeMetrics hold = Baselines.RunBuyAndHold(env, cost);
-                    WriteSingleRun(outDir, settings, cost, market, Baselines.BuyAndHoldName, hold);
+                    WriteSingleRun(outDir, settings, env, cost, market, Baselines.BuyAndHoldName, hold);
                     Debug.Log($"[Gym] fee {fee}: buy_and_hold {hold.TotalReturn:P2}");
                 }
 
                 if (policies.Contains(CashPolicy))
                 {
                     EpisodeMetrics cash = Baselines.RunCash(env, cost);
-                    WriteSingleRun(outDir, settings, cost, market, Baselines.CashName, cash);
+                    WriteSingleRun(outDir, settings, env, cost, market, Baselines.CashName, cash);
                     Debug.Log($"[Gym] fee {fee}: cash {cash.TotalReturn:P2}");
                 }
 
                 if (policies.Contains(RandomPolicy)) RunRandomPolicy(outDir, settings, env, market, cost, seeds);
 
                 if (policies.Contains(MomentumPolicy))
-                    RunRulePolicy(outDir, settings, market, cost, Baselines.MomentumName, Baselines.RunMomentum(env, cost));
+                    RunRulePolicy(outDir, settings, env, market, cost, Baselines.MomentumName, Baselines.RunMomentum(env, cost));
                 if (policies.Contains(SmaCrossPolicy))
-                    RunRulePolicy(outDir, settings, market, cost, Baselines.SmaCrossName, Baselines.RunSmaCross(env, cost));
+                    RunRulePolicy(outDir, settings, env, market, cost, Baselines.SmaCrossName, Baselines.RunSmaCross(env, cost));
                 if (policies.Contains(VolTargetPolicy))
-                    RunRulePolicy(outDir, settings, market, cost, Baselines.VolTargetName, Baselines.RunVolTarget(env, cost));
+                    RunRulePolicy(outDir, settings, env, market, cost, Baselines.VolTargetName, Baselines.RunVolTarget(env, cost));
             }
 
             string logPath = Path.Combine(outDir, EvaluationLog.FileName);
@@ -142,10 +142,10 @@ namespace Gym.Editor
                 .Select(x => double.Parse(x.Trim(), NumberStyles.Float, Inv)).ToArray();
 
         /// <summary>一条规则：和买入持有一样只跑一次，写一行和一份明细文件。</summary>
-        static void RunRulePolicy(string outDir, GymSettings settings, JsonObject market, CostModel cost,
+        static void RunRulePolicy(string outDir, GymSettings settings, TradingEnv env, JsonObject market, CostModel cost,
             string policy, EpisodeMetrics metrics)
         {
-            WriteSingleRun(outDir, settings, cost, market, policy, metrics);
+            WriteSingleRun(outDir, settings, env, cost, market, policy, metrics);
             Debug.Log($"[Gym] fee {cost.FeeRate}: {policy} {metrics.TotalReturn:P2} ({metrics.Trades} trades)");
         }
 
@@ -159,37 +159,38 @@ namespace Gym.Editor
             double p95 = Metrics.Percentile(runs.Select(r => r.metrics.TotalReturn), 95);
             string notes = $"seeds mixed; medians over seeds 0-{seeds - 1}; " +
                            $"total_return p5={EvaluationLog.Number(p5)} p95={EvaluationLog.Number(p95)}";
-            WriteRandomRuns(outDir, settings, cost, market, median, runs, notes);
+            WriteRandomRuns(outDir, settings, env, cost, market, median, runs, notes);
             Debug.Log($"[Gym] fee {cost.FeeRate}: random median {median.TotalReturn:P2} (p5 {p5:P2}, p95 {p95:P2})");
         }
 
         /// <summary>只运行一次的 policy（买入持有、一直拿现金、三条规则）：写评估流水的一行，和一份带指标的明细文件。</summary>
-        static void WriteSingleRun(string outDir, GymSettings settings, CostModel cost, JsonObject market,
+        static void WriteSingleRun(string outDir, GymSettings settings, TradingEnv env, CostModel cost, JsonObject market,
             string policy, EpisodeMetrics metrics)
         {
             DateTime now = DateTime.UtcNow;
-            EvaluationRecord record = BaselineRecord(now, settings, cost, policy, metrics, 1, "");
-            JsonObject details = DetailsHead(now, record, settings, cost, market);
+            EvaluationRecord record = BaselineRecord(now, settings, env, cost, policy, metrics, 1, "");
+            JsonObject details = DetailsHead(now, record, settings, env, cost, market);
             details.Add("metrics", EvaluationLog.MetricsJson(metrics));
             Save(outDir, now, record, details);
         }
 
         /// <summary>随机 policy：评估流水那一行放中位数，明细文件放汇总和每个 seed 的指标。</summary>
-        static void WriteRandomRuns(string outDir, GymSettings settings, CostModel cost, JsonObject market,
+        static void WriteRandomRuns(string outDir, GymSettings settings, TradingEnv env, CostModel cost, JsonObject market,
             EpisodeMetrics median, List<(int seed, EpisodeMetrics metrics)> perSeed, string notes)
         {
             DateTime now = DateTime.UtcNow;
-            EvaluationRecord record = BaselineRecord(now, settings, cost, Baselines.RandomName, median, perSeed.Count, notes);
+            EvaluationRecord record = BaselineRecord(now, settings, env, cost, Baselines.RandomName, median, perSeed.Count, notes);
             // 整数计数的中位数可能带 .5；保留精确值。
             record.Trades = Metrics.Median(perSeed.Select(r => (double)r.metrics.Trades));
             record.Rejected = Metrics.Median(perSeed.Select(r => (double)r.metrics.Rejected));
-            JsonObject details = DetailsHead(now, record, settings, cost, market);
+            JsonObject details = DetailsHead(now, record, settings, env, cost, market);
             details.Add("summary", RandomSummary(record, perSeed));
             details.Add("per_seed", PerSeedMetrics(perSeed));
             Save(outDir, now, record, details);
         }
 
-        static EvaluationRecord BaselineRecord(DateTime now, GymSettings settings, CostModel cost, string policy,
+        /// <summary>对照组的一行。symbol 读环境的币（基准工具只建当前币一个环境；读环境是防将来混用）。</summary>
+        static EvaluationRecord BaselineRecord(DateTime now, GymSettings settings, TradingEnv env, CostModel cost, string policy,
             EpisodeMetrics metrics, int seeds, string notes)
         {
             var record = new EvaluationRecord
@@ -197,7 +198,7 @@ namespace Gym.Editor
                 TimestampUtc = now,
                 Kind = EvaluationRecord.BaselineKind,
                 Policy = policy,
-                Symbol = settings.Rules.Symbol,
+                Symbol = env.Rules.Symbol,
                 Seeds = seeds,
                 Notes = notes,
             };
@@ -208,14 +209,15 @@ namespace Gym.Editor
         }
 
         /// <summary>每份对照组明细文件开头都有的那些键。</summary>
-        static JsonObject DetailsHead(DateTime now, EvaluationRecord record, GymSettings settings, CostModel cost, JsonObject market) =>
+        static JsonObject DetailsHead(DateTime now, EvaluationRecord record, GymSettings settings, TradingEnv env, CostModel cost,
+            JsonObject market) =>
             new JsonObject
             {
                 { "timestamp_utc", now },
                 { "kind", record.Kind },
                 { "policy", record.Policy },
                 { "generated_by", "Gym.Editor.EvalTools.RunBaselines" },
-                { "symbol", settings.Rules.Symbol },
+                { "symbol", env.Rules.Symbol },
                 { "data_file", RecordPaths.PathForRecords(settings.DataFile) }, // 当前币的数据文件
                 { "segment", SegmentJson(settings.EvalSegment, settings.Series, settings.ObservationSet.HistoryLength()) },
                 { "market", market },
