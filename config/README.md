@@ -1,6 +1,6 @@
 # Training configs
 
-All configs train the behavior `TradingAgent` on the CPU (the one exception is `smoke-100k-cuda.yaml`, below) and pass the costs to the environment as `environment_parameters` (`fee_rate`, `fixed_fee`, `slippage`). The first line of every file says how it differs from `ppo_base.yaml`.
+All configs train the behavior `TradingAgent` on the CPU (the one exception is `smoke-100k-cuda.yaml`, below) and pass the costs to the environment as `environment_parameters` (`fee_rate`, `fixed_fee`, `slippage`); the two `obs-*` variants also pass the observation set (`obs_set`). The first line of every file says how it differs from `ppo_base.yaml`.
 
 What the `Trading/*` curves in TensorBoard mean is in the [Training curves](../docs/training.md#training-curves-trading-in-tensorboard) table of `docs/training.md`. Note that `Trading/Turnover` divides the traded value by the **starting** equity of the episode, while `turnover` in the evaluation log divides by the **average** equity.
 
@@ -30,6 +30,8 @@ Each variant changes one thing, so a difference in the results can be traced to 
 | `fee-0.003.yaml` | `fee_rate` 0.003 | **The central comparison**, with triple fees |
 | `sac-base.yaml` | *multiple*: SAC with FoodCollector's SAC hyperparameters (learning rate 3e-4 constant, batch 256, buffer 2048, `buffer_init_steps` 0, `tau` 0.005, `steps_per_update` 10, `init_entcoef` 0.05, `reward_signal_steps_per_update` 10); network and environment as the base | Algorithm comparison |
 | `teacher-style.yaml` | *multiple*: `normalize: true`, 3 × 256 network, `gamma` 0.9, learning rate 1e-4, batch 512, buffer 10000 | The course example's defaults |
+| `obs-long.yaml` | `obs_set` 1: the `long` observation set (41 numbers: the base 35 plus 1-day, 1-week, 30-day and 90-day returns scaled by volatility, the 30-day volatility and the drawdown from the 90-day high) | Does a longer view stop the agent from simply holding? |
+| `obs-long-ta.yaml` | `obs_set` 2: the `long-ta` observation set (43 numbers: `long` plus daily MACD and RSI(14)) | Control group for `long`: do the classic indicators add anything? |
 
 Check the variants after editing any of them:
 
@@ -37,6 +39,6 @@ Check the variants after editing any of them:
 python scripts/train/check_configs.py
 ```
 
-It fails unless every single-change variant differs from the base in exactly one setting, every file (smoke configs included) has the `TradingAgent` behavior, the three cost parameters inside the ranges the environment accepts (`fee_rate` in [0, 1), `slippage` in [0, 0.1), `fixed_fee` ≥ 0) and the CPU device (cuda in `smoke-100k-cuda.yaml`), and ML-Agents itself accepts the file.
+It fails unless every single-change variant differs from the base in exactly one setting, every file (smoke configs included) has the `TradingAgent` behavior, the three cost parameters inside the ranges the environment accepts (`fee_rate` in [0, 1), `slippage` in [0, 0.1), `fixed_fee` ≥ 0), `obs_set` (optional) 0, 1 or 2, and the CPU device (cuda in `smoke-100k-cuda.yaml`), and ML-Agents itself accepts the file. Adding `obs_set` counts as the one setting a variant changes; `ppo_base.yaml` has none, which means the observation set of `gym-config.json` (`base`). What the numbers of each set are: [docs/architecture.md](../docs/architecture.md#observation-action-reward).
 
 Run a series (every config × every seed) with `scripts/train/run_series.sh` on macOS or `scripts/train/run_series.ps1` on Windows; see [docs/training.md](../docs/training.md) and [docs/pc-training.md](../docs/pc-training.md).

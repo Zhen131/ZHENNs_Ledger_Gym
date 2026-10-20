@@ -14,6 +14,10 @@ scripts/train/run_series.sh --env unity/Builds/mac/Gym.app --seeds 1 --smoke con
 
 What each config changes, and how to check the configs after editing them: [config/README.md](../config/README.md).
 
+## Observation set (`obs_set`)
+
+Which numbers the agent sees is chosen by the environment parameter `obs_set` in the config's `environment_parameters`: 0 is `base` (the first round's 35 numbers), 1 is `long` (41: six long-horizon numbers added), 2 is `long-ta` (43: daily MACD and RSI added to `long`). The formulas are in [architecture.md](architecture.md#observation-action-reward). `config/variants/obs-long.yaml` and `config/variants/obs-long-ta.yaml` set it; `ppo_base.yaml` leaves it out, and then the player uses `-gymObs` or `observationSet` in `gym-config.json` (default `base`). Any other value stops the training player with exit code 1, and so does a set whose history length (2160 candles for `long` and `long-ta`) leaves the training segment too short or `playStart` too early. Every agent writes its set to the player log, for example `observations long (41 numbers, history 2160)`; check that line in a smoke run, because the Mac tests cannot send environment parameters. A model trained on one set only works with that set.
+
 ## Training curves (`Trading/*` in TensorBoard)
 
 During training every agent reports nine numbers at the end of each episode; TensorBoard shows their average over the episodes that ended in each summary period. They describe training episodes (720 steps from a random start, possibly holding coin at the start), so they are not the evaluation metrics of [evaluation.md](evaluation.md), even where the names match.

@@ -1,6 +1,6 @@
 # ZHENN Ledger Gym
 
-A Unity ML-Agents environment in which a reinforcement-learning agent steps through historical 1-hour BTC/USDT candles and decides at every hour whether to buy, sell or hold, and how much, while trading fees eat into every order. Four more coins (ETH, ADA, DOGE, XRP) are there to evaluate on.
+A Unity ML-Agents environment in which a reinforcement-learning agent steps through historical 1-hour BTC/USDT candles and decides at every hour whether to buy, sell or hold, and how much, while trading fees eat into every order. Four more coins (ETH, ADA, DOGE, XRP) are there to evaluate on. What the agent sees is one of three observation sets: `base`, the first round's 35 numbers (the last 32 closes, its position, its open profit and the time since its last trade; the default), `long`, which adds six long-horizon numbers (returns over a day, a week, 30 and 90 days scaled by volatility, the 30-day volatility and the drawdown from the 90-day high), and `long-ta`, which adds daily MACD and RSI to `long` as a control group.
 
 This is a university course project (Introduction to Reinforcement Learning, University of Debrecen, Fall 2026). It is **not** a trading strategy and **not** financial advice, and it promises no returns. The question it asks is how fees change what an agent learns to do, not whether it can make money.
 
@@ -47,11 +47,11 @@ To give the avatar a face, put `avatar.png` (or `avatar.jpg`, `avatar.jpeg`) int
 | Path | What is there |
 | --- | --- |
 | `unity/` | The Unity project; open this folder in Unity |
-| `unity/Assets/Gym/Core/` | `Gym.Core`: the trading environment in plain C# (no UnityEngine), one folder and namespace per concept: `Market/` (candles, symbol rules, splits: `CandleSeries`, `SymbolRules`, `SegmentSpec`, `SplitValidator`), `Accounting/` (account and fees: `Account`, `CostModel`), `Env/` (actions and mask, observation, reward, episode, seeds: `TradingEnv`, `TradeAction`, `ActionCodec`, `ObservationBuilder`, `RewardFunction`, `SeedMixer`), `Evaluation/` (metrics, baselines, evaluation log: `Metrics`, `Baselines`, `EvaluationLog`, `JsonWriter`) |
+| `unity/Assets/Gym/Core/` | `Gym.Core`: the trading environment in plain C# (no UnityEngine), one folder and namespace per concept: `Market/` (candles, symbol rules, splits: `CandleSeries`, `SymbolRules`, `SegmentSpec`, `SplitValidator`), `Accounting/` (account and fees: `Account`, `CostModel`), `Env/` (actions and mask, observation sets, reward, episode, seeds: `TradingEnv`, `TradeAction`, `ActionCodec`, `ObservationSet`, `ObservationBuilder`, `RewardFunction`, `SeedMixer`), `Evaluation/` (metrics, baselines, evaluation log: `Metrics`, `Baselines`, `EvaluationLog`, `JsonWriter`) |
 | `unity/Assets/Gym/Runtime/` | `Gym.Runtime`: `Agents/` (`TradingAgent`, the ML-Agents agent around `TradingEnv`, and `EpisodeStats`), `Configuration/` (config loading: `GymConfigLoader`, `GymDataCache`), `Evaluation/` (the evaluation runner `EvalRunner`), `Play/` (the Play scene: `PlayController`; the views `HudView`, `CandleChartView`, `WalletView`, `AvatarView`, `PlayLanguageSwitch`, `FrameRateLimiter`; the text table `PlayText` and the system font lookup `PlayFont`; the avatar picture `AvatarPictureLoader` and `AvatarPlaceholder`; the pure helpers `HudReadout`, `PriceScale`, `TimeAxis`, `MoneyText`, `FloatingAmount`, `AvatarAnimation`, `AvatarPose`, `AvatarHint`; the drawing helpers `WorldText`, `ShapeLayer`, `ColoredMeshBuilder`, `PocketShape`, `PlayLayout`, `PlayPalette`), `Watch/` (the Watch scene: `WatchController`, its playback `WatchPlayback` and the agent it steps `AgentWatchTarget`; `WatchNotice`; the remembered model `WatchModelMemory`) |
 | `unity/Assets/Gym/Editor/` | `BuildScript` (training and evaluation players), `EvalTools` (baseline evaluation), `GymSceneBuilder` (scene builder), `PlayChecklist` and `PlaySnapshot` (Play checklist and snapshot tools), `WatchSetup` (the **Gym > Watch a Model...** menu), `WatchModelAttacher` (puts the remembered model on the Watch agent), `WatchSnapshot` (Watch scene snapshots) |
 | `unity/Assets/Gym/Scenes/` | `Training` (16 agents), `Play` (keyboard), `Watch` (a trained model plays; editor only, not in the build list), `Eval` (one agent plus the runner) |
-| `unity/Assets/Gym/Prefabs/` | `TradingAgent.prefab`; its observations and actions are in [docs/architecture.md](docs/architecture.md) |
+| `unity/Assets/Gym/Prefabs/` | `TradingAgent.prefab` (it declares the 35 `base` observations; the agent switches to the size of its observation set when it starts); its observations and actions are in [docs/architecture.md](docs/architecture.md) |
 | `unity/Assets/Gym/Materials/` | `CandleChart.mat` for the Play scene's candle chart |
 | `unity/Assets/Gym/Models/` | Models imported by an evaluation build or by **Gym > Watch a Model...** go to `Imported/`, which Git ignores ([Models/README.md](unity/Assets/Gym/Models/README.md)) |
 | `unity/Assets/Gym/Tests/` | EditMode tests in `Core/` (the core, in the same four folders), `Runtime/` and `Editor/` (the agent prefab, the scenes and the baseline tool `EvalTools`); PlayMode tests in `PlayMode/` |
@@ -69,10 +69,10 @@ To give the avatar a face, put `avatar.png` (or `avatar.jpg`, `avatar.jpeg`) int
 ## Documentation
 
 - [docs/setup.md](docs/setup.md): pinned versions, the Python environment (macOS and Windows), reading the code in VS Code
-- [docs/architecture.md](docs/architecture.md): the three layers, one step, observation, action, reward and seeds, where to start reading
+- [docs/architecture.md](docs/architecture.md): the three layers, one step, the three observation sets and their formulas, action, reward and seeds, where to start reading
 - [docs/data.md](docs/data.md): the data of the five coins, its licence, how to rebuild it, gaps, the coins' correlation with BTC and the segments (training 2017-08-17 to 2021-12-31; validation-bear 2022, validation-recovery 2023-01 to 2024-08, validation 2024-09 to 2025-08; test 2025-09 to 2026-08)
-- [docs/evaluation.md](docs/evaluation.md): the evaluation log, its metrics, the evaluation segments, choosing a coin with `-gymSymbol`, and the six baselines (buy-and-hold, cash, random, and three simple rules: `momentum_90d`, `sma_cross`, `vol_target`)
-- [docs/training.md](docs/training.md): a training series on the Mac and the `Trading/*` curves
+- [docs/evaluation.md](docs/evaluation.md): the evaluation log, its metrics, the evaluation segments, choosing a coin with `-gymSymbol` and an observation set with `-gymObs`, the check of a model's input size, and the six baselines (buy-and-hold, cash, random, and three simple rules: `momentum_90d`, `sma_cross`, `vol_target`)
+- [docs/training.md](docs/training.md): a training series on the Mac, the observation set `obs_set` and the `Trading/*` curves
 - [docs/development.md](docs/development.md): regenerating scenes, the Play checklist and snapshots, the tests that need a trained model; what Unity writes by itself
 - [docs/pc-training.md](docs/pc-training.md) ([Chinese](docs/pc-training.zh.md)): training on the Windows PC
 - [config/README.md](config/README.md): the training configs and comparison variants
