@@ -72,8 +72,8 @@ python scripts/eval/summarize.py evaluations/smoke/log.csv
 
 - [docs/setup.md](docs/setup.md)：版本、Python 环境（macOS 和 Windows）、用 VS Code 看代码
 - [docs/architecture.md](docs/architecture.md)：三层结构、一步怎么走、观测、动作、奖励和种子、从哪个文件开始读
-- [docs/data.md](docs/data.md)：数据、许可、怎么重新生成、缺口怎么补、三个分段
-- [docs/evaluation.md](docs/evaluation.md)：评估流水、指标和对照组
+- [docs/data.md](docs/data.md)：数据、许可、怎么重新生成、缺口怎么补、分段（训练段 2017-08-17～2021-12-31；验证段三段：validation-bear 2022 年、validation-recovery 2023-01～2024-08、validation 2024-09～2025-08；测试段 2025-09～2026-08）
+- [docs/evaluation.md](docs/evaluation.md)：评估流水、指标、评估段和六个对照组（买入持有、一直拿现金、随机，加三条简单规则：`momentum_90d` 过去 90 天涨才持有、`sma_cross` 1 周均线在 1 月均线之上才持有、`vol_target` 按波动率调仓）
 - [docs/training.md](docs/training.md)：在 Mac 上跑成批训练，以及 `Trading/*` 曲线的意思
 - [docs/development.md](docs/development.md)：重建场景、试玩核对表和截图、要训练好的模型才能跑的测试；Unity 会自己写哪些文件
 - [docs/pc-training.zh.md](docs/pc-training.zh.md)（[英文版](docs/pc-training.md)）：在 Windows 电脑上训练

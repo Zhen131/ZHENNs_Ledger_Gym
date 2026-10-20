@@ -70,8 +70,8 @@ To give the avatar a face, put `avatar.png` (or `avatar.jpg`, `avatar.jpeg`) int
 
 - [docs/setup.md](docs/setup.md): pinned versions, the Python environment (macOS and Windows), reading the code in VS Code
 - [docs/architecture.md](docs/architecture.md): the three layers, one step, observation, action, reward and seeds, where to start reading
-- [docs/data.md](docs/data.md): the data, its licence, how to rebuild it, gaps and the three segments
-- [docs/evaluation.md](docs/evaluation.md): the evaluation log, its metrics and the baselines
+- [docs/data.md](docs/data.md): the data, its licence, how to rebuild it, gaps and the segments (training 2017-08-17 to 2021-12-31; validation-bear 2022, validation-recovery 2023-01 to 2024-08, validation 2024-09 to 2025-08; test 2025-09 to 2026-08)
+- [docs/evaluation.md](docs/evaluation.md): the evaluation log, its metrics, the evaluation segments and the six baselines (buy-and-hold, cash, random, and three simple rules: `momentum_90d`, `sma_cross`, `vol_target`)
 - [docs/training.md](docs/training.md): a training series on the Mac and the `Trading/*` curves
 - [docs/development.md](docs/development.md): regenerating scenes, the Play checklist and snapshots, the tests that need a trained model; what Unity writes by itself
 - [docs/pc-training.md](docs/pc-training.md) ([Chinese](docs/pc-training.zh.md)): training on the Windows PC

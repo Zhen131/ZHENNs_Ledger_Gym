@@ -201,7 +201,7 @@ $e.ExitCode   # 0 表示成功；不是 0 就看 unity\Logs\eval.log 的最后�
 ```
 
 - `-gymFeeRate` 用这个模型训练时的费率。测试段只留到最后出正式数字时用。
-- 评估包必须带 `-gymMode eval`、`-gymSegment`（`validation` 或 `test`）和 `-gymOut`，少一个它就报错退出（退出码 1），什么都不写。段没有默认值，免得一不小心跑了测试段。费率写错（比如 `1.5`）也是几秒内退出码 1，`unity\Logs\eval.log` 里写着是哪个参数。
+- 评估包必须带 `-gymMode eval`、`-gymSegment`（`gym-config.json` 里的一个评估段：`validation-bear`、`validation-recovery`、`validation` 或 `test`）和 `-gymOut`，少一个、或者段名不在配置里，它就报错退出（退出码 1），什么都不写。段没有默认值，免得一不小心跑了测试段。费率写错（比如 `1.5`）也是几秒内退出码 1，`unity\Logs\eval.log` 里写着是哪个参数。
 - 跑完马上提交，例如：
 
 ```powershell
@@ -209,7 +209,7 @@ git add evaluations
 git commit -m "eval: <run-id> on the validation segment"
 ```
 
-**对照组不用再跑。** 验证段、测试段的三档费率（0、0.1 %、0.3 %）对照组都已经在 Mac 上正式跑过、提交了。流水只追加、删不掉，重复跑只会多出重复的行。只有换了费率或者换了段，才需要再跑一次，命令是：
+**对照组不用再跑。** 验证段、测试段的三档费率（0、0.1 %、0.3 %）对照组都已经在 Mac 上正式跑过、提交了；`validation-bear`、`validation-recovery` 两段的六个对照组和 `validation` 段的三条规则，也按这三档费率跑过、提交了。流水只追加、删不掉，重复跑只会多出重复的行。只有换了费率或者换了段，才需要再跑一次，命令是：
 
 ```powershell
 $p = Start-Process -FilePath $unity -Wait -PassThru -ArgumentList @(

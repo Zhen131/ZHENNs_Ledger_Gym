@@ -199,7 +199,7 @@ $e.ExitCode   # 0 = success; otherwise read the end of unity\Logs\eval.log
 ```
 
 - Use the same `-gymFeeRate` the model was trained with. Use the test segment only for the final numbers.
-- The evaluation player needs `-gymMode eval`, `-gymSegment` (`validation` or `test`) and `-gymOut`; without any one of them it exits with code 1 and writes nothing. There is no default segment, so the test segment is never evaluated by accident. A fee outside the valid range (for example `1.5`) also exits with code 1 within seconds, and `unity\Logs\eval.log` names the argument.
+- The evaluation player needs `-gymMode eval`, `-gymSegment` (an evaluation segment from `gym-config.json`: `validation-bear`, `validation-recovery`, `validation` or `test`) and `-gymOut`; without any one of them, or with a segment name that is not in the configuration, it exits with code 1 and writes nothing. There is no default segment, so the test segment is never evaluated by accident. A fee outside the valid range (for example `1.5`) also exits with code 1 within seconds, and `unity\Logs\eval.log` names the argument.
 - Commit right away, for example:
 
 ```powershell
@@ -207,7 +207,7 @@ git add evaluations
 git commit -m "eval: <run-id> on the validation segment"
 ```
 
-**The baselines do not need running again.** Buy-and-hold, cash and random for the validation and test segments at fees 0, 0.1 % and 0.3 % were run on the Mac and committed. The log is append-only, so running them again only adds duplicate rows that cannot be removed. Run them again only for a new fee rate or a new segment:
+**The baselines do not need running again.** Buy-and-hold, cash and random for the validation and test segments at fees 0, 0.1 % and 0.3 % were run on the Mac and committed, and so were all six baselines on `validation-bear` and `validation-recovery` and the three rules on `validation` at the same fees. The log is append-only, so running them again only adds duplicate rows that cannot be removed. Run them again only for a new fee rate or a new segment:
 
 ```powershell
 $p = Start-Process -FilePath $unity -Wait -PassThru -ArgumentList @(
