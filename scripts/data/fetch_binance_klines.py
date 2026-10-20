@@ -70,16 +70,16 @@ DEFAULT_END_MONTH = (2026, 8)
 # 已知提交的数据里有什么。重建之后出现别的情况就打印警告：被丢掉的 candle 会变成平的填充，
 # 不警告的话，它们只会在 manifest 里显示成一个计数。数字从各自的 manifest 抄
 # （off_hour_rows.count 和 filled_gaps.over_24h）；0 和空集合是查过、确实没有。
-# ETHUSDT 实测也是 43 根、2018-02-08T01:00:00Z 起 75 小时；下面的自测拿 ETHUSDT 当「没有登记的币」，
-# 所以它暂时没登记，重跑时会照旧警告。
 KNOWN_OFF_HOUR_ROWS = {
     ("BTCUSDT", "1h"): 43,
+    ("ETHUSDT", "1h"): 43,
     ("ADAUSDT", "1h"): 0,
     ("DOGEUSDT", "1h"): 0,
     ("XRPUSDT", "1h"): 0,
 }
 KNOWN_LONG_GAPS = {
     ("BTCUSDT", "1h"): {"2018-02-08T01:00:00Z"},
+    ("ETHUSDT", "1h"): {"2018-02-08T01:00:00Z"},
     ("ADAUSDT", "1h"): set(),
     ("DOGEUSDT", "1h"): set(),
     ("XRPUSDT", "1h"): set(),
@@ -545,7 +545,7 @@ def self_test() -> int:
     expect(len(new_off_hour) == 1 and "2 off-hour candles" in new_off_hour[0], f"new off-hour warning {new_off_hour}")
     new_gap = data_warnings("BTCUSDT", "1h", list(range(43)), [known_gap, (t0, 30)])
     expect(len(new_gap) == 1 and "30 hours" in new_gap[0], f"new gap warning {new_gap}")
-    expect(len(data_warnings("ETHUSDT", "1h", dropped_times, [known_gap])) == 2, "other symbols have no known list")
+    expect(len(data_warnings("SOLUSDT", "1h", dropped_times, [known_gap])) == 2, "other symbols have no known list")
 
     header = _make_zip("h.csv", ["open_time,open,high,low,close,volume,close_time,q,n,tb,tq,ignore"])
     expect_error(lambda: parse_archive(header, "header"), "not an integer")
