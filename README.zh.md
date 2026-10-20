@@ -1,6 +1,6 @@
 # ZHENN Ledger Gym（中文说明）
 
-一个 Unity ML-Agents 环境：强化学习智能体按小时一根一根地走过 BTC/USDT 的历史 K 线，每小时决定买、卖还是不动、动多少；每一笔成交都要付手续费。
+一个 Unity ML-Agents 环境：强化学习智能体按小时一根一根地走过 BTC/USDT 的历史 K 线，每小时决定买、卖还是不动、动多少；每一笔成交都要付手续费。另有四只币（ETH、ADA、DOGE、XRP）用来评估。
 
 这是一个大学课程项目（德布勒森大学「强化学习导论」，2026 年秋）。它**不是**交易策略，**不是**投资建议，也不承诺任何收益。它要回答的问题是：手续费怎样改变智能体学到的做法，而不是它能不能赚钱。
 
@@ -55,11 +55,11 @@ python scripts/eval/summarize.py evaluations/smoke/log.csv
 | `unity/Assets/Gym/Materials/` | `CandleChart.mat`，试玩场景里 K 线图用的材质 |
 | `unity/Assets/Gym/Models/` | 打评估包时、以及用 **Gym > Watch a Model...** 选模型时导入的模型放进 `Imported/`，不进 Git（见 [Models/README.md](unity/Assets/Gym/Models/README.md)） |
 | `unity/Assets/Gym/Tests/` | EditMode 测试在 `Core/`（内核，按同样的四个文件夹摆）、`Runtime/`、`Editor/`（智能体预制体、场景和对照组工具 `EvalTools`）；PlayMode 测试在 `PlayMode/` |
-| `unity/Assets/StreamingAssets/Gym/` | `gym-config.json`、`symbols.json` 和数据（`data/BTCUSDT-1h.csv`、它的清单和 `DATA-LICENSE.md`）；放头像图的 `avatar/`；每个包里都带一份 |
+| `unity/Assets/StreamingAssets/Gym/` | `gym-config.json`、`symbols.json` 和数据（BTCUSDT、ETHUSDT、ADAUSDT、DOGEUSDT、XRPUSDT 各一份 `data/<币名>-1h.csv`，各自旁边一份清单，加上 `DATA-LICENSE.md`）；放头像图的 `avatar/`；每个包里都带一份 |
 | `unity/Packages/` | `manifest.json` 和 `packages-lock.json`：Unity 包和它们的版本 |
 | `unity/ProjectSettings/` | Unity 的工程设置，编辑器版本记在 `ProjectVersion.txt` 里 |
 | `config/` | 训练配置（`ppo_base.yaml`、几份冒烟配置）和对比组（`variants/`）；见 [config/README.md](config/README.md) |
-| `scripts/data/` | 从 Binance Vision 下载数据的脚本（`fetch_binance_klines.py`） |
+| `scripts/data/` | 从 Binance Vision 下载数据的脚本（`fetch_binance_klines.py`），和算几只币收益率相关性的脚本（`correlation.py`） |
 | `scripts/train/` | 成批训练脚本（`run_series.sh`、`run_series.ps1`）、配置检查（`check_configs.py`）、读 TensorBoard 曲线（`read_scalars.py`） |
 | `scripts/eval/` | 汇总评估流水的 `summarize.py` |
 | `evaluations/` | 只追加的评估流水（`log.csv`）和每次评估的明细（`runs/*.json`），进 Git |
@@ -72,8 +72,8 @@ python scripts/eval/summarize.py evaluations/smoke/log.csv
 
 - [docs/setup.md](docs/setup.md)：版本、Python 环境（macOS 和 Windows）、用 VS Code 看代码
 - [docs/architecture.md](docs/architecture.md)：三层结构、一步怎么走、观测、动作、奖励和种子、从哪个文件开始读
-- [docs/data.md](docs/data.md)：数据、许可、怎么重新生成、缺口怎么补、分段（训练段 2017-08-17～2021-12-31；验证段三段：validation-bear 2022 年、validation-recovery 2023-01～2024-08、validation 2024-09～2025-08；测试段 2025-09～2026-08）
-- [docs/evaluation.md](docs/evaluation.md)：评估流水、指标、评估段和六个对照组（买入持有、一直拿现金、随机，加三条简单规则：`momentum_90d` 过去 90 天涨才持有、`sma_cross` 1 周均线在 1 月均线之上才持有、`vol_target` 按波动率调仓）
+- [docs/data.md](docs/data.md)：五只币的数据、许可、怎么重新生成、缺口怎么补、各币和 BTC 的相关性、分段（训练段 2017-08-17～2021-12-31；验证段三段：validation-bear 2022 年、validation-recovery 2023-01～2024-08、validation 2024-09～2025-08；测试段 2025-09～2026-08）
+- [docs/evaluation.md](docs/evaluation.md)：评估流水、指标、评估段、用 `-gymSymbol` 选币，和六个对照组（买入持有、一直拿现金、随机，加三条简单规则：`momentum_90d` 过去 90 天涨才持有、`sma_cross` 1 周均线在 1 月均线之上才持有、`vol_target` 按波动率调仓）
 - [docs/training.md](docs/training.md)：在 Mac 上跑成批训练，以及 `Trading/*` 曲线的意思
 - [docs/development.md](docs/development.md)：重建场景、试玩核对表和截图、要训练好的模型才能跑的测试；Unity 会自己写哪些文件
 - [docs/pc-training.zh.md](docs/pc-training.zh.md)（[英文版](docs/pc-training.md)）：在 Windows 电脑上训练
@@ -82,4 +82,4 @@ python scripts/eval/summarize.py evaluations/smoke/log.csv
 
 ## 数据和许可声明
 
-环境回放 [Binance Vision](https://data.binance.vision) 的 BTC/USDT 现货 1 小时 K 线。数据按 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) 许可；署名和改动清单见 [`DATA-LICENSE.md`](unity/Assets/StreamingAssets/Gym/data/DATA-LICENSE.md)。本项目与 Binance 没有任何关联，也没有得到它的赞助或认可。代码暂时没有许可证文件。数据来源、条款、怎么重新生成、缺口怎么补，见 [docs/data.md](docs/data.md)（英文）。
+环境回放 [Binance Vision](https://data.binance.vision) 的现货 1 小时 K 线：BTC/USDT（主币，训练用它），以及 ETH、ADA、DOGE、XRP 对 USDT（用 `-gymSymbol` 选）。数据按 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) 许可；署名和改动清单见 [`DATA-LICENSE.md`](unity/Assets/StreamingAssets/Gym/data/DATA-LICENSE.md)。本项目与 Binance 没有任何关联，也没有得到它的赞助或认可。代码暂时没有许可证文件。数据来源、条款、怎么重新生成、缺口怎么补，见 [docs/data.md](docs/data.md)（英文）。

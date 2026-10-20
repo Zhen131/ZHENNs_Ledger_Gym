@@ -1,6 +1,6 @@
 # ZHENN Ledger Gym
 
-A Unity ML-Agents environment in which a reinforcement-learning agent steps through historical 1-hour BTC/USDT candles and decides at every hour whether to buy, sell or hold, and how much, while trading fees eat into every order.
+A Unity ML-Agents environment in which a reinforcement-learning agent steps through historical 1-hour BTC/USDT candles and decides at every hour whether to buy, sell or hold, and how much, while trading fees eat into every order. Four more coins (ETH, ADA, DOGE, XRP) are there to evaluate on.
 
 This is a university course project (Introduction to Reinforcement Learning, University of Debrecen, Fall 2026). It is **not** a trading strategy and **not** financial advice, and it promises no returns. The question it asks is how fees change what an agent learns to do, not whether it can make money.
 
@@ -55,11 +55,11 @@ To give the avatar a face, put `avatar.png` (or `avatar.jpg`, `avatar.jpeg`) int
 | `unity/Assets/Gym/Materials/` | `CandleChart.mat` for the Play scene's candle chart |
 | `unity/Assets/Gym/Models/` | Models imported by an evaluation build or by **Gym > Watch a Model...** go to `Imported/`, which Git ignores ([Models/README.md](unity/Assets/Gym/Models/README.md)) |
 | `unity/Assets/Gym/Tests/` | EditMode tests in `Core/` (the core, in the same four folders), `Runtime/` and `Editor/` (the agent prefab, the scenes and the baseline tool `EvalTools`); PlayMode tests in `PlayMode/` |
-| `unity/Assets/StreamingAssets/Gym/` | `gym-config.json`, `symbols.json` and the data (`data/BTCUSDT-1h.csv`, its manifest and `DATA-LICENSE.md`); `avatar/`, where an avatar picture goes; shipped inside every build |
+| `unity/Assets/StreamingAssets/Gym/` | `gym-config.json`, `symbols.json` and the data (`data/<SYMBOL>-1h.csv` for BTCUSDT, ETHUSDT, ADAUSDT, DOGEUSDT and XRPUSDT, a manifest next to each, and `DATA-LICENSE.md`); `avatar/`, where an avatar picture goes; shipped inside every build |
 | `unity/Packages/` | `manifest.json` and `packages-lock.json`: the Unity packages and their versions |
 | `unity/ProjectSettings/` | Unity's project settings, including the editor version (`ProjectVersion.txt`) |
 | `config/` | Training configs (`ppo_base.yaml`, the smoke configs) and the comparison variants (`variants/`); see [config/README.md](config/README.md) |
-| `scripts/data/` | The Binance Vision fetcher (`fetch_binance_klines.py`) |
+| `scripts/data/` | The Binance Vision fetcher (`fetch_binance_klines.py`) and the correlation of returns between coins (`correlation.py`) |
 | `scripts/train/` | Series runners (`run_series.sh`, `run_series.ps1`), the config checker (`check_configs.py`) and the TensorBoard scalar reader (`read_scalars.py`) |
 | `scripts/eval/` | `summarize.py` for evaluation logs |
 | `evaluations/` | The append-only evaluation log (`log.csv`) and its per-run details (`runs/*.json`), tracked |
@@ -70,8 +70,8 @@ To give the avatar a face, put `avatar.png` (or `avatar.jpg`, `avatar.jpeg`) int
 
 - [docs/setup.md](docs/setup.md): pinned versions, the Python environment (macOS and Windows), reading the code in VS Code
 - [docs/architecture.md](docs/architecture.md): the three layers, one step, observation, action, reward and seeds, where to start reading
-- [docs/data.md](docs/data.md): the data, its licence, how to rebuild it, gaps and the segments (training 2017-08-17 to 2021-12-31; validation-bear 2022, validation-recovery 2023-01 to 2024-08, validation 2024-09 to 2025-08; test 2025-09 to 2026-08)
-- [docs/evaluation.md](docs/evaluation.md): the evaluation log, its metrics, the evaluation segments and the six baselines (buy-and-hold, cash, random, and three simple rules: `momentum_90d`, `sma_cross`, `vol_target`)
+- [docs/data.md](docs/data.md): the data of the five coins, its licence, how to rebuild it, gaps, the coins' correlation with BTC and the segments (training 2017-08-17 to 2021-12-31; validation-bear 2022, validation-recovery 2023-01 to 2024-08, validation 2024-09 to 2025-08; test 2025-09 to 2026-08)
+- [docs/evaluation.md](docs/evaluation.md): the evaluation log, its metrics, the evaluation segments, choosing a coin with `-gymSymbol`, and the six baselines (buy-and-hold, cash, random, and three simple rules: `momentum_90d`, `sma_cross`, `vol_target`)
 - [docs/training.md](docs/training.md): a training series on the Mac and the `Trading/*` curves
 - [docs/development.md](docs/development.md): regenerating scenes, the Play checklist and snapshots, the tests that need a trained model; what Unity writes by itself
 - [docs/pc-training.md](docs/pc-training.md) ([Chinese](docs/pc-training.zh.md)): training on the Windows PC
@@ -80,4 +80,4 @@ To give the avatar a face, put `avatar.png` (or `avatar.jpg`, `avatar.jpeg`) int
 
 ## Data and licence
 
-The environment replays BTC/USDT spot 1-hour candles from [Binance Vision](https://data.binance.vision). The data is licensed [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/); see [`DATA-LICENSE.md`](unity/Assets/StreamingAssets/Gym/data/DATA-LICENSE.md) for the attribution and the list of changes. This project is not affiliated with, sponsored or endorsed by Binance. The code has no licence file yet. Source, terms, rebuilding and gap filling: [docs/data.md](docs/data.md).
+The environment replays spot 1-hour candles from [Binance Vision](https://data.binance.vision) of BTC/USDT (the main symbol, used for training) and of ETH, ADA, DOGE and XRP against USDT (picked with `-gymSymbol`). The data is licensed [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/); see [`DATA-LICENSE.md`](unity/Assets/StreamingAssets/Gym/data/DATA-LICENSE.md) for the attribution and the list of changes. This project is not affiliated with, sponsored or endorsed by Binance. The code has no licence file yet. Source, terms, rebuilding and gap filling: [docs/data.md](docs/data.md).
