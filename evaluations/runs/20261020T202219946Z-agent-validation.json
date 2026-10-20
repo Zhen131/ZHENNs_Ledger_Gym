@@ -1,0 +1,46 @@
+{
+  "timestamp_utc": "2026-10-20T20:22:19.946Z",
+  "kind": "agent",
+  "policy": "agent",
+  "generated_by": "Gym.Runtime.Evaluation.EvalRunner",
+  "model_run_id": "ppo_v2-s2-20261020",
+  "model_sha256": "081c86b253ffeca4dd73f52f5b76f426419da6d3352ed8d4783d69098c96124e",
+  "model_file": "TradingAgent.onnx",
+  "build_built_at_utc": "2026-10-20T20:21:36Z",
+  "unity_version": "6000.0.84f1",
+  "behavior_type": "InferenceOnly",
+  "deterministic_inference": true,
+  "inference_device": "Burst",
+  "symbol": "XRPUSDT",
+  "data_file": "data/XRPUSDT-1h.csv",
+  "observation_set": "base",
+  "history_length": 32,
+  "segment": {
+    "name": "validation",
+    "start_date": "2024-09-01",
+    "end_date": "2025-08-31",
+    "first_candle_utc": "2024-09-01T00:00:00.000Z",
+    "last_candle_utc": "2025-08-31T23:00:00.000Z",
+    "steps": 8759
+  },
+  "cost": {
+    "fee_rate": 0.001,
+    "fixed_fee": 0,
+    "slippage": 0
+  },
+  "initial_cash": 10000,
+  "metrics": {
+    "total_return": 3.9836280543080003,
+    "max_drawdown": 0.50692342771428378,
+    "sharpe": 1.6032925095082595,
+    "trades": 59,
+    "rejected": 5281,
+    "turnover": 2.2610038501344722,
+    "fees_paid": 82.99741692,
+    "fees_pct": 0.8299741692,
+    "exposure": 1,
+    "steps": 8759,
+    "initial_equity": 10000,
+    "final_equity": 49836.28054308
+  }
+}
