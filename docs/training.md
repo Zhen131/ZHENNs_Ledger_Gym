@@ -1,6 +1,6 @@
 # Training
 
-One smoke training run is step 3 of the README's [quick start](../README.md#quick-start-mac). This page covers a series of runs on the Mac, the two optional environment parameters `obs_set` and `risk_aversion`, and what the `Trading/*` curves mean.
+One smoke training run is step 3 of the README's [quick start](../README.md#quick-start-mac). This page covers a series of runs on the Mac, the two optional environment parameters `obs_set` and `risk_aversion`, training on several coins at once, and what the `Trading/*` curves mean.
 
 Long runs happen on a Windows PC: see [pc-training.md](pc-training.md) (English) or [pc-training.zh.md](pc-training.zh.md) (Chinese). In short: same Unity and Python versions, `BuildWindowsTraining`, 100k-step speed tests on the CPU (`config/smoke-100k.yaml`) and on the graphics card (`config/smoke-100k-cuda.yaml`), then the comparison series with `scripts/train/run_series.ps1` on whichever was faster (`-Device cpu|cuda`).
 
@@ -22,9 +22,15 @@ Which numbers the agent sees is chosen by the environment parameter `obs_set` in
 
 The environment parameter `risk_aversion` is the reward's risk coefficient λ: every hour scores r − λ × min(r, 0)², so only losing hours pay the extra penalty (the formula is in [architecture.md](architecture.md#observation-action-reward)). `config/variants/risk-0.005.yaml`, `risk-0.01.yaml` and `risk-0.02.yaml` set it; `ppo_base.yaml` leaves it out, and then the player uses `-gymRiskAversion` or the agent's default 0, which is the first round's reward bit for bit. The agent reads it at the start of every episode, like the costs. A negative, NaN or infinite value stops the training player with exit code 1; `check_configs.py` is stricter and only accepts [0, 100] in a config. The Mac tests cannot send environment parameters, so check `Trading/RiskAversion` in a smoke run: it should be the config's value.
 
+## Training on several coins (`trainSymbols`, `-gymTrainSymbols`)
+
+By default an agent trains on one coin: the current symbol, which is the main symbol BTCUSDT, or the one `-gymSymbol` picks. To mix coins, list them in `trainSymbols` in `gym-config.json` (empty by default), for example `"trainSymbols": ["BTCUSDT", "ETHUSDT", "ADAUSDT", "XRPUSDT"]`, or give them on the player's command line, which overrides the config: `-gymTrainSymbols BTCUSDT,ETHUSDT,ADAUSDT,XRPUSDT`. Every name must be one of the config's `symbols` (case does not matter, no repeats), and none may be `evalOnly`: DOGEUSDT is kept as a coin the agent has never seen, so listing it stops the player with exit code 1 and a list of the coins that can be trained on. The config's list is checked even when the command line overrides it. A training agent also refuses `-gymSymbol DOGEUSDT`; evaluation, Play and Watch still take it.
+
+With a list, each agent builds one environment per coin, each on that coin's training segment (clipped to its first candle: ADA from 2018-04-17, XRP from 2018-05-04) with the agent's observation set, and at the start of every episode picks one from the episode's seed (`Core/Env/SymbolPicker.cs`, details in [architecture.md](architecture.md#seeds)). Over many episodes each coin gets about the same share, whatever its data length. The costs, the risk coefficient and the order rules work as before; each coin keeps its own order rules (`symbols.json`). Without a list, or with one coin, nothing changes: the same episode seeds and the same start candles as before. Every agent writes its list to the player log, for example `training symbols BTCUSDT (train 2017-08-17..2021-12-31), ADAUSDT (train 2018-04-17..2021-12-31); each episode picks one from its episode seed`; check that line and the `Trading/SymbolShare/*` curves below in a smoke run. Evaluation still runs one coin at a time (`-gymSymbol`).
+
 ## Training curves (`Trading/*` in TensorBoard)
 
-During training every agent reports eleven numbers at the end of each episode; TensorBoard shows their average over the episodes that ended in each summary period. They describe training episodes (720 steps from a random start, possibly holding coin at the start), so they are not the evaluation metrics of [evaluation.md](evaluation.md), even where the names match.
+During training every agent reports eleven numbers at the end of each episode, plus one per coin it trains on; TensorBoard shows their average over the episodes that ended in each summary period. They describe training episodes (720 steps from a random start, possibly holding coin at the start), so they are not the evaluation metrics of [evaluation.md](evaluation.md), even where the names match.
 
 | Tag | Meaning |
 | --- | --- |
@@ -39,3 +45,4 @@ During training every agent reports eleven numbers at the end of each episode; T
 | `Trading/FixedFee` | Fixed fee per order the episode used |
 | `Trading/RiskAversion` | Risk coefficient λ the episode used, to check that the config's `risk_aversion` arrived (0 when it is not set) |
 | `Trading/RiskPenalty` | The episode's total risk penalty Σ λ × min(r, 0)², already taken out of `Environment/Cumulative Reward` (0 when λ = 0) |
+| `Trading/SymbolShare/<symbol>` | One per coin the agent trains on: 1 when the episode used that coin, else 0, so the curve is that coin's share of the episodes (with four coins each should be near 0.25; with one coin a single curve at 1) |

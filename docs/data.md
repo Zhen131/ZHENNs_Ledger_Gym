@@ -10,7 +10,7 @@
 | `DOGEUSDT` | 2019-07-05 12:00 | 2026-08-31 23:00 | 62,748 | 43 | 0 | `f4030a9eb3f0b2ba6b72d640ec526a2b62cc90811fc2e1eca6a71c2a4fc91453` |
 | `XRPUSDT` | 2018-05-04 08:00 | 2026-08-31 23:00 | 73,000 | 87 | 0 | `fb24dd25a08112ac9c870d959ba760f465592763cf03ffdcdcf2b2b74b4b2ca7` |
 
-Training uses the main symbol; the other four are listed in the `symbols` of `gym-config.json` and chosen with `-gymSymbol` (see [evaluation.md](evaluation.md#symbols)). DOGE is marked `evalOnly`: a coin the agent is only ever tested on. Each symbol's order rules (`minNotional`, `stepSize`) are in `symbols.json`; DOGE, BNB and XRP were read from the public `api/v3/exchangeInfo` endpoint on 2026-10-20.
+Training uses the main symbol, unless `trainSymbols` in `gym-config.json` or `-gymTrainSymbols` lists several coins, one per episode (see [training.md](training.md)); the other four are listed in the `symbols` of `gym-config.json` and chosen with `-gymSymbol` (see [evaluation.md](evaluation.md#symbols)). DOGE is marked `evalOnly`: a coin the agent is only ever tested on, which a training list may not contain. Each symbol's order rules (`minNotional`, `stepSize`) are in `symbols.json`; DOGE, BNB and XRP were read from the public `api/v3/exchangeInfo` endpoint on 2026-10-20.
 
 The data is licensed [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) under the [Binance Vision Dataset Terms v1.0 (2026-08-26)](https://github.com/binance/binance-public-data/blob/master/TERMS_AND_CONDITIONS.md); see [`DATA-LICENSE.md`](../unity/Assets/StreamingAssets/Gym/data/DATA-LICENSE.md) for the attribution and the list of changes. This project is not affiliated with, sponsored or endorsed by Binance. The code has no licence file yet.
 

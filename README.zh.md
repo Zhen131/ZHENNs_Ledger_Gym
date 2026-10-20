@@ -47,7 +47,7 @@ python scripts/eval/summarize.py evaluations/smoke/log.csv
 | 位置 | 里面是什么 |
 | --- | --- |
 | `unity/` | Unity 工程；用 Unity 打开的就是这个文件夹 |
-| `unity/Assets/Gym/Core/` | `Gym.Core`：纯 C# 的交易环境（不引用 Unity），一个概念一个文件夹、一个命名空间：`Market/`（K 线、币种规则、分段：`CandleSeries`、`SymbolRules`、`SegmentSpec`、`SplitValidator`）、`Accounting/`（账户和手续费：`Account`、`CostModel`）、`Env/`（动作和遮罩、观测集、奖励、一局、种子：`TradingEnv`、`TradeAction`、`ActionCodec`、`ObservationSet`、`ObservationBuilder`、`RewardFunction`、`SeedMixer`）、`Evaluation/`（指标、对照组、评估流水：`Metrics`、`Baselines`、`EvaluationLog`、`JsonWriter`） |
+| `unity/Assets/Gym/Core/` | `Gym.Core`：纯 C# 的交易环境（不引用 Unity），一个概念一个文件夹、一个命名空间：`Market/`（K 线、币种规则、分段：`CandleSeries`、`SymbolRules`、`SegmentSpec`、`SplitValidator`）、`Accounting/`（账户和手续费：`Account`、`CostModel`）、`Env/`（动作和遮罩、观测集、奖励、一局、种子、混训时一局用哪只币：`TradingEnv`、`TradeAction`、`ActionCodec`、`ObservationSet`、`ObservationBuilder`、`RewardFunction`、`SeedMixer`、`SymbolPicker`）、`Evaluation/`（指标、对照组、评估流水：`Metrics`、`Baselines`、`EvaluationLog`、`JsonWriter`） |
 | `unity/Assets/Gym/Runtime/` | `Gym.Runtime`：`Agents/`（包在 `TradingEnv` 外面的 ML-Agents 智能体 `TradingAgent`，以及 `EpisodeStats`）、`Configuration/`（读配置：`GymConfigLoader`、`GymDataCache`）、`Evaluation/`（评估跑手 `EvalRunner`）、`Play/`（试玩场景：`PlayController`；画面组件 `HudView`、`CandleChartView`、`WalletView`、`AvatarView`、`PlayLanguageSwitch`、`FrameRateLimiter`；文字表 `PlayText` 和按名字找系统字体的 `PlayFont`；头像图 `AvatarPictureLoader` 和占位图 `AvatarPlaceholder`；纯函数 `HudReadout`、`PriceScale`、`TimeAxis`、`MoneyText`、`FloatingAmount`、`AvatarAnimation`、`AvatarPose`、`AvatarHint`；画图的小工具 `WorldText`、`ShapeLayer`、`ColoredMeshBuilder`、`PocketShape`、`PlayLayout`、`PlayPalette`）、`Watch/`（观战场景：`WatchController`、它的播放逻辑 `WatchPlayback` 和它推着走的 `AgentWatchTarget`；提示 `WatchNotice`；记住的模型 `WatchModelMemory`） |
 | `unity/Assets/Gym/Editor/` | `BuildScript`（打训练包和评估包）、`EvalTools`（对照组评估）、`GymSceneBuilder`（场景生成）、`PlayChecklist` 和 `PlaySnapshot`（试玩核对表和截图工具）、`WatchSetup`（菜单 **Gym > Watch a Model...**）、`WatchModelAttacher`（把记住的模型挂到观战的智能体上）、`WatchSnapshot`（观战截图） |
 | `unity/Assets/Gym/Scenes/` | `Training`（16 个智能体）、`Play`（键盘试玩）、`Watch`（训练好的模型来交易；只在编辑器里用，不进打包清单）、`Eval`（1 个智能体加评估跑手） |
@@ -74,7 +74,7 @@ python scripts/eval/summarize.py evaluations/smoke/log.csv
 - [docs/architecture.md](docs/architecture.md)：三层结构、一步怎么走、三档观测集和它们的公式、动作、奖励和它的风险系数、种子、从哪个文件开始读
 - [docs/data.md](docs/data.md)：五只币的数据、许可、怎么重新生成、缺口怎么补、各币和 BTC 的相关性、分段（训练段 2017-08-17～2021-12-31；验证段三段：validation-bear 2022 年、validation-recovery 2023-01～2024-08、validation 2024-09～2025-08；测试段 2025-09～2026-08）
 - [docs/evaluation.md](docs/evaluation.md)：评估流水、指标、评估段、用 `-gymSymbol` 选币、用 `-gymObs` 选观测集、模型输入维数的核对，和六个对照组（买入持有、一直拿现金、随机，加三条简单规则：`momentum_90d` 过去 90 天涨才持有、`sma_cross` 1 周均线在 1 月均线之上才持有、`vol_target` 按波动率调仓）
-- [docs/training.md](docs/training.md)：在 Mac 上跑成批训练、观测集 `obs_set`、风险系数 `risk_aversion`，以及 `Trading/*` 曲线的意思
+- [docs/training.md](docs/training.md)：在 Mac 上跑成批训练、观测集 `obs_set`、风险系数 `risk_aversion`、混着几只币训练（`trainSymbols`、`-gymTrainSymbols`），以及 `Trading/*` 曲线的意思
 - [docs/development.md](docs/development.md)：重建场景、试玩核对表和截图、要训练好的模型才能跑的测试；Unity 会自己写哪些文件
 - [docs/pc-training.zh.md](docs/pc-training.zh.md)（[英文版](docs/pc-training.md)）：在 Windows 电脑上训练
 - [config/README.md](config/README.md)：训练配置和对比组
@@ -82,4 +82,4 @@ python scripts/eval/summarize.py evaluations/smoke/log.csv
 
 ## 数据和许可声明
 
-环境回放 [Binance Vision](https://data.binance.vision) 的现货 1 小时 K 线：BTC/USDT（主币，训练用它），以及 ETH、ADA、DOGE、XRP 对 USDT（用 `-gymSymbol` 选）。数据按 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) 许可；署名和改动清单见 [`DATA-LICENSE.md`](unity/Assets/StreamingAssets/Gym/data/DATA-LICENSE.md)。本项目与 Binance 没有任何关联，也没有得到它的赞助或认可。代码暂时没有许可证文件。数据来源、条款、怎么重新生成、缺口怎么补，见 [docs/data.md](docs/data.md)（英文）。
+环境回放 [Binance Vision](https://data.binance.vision) 的现货 1 小时 K 线：BTC/USDT（主币，训练用它），以及 ETH、ADA、DOGE、XRP 对 USDT（用 `-gymSymbol` 选）。训练也可以混着用 BTC、ETH、ADA、XRP，每局一只（`gym-config.json` 的 `trainSymbols` 或命令行 `-gymTrainSymbols`，见 [docs/training.md](docs/training.md)，英文）；DOGE 只考不训。数据按 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) 许可；署名和改动清单见 [`DATA-LICENSE.md`](unity/Assets/StreamingAssets/Gym/data/DATA-LICENSE.md)。本项目与 Binance 没有任何关联，也没有得到它的赞助或认可。代码暂时没有许可证文件。数据来源、条款、怎么重新生成、缺口怎么补，见 [docs/data.md](docs/data.md)（英文）。
