@@ -99,7 +99,7 @@ namespace Gym.Editor
         /// </summary>
         public static string FitProblem(string modelAsset, ObservationSet set)
         {
-            string problem = ObservationSets.ModelInputProblem(ModelInputs.VectorObservationSize(modelAsset), set);
+            string problem = ObservationSets.ModelInputProblem(ModelInputs.VectorObservationSizeAt(modelAsset), set);
             return problem == null ? null
                 : $"{problem}. The Watch scene uses the observationSet of gym-config.json (or -gymObs); change it, or choose another model with {MenuPath}";
         }

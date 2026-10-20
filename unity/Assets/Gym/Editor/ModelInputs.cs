@@ -15,8 +15,10 @@ namespace Gym.Editor
         public const string ObservationInput = "obs_0";
         public const string LegacyObservationInput = "vector_observation";
 
-        /// <summary>按 asset 路径（Assets/…/x.onnx）读；不是模型时抛异常。</summary>
-        public static int VectorObservationSize(string modelAssetPath)
+        /// <summary>
+        /// 按 asset 路径（Assets/…/x.onnx）读；不是模型时抛异常。名字和下面那个不同：调用的程序集（例如测试）不用引用推理引擎。
+        /// </summary>
+        public static int VectorObservationSizeAt(string modelAssetPath)
         {
             var asset = AssetDatabase.LoadAssetAtPath<ModelAsset>(modelAssetPath)
                 ?? throw new InvalidOperationException($"{modelAssetPath} is not an imported model");
