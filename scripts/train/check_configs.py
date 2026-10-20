@@ -17,7 +17,9 @@ Rules (exit code 1 if any fails):
 - the cost parameters are plain numbers inside the ranges the environment's
   CostModel accepts: fee_rate in [0, 1), slippage in [0, 0.1), fixed_fee >= 0.
   ML-Agents accepts any number, but outside these ranges every episode of the
-  training player would fail when it starts.
+  training player would fail when it starts;
+- the optional environment parameter obs_set (the observation set) is 0 (base),
+  1 (long) or 2 (long-ta); any other value stops the training player.
 
 If the mlagents package is importable, each file is also parsed with ML-Agents'
 own RunOptions, which catches misspelt or misplaced settings.
@@ -36,6 +38,8 @@ import yaml
 MULTIPLE_MARK = "MULTIPLE CHANGES"
 EXPECTED_MULTIPLE = {"sac-base.yaml", "teacher-style.yaml"}
 ENV_PARAMS = ("fee_rate", "fixed_fee", "slippage")
+# 可选的环境参数：观测集。TradingAgent 只认 0、1、2，别的值让训练玩家报错退出。
+OPTIONAL_ENV_PARAMS = {"obs_set": (0, 1, 2)}
 # 除了 PC 上的显卡测速配置，每份配置都用 CPU 训练；那份测速配置就是为了比较两者而存在的。
 # 成批训练脚本的 --device 只改它们在 results/_tmp/ 里的副本，从不改这些文件。
 DEVICE_EXCEPTIONS = {"smoke-100k-cuda.yaml": "cuda"}
@@ -89,6 +93,12 @@ def common_problems(path: Path, data: dict, first_line: str) -> list[str]:
             problems.append(f"environment_parameters.{name} should be a plain number, got {value!r}")
         elif not in_range(value):
             problems.append(f"environment_parameters.{name} = {value!r} is outside the range CostModel accepts ({text})")
+    for name, allowed in OPTIONAL_ENV_PARAMS.items():
+        if name not in params:
+            continue
+        value = params[name]
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or value not in allowed:
+            problems.append(f"environment_parameters.{name} should be one of {list(allowed)}, got {value!r}")
     device = ((data or {}).get("torch_settings") or {}).get("device")
     expected_device = DEVICE_EXCEPTIONS.get(path.name, "cpu")
     if device != expected_device:
