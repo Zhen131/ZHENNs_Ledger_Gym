@@ -12,6 +12,7 @@ using Gym.Core.Evaluation;
 using Gym.Editor;
 using Gym.Runtime.Agents;
 using Gym.Runtime.Configuration;
+using Gym.Runtime.Evaluation;
 using Gym.Runtime.Play;
 using Gym.Runtime.Watch;
 using NUnit.Framework;
@@ -152,7 +153,7 @@ namespace Gym.Tests.PlayMode
                 ModelSha256 = modelSha,
                 Symbol = s.Rules.Symbol,
                 Seeds = 1,
-                Notes = $"deterministic={behavior.DeterministicInference}; device={behavior.InferenceDevice}; steps={metrics.Steps}",
+                Notes = EvalRunner.AgentNotes(behavior.DeterministicInference, behavior.InferenceDevice.ToString(), metrics.Steps, agent.Env.ObservationSet),
             };
             record.SetSegment(s.Validation);
             record.SetCost(agent.Env.Cost);
