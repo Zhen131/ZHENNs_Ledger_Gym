@@ -179,5 +179,28 @@ namespace Gym.Tests.Core.Market
             Assert.AreEqual(1, report.Errors.Count, string.Join("; ", report.Errors));
             StringAssert.StartsWith("out of range: future 2026-09-01..2026-12-31", report.Errors[0]);
         }
+
+        // ---- 观测集（13 批）：训练段从观测集的历史长度起算够不够长
+
+        [Test]
+        public void TrainingDecisionBars_StartAtTheHistoryLengthOfTheSet()
+        {
+            // 合成数据从 2024-01-01 起，下标 0～2999；训练段取头 100 天（下标 0～2399）。
+            CandleSeries s = TestData.Synthetic(3000, k => 100);
+            SegmentSpec train = Seg("train", "2024-01-01", "2024-04-09");
+            Assert.AreEqual(2399, train.LastIndex(s));
+            Assert.AreEqual(2399 - 32 + 1, SplitValidator.TrainingDecisionBars(train, s));
+            Assert.AreEqual(2399 - 32 + 1, SplitValidator.TrainingDecisionBars(train, s, ObservationSet.Base));
+            Assert.AreEqual(2399 - 2160 + 1, SplitValidator.TrainingDecisionBars(train, s, ObservationSet.Long));
+            Assert.AreEqual(2399 - 2160 + 1, SplitValidator.TrainingDecisionBars(train, s, ObservationSet.LongTa));
+
+            SegmentSpec validation = Seg("validation", "2024-04-10", "2024-04-15");
+            SegmentSpec test = Seg("test", "2024-04-16", "2024-04-20");
+            SplitReport forBase = SplitValidator.Validate(train, validation, test, new SegmentSpec[0], s, 720);
+            Assert.IsEmpty(forBase.Errors, string.Join("; ", forBase.Errors));
+            SplitReport forLong = SplitValidator.Validate(train, validation, test, new SegmentSpec[0], s, 720, ObservationSet.Long);
+            CollectionAssert.AreEqual(new[] { "too short: train 2024-01-01..2024-04-09 has 240 decision bars, an episode needs 721" },
+                forLong.Errors);
+        }
     }
 }

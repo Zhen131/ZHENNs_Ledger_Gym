@@ -348,5 +348,113 @@ namespace Gym.Tests.Core.Env
             for (int i = 0; i < a.EquityCurve.Count; i++)
                 Assert.IsTrue(TestData.SameBits(a.EquityCurve[i], b.EquityCurve[i]), $"equity[{i}]");
         }
+
+        // ---- 观测集（13 批）：历史长度决定最早能决策的下标
+
+        [Test]
+        public void Long_EvaluationStartsAtTheLaterOfTheSegmentStartAnd2160()
+        {
+            CandleSeries s = TestData.RandomWalk(3000, 31, 0.01);
+            foreach (ObservationSet set in new[] { ObservationSet.Long, ObservationSet.LongTa })
+            {
+                var fromZero = new TradingEnv(s, Btc, 0, 2999, observationSet: set);
+                Assert.AreEqual(set, fromZero.ObservationSet);
+                Assert.AreEqual(2160, fromZero.HistoryLength);
+                Assert.AreEqual(2160, fromZero.FirstDecisionIndex);
+                fromZero.ResetForEvaluation(0, new CostModel());
+                Assert.AreEqual(2160, fromZero.CurrentIndex, $"{set.Name()}: segment starts at 0, evaluation at 2160");
+                Assert.AreEqual(2160, fromZero.StartIndex);
+
+                var later = new TradingEnv(s, Btc, 2500, 2999, observationSet: set);
+                later.ResetForEvaluation(0, new CostModel());
+                Assert.AreEqual(2500, later.CurrentIndex, $"{set.Name()}: segment starts after 2160, evaluation at its start");
+
+                Assert.Throws<ArgumentOutOfRangeException>(() => fromZero.Reset(new CostModel(), 2159));
+                Assert.DoesNotThrow(() => fromZero.Reset(new CostModel(), 2160));
+            }
+            var baseEnv = new TradingEnv(s, Btc, 0, 2999);
+            Assert.AreEqual(ObservationSet.Base, baseEnv.ObservationSet, "base is the default");
+            baseEnv.ResetForEvaluation(0, new CostModel());
+            Assert.AreEqual(32, baseEnv.CurrentIndex);
+        }
+
+        [Test]
+        public void Long_TrainingStartsAreNeverBefore2160()
+        {
+            CandleSeries s = TestData.RandomWalk(3600, 32, 0.01);
+            var env = new TradingEnv(s, Btc, 0, 3599, episodeLength: 720, observationSet: ObservationSet.Long);
+            int lowest = int.MaxValue;
+            for (int seed = 0; seed < 1000; seed++)
+            {
+                env.ResetForTraining(seed, new CostModel());
+                Assert.That(env.StartIndex, Is.InRange(2160, 3599 - 720), $"seed {seed}");
+                lowest = Math.Min(lowest, env.StartIndex);
+            }
+            Assert.Less(lowest, 2200, "the lower bound is reached, not just respected");
+
+            // 真实 BTC 的训练段从下标 0 开始：long 下训练起点同样不早于 2160。
+            TradingEnv btc = TradingEnv.ForSegment(TestData.Btc, Btc, DefaultSplits.Train, observationSet: ObservationSet.Long);
+            Assert.AreEqual(0, btc.First);
+            Assert.AreEqual(2160, btc.FirstDecisionIndex);
+            for (int seed = 0; seed < 200; seed++)
+            {
+                btc.ResetForTraining(seed, new CostModel());
+                Assert.GreaterOrEqual(btc.StartIndex, 2160, $"seed {seed}");
+            }
+        }
+
+        [Test]
+        public void Long_SegmentWithoutAStepAfter2160_IsRefused()
+        {
+            CandleSeries s = TestData.Synthetic(2400, k => 100 + k % 5);
+            Assert.Throws<ArgumentOutOfRangeException>(() => new TradingEnv(s, Btc, 0, 2160, observationSet: ObservationSet.Long));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new TradingEnv(s, Btc, 100, 2000, observationSet: ObservationSet.LongTa));
+            Assert.DoesNotThrow(() => new TradingEnv(s, Btc, 0, 2161, observationSet: ObservationSet.Long));
+            Assert.DoesNotThrow(() => new TradingEnv(s, Btc, 100, 2000), "base only needs 32");
+            Assert.Throws<ArgumentOutOfRangeException>(() => new TradingEnv(s, Btc, 0, 2399, observationSet: (ObservationSet)5));
+
+            // 训练 episode 要 720 步：long 下 [0, 2399] 从 2160 起只剩 239 步，不够；base 从 32 起够。
+            var shortForLong = new TradingEnv(s, Btc, 0, 2399, episodeLength: 720, observationSet: ObservationSet.Long);
+            Assert.Throws<InvalidOperationException>(() => shortForLong.ResetForTraining(0, new CostModel()));
+            Assert.DoesNotThrow(() => new TradingEnv(s, Btc, 0, 2399, episodeLength: 720).ResetForTraining(0, new CostModel()));
+        }
+
+        [TestCase(ObservationSet.Long, 41)]
+        [TestCase(ObservationSet.LongTa, 43)]
+        public void LongerSets_WriteTheirSizeAndDoNotLookAhead(ObservationSet set, int size)
+        {
+            const int count = 2600, t = 2450;
+            CandleSeries a = TestData.RandomWalk(count, 8, 0.02);
+            var noisy = new List<Candle>();
+            var random = new System.Random(98);
+            for (int i = 0; i < count; i++)
+            {
+                if (i <= t) { noisy.Add(a[i]); continue; }
+                double o = 1 + random.NextDouble() * 1000, c = 1 + random.NextDouble() * 1000;
+                noisy.Add(new Candle(a[i].OpenTimeMs, o, Math.Max(o, c) + 1, Math.Min(o, c) * 0.5, c, random.NextDouble()));
+            }
+            CandleSeries b = CandleSeries.FromCandles(noisy);
+            var envA = new TradingEnv(a, Btc, 0, count - 1, observationSet: set);
+            var envB = new TradingEnv(b, Btc, 0, count - 1, observationSet: set);
+            Assert.AreEqual(size, envA.ObservationSize);
+            envA.ResetForEvaluation(0, new CostModel());
+            envB.ResetForEvaluation(0, new CostModel());
+            var obsA = new float[size];
+            var obsB = new float[size];
+            var actions = new System.Random(4);
+            while (true)
+            {
+                envA.WriteObservation(obsA);
+                envB.WriteObservation(obsB);
+                for (int k = 0; k < size; k++)
+                    Assert.IsTrue(TestData.SameBits(obsA[k], obsB[k]), $"{set.Name()} t={envA.CurrentIndex}, obs[{k}]");
+                if (envA.CurrentIndex == t) break;
+                int branch = actions.Next(3);
+                float x = (float)(actions.NextDouble() * 2 - 1);
+                envA.Step((TradeAction)branch, x);
+                envB.Step((TradeAction)branch, x);
+            }
+            Assert.Throws<ArgumentException>(() => envA.WriteObservation(new float[35]), "a base-sized array is too short");
+        }
     }
 }

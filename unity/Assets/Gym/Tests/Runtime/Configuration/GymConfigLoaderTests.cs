@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using Gym.Core.Env;
 using Gym.Core.Market;
 using Gym.Runtime.Configuration;
 using NUnit.Framework;
@@ -467,6 +468,105 @@ namespace Gym.Tests.Runtime.Configuration
             var e = Assert.Throws<GymConfigException>(() =>
                 GymConfigLoader.Load(path, GymConfigLoader.DefaultSymbolsPath, new[] { "x", "-gymSymbol", "ETHUSDT" }));
             StringAssert.EndsWith("use BTCUSDT", e.Errors[0]);
+        }
+
+        // ---- 观测集（13 批）：配置的 observationSet、命令行 -gymObs
+
+        [Test]
+        public void ObservationSet_IsBaseByDefaultAndReadFromTheConfig()
+        {
+            Assert.AreEqual(ObservationSet.Base, LoadDefault().ObservationSet, "the default config has no observationSet");
+            Assert.IsTrue(string.IsNullOrEmpty(DefaultConfig().observationSet), "premise: gym-config.json leaves it out");
+            foreach ((string name, ObservationSet expected) in new[]
+                     {
+                         ("long", ObservationSet.Long), ("long-ta", ObservationSet.LongTa), ("LONG-TA", ObservationSet.LongTa),
+                         ("base", ObservationSet.Base), ("", ObservationSet.Base),
+                     })
+            {
+                GymConfig config = DefaultConfig();
+                config.observationSet = name;
+                GymSettings s = GymConfigLoader.Load(WriteConfig(config), GymConfigLoader.DefaultSymbolsPath);
+                Assert.AreEqual(expected, s.ObservationSet, $"observationSet '{name}'");
+                Assert.IsEmpty(s.Warnings);
+            }
+        }
+
+        [Test]
+        public void ObsArgument_OverridesTheConfig()
+        {
+            Assert.AreEqual(ObservationSet.Long, LoadDefault("x", "-gymObs", "long").ObservationSet);
+            Assert.AreEqual(ObservationSet.LongTa, LoadDefault("x", "-gymObs", "Long-TA").ObservationSet);
+            Assert.AreEqual(ObservationSet.Long,
+                LoadDefault("x", "-gymMode", "eval", "-gymSegment", "validation-bear", "-gymObs", "long").ObservationSet);
+            GymConfig config = DefaultConfig();
+            config.observationSet = "long";
+            string path = WriteConfig(config);
+            Assert.AreEqual(ObservationSet.Base,
+                GymConfigLoader.Load(path, GymConfigLoader.DefaultSymbolsPath, new[] { "x", "-gymObs", "base" }).ObservationSet);
+            Assert.AreEqual(ObservationSet.Long, GymConfigLoader.Load(path, GymConfigLoader.DefaultSymbolsPath).ObservationSet);
+        }
+
+        [TestCase("longer")]
+        [TestCase("ta")]
+        [TestCase("1")]
+        public void UnknownObservationSetNames_AreRefused(string name)
+        {
+            var fromArgs = Assert.Throws<GymConfigException>(() => LoadDefault("x", "-gymObs", name));
+            Assert.AreEqual(1, fromArgs.Errors.Count, fromArgs.Message);
+            Assert.AreEqual($"-gymObs {name} is not an observation set; use base, long or long-ta", fromArgs.Errors[0]);
+
+            GymConfig config = DefaultConfig();
+            config.observationSet = name;
+            string path = WriteConfig(config);
+            var fromConfig = Assert.Throws<GymConfigException>(() => GymConfigLoader.Load(path, GymConfigLoader.DefaultSymbolsPath));
+            Assert.AreEqual(1, fromConfig.Errors.Count, fromConfig.Message);
+            Assert.AreEqual($"observationSet '{name}' is not an observation set; use base, long or long-ta", fromConfig.Errors[0]);
+            // 命令行给了对的名字，配置里错的名字照样报
+            var both = Assert.Throws<GymConfigException>(() =>
+                GymConfigLoader.Load(path, GymConfigLoader.DefaultSymbolsPath, new[] { "x", "-gymObs", "long" }));
+            Assert.AreEqual(fromConfig.Errors[0], both.Errors[0]);
+        }
+
+        [Test]
+        public void TheDefaultConfig_WorksWithEverySet()
+        {
+            GymSettings s = LoadDefault();
+            foreach (ObservationSet set in ObservationSets.All)
+                CollectionAssert.IsEmpty(GymConfigLoader.ProblemsWithObservationSet(s, set), set.Name());
+            foreach (string symbol in s.SymbolNames)
+                Assert.DoesNotThrow(() => LoadDefault("x", "-gymObs", "long-ta", "-gymSymbol", symbol), symbol);
+        }
+
+        [Test]
+        public void TheHistoryDependentChecks_UseTheHistoryLengthOfTheSet()
+        {
+            // 训练段 2017-08-17～2017-11-30 有 2540 根（下标 0～2539）：base 从 32 起够一个 720 步的 episode，
+            // long 从 2160 起只剩 380 根；playStart 2017-10-01 是第 1076 根，在 base 下够靠后，在 long 下早于 2160。
+            GymConfig config = DefaultConfig();
+            config.symbols = new SymbolDataEntry[0]; // 只看主币；晚上市的币的数据里没有这里的训练段
+            config.train = new DateRange { start = "2017-08-17", end = "2017-11-30" };
+            config.playStart = "2017-10-01";
+            string path = WriteConfig(config);
+            GymSettings s = GymConfigLoader.Load(path, GymConfigLoader.DefaultSymbolsPath);
+            Assert.AreEqual(ObservationSet.Base, s.ObservationSet);
+            CollectionAssert.IsEmpty(GymConfigLoader.ProblemsWithObservationSet(s, ObservationSet.Base));
+
+            // 训练器的 obs_set 换成 long 时，Agent 拿到的就是这几条（不改已经载入的设置）
+            var problems = GymConfigLoader.ProblemsWithObservationSet(s, ObservationSet.Long);
+            CollectionAssert.AreEqual(new[]
+            {
+                "too short: train 2017-08-17..2017-11-30 has 380 decision bars, an episode needs 721",
+                "playStart 2017-10-01 must fall inside the training segment train 2017-08-17..2017-11-30",
+            }, problems);
+            Assert.AreEqual(ObservationSet.Base, s.ObservationSet, "the loaded settings are unchanged");
+
+            // 配置或 -gymObs 直接选 long 时，载入就报同样的两条
+            var e = Assert.Throws<GymConfigException>(() =>
+                GymConfigLoader.Load(path, GymConfigLoader.DefaultSymbolsPath, new[] { "x", "-gymObs", "long" }));
+            CollectionAssert.AreEqual(problems, e.Errors);
+            config.observationSet = "long-ta";
+            var fromConfig = Assert.Throws<GymConfigException>(() => GymConfigLoader.Load(WriteConfig(config), GymConfigLoader.DefaultSymbolsPath));
+            CollectionAssert.AreEqual(problems, fromConfig.Errors);
         }
     }
 }
