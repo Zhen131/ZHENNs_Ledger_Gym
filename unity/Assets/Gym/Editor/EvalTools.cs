@@ -19,8 +19,9 @@ namespace Gym.Editor
     ///
     ///   Unity -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.EvalTools.RunBaselines
     ///         -gymSegment validation -gymFeeRates 0,0.001,0.003 -gymRandomSeeds 100 -gymOut "$PWD/evaluations"
-    ///         [-gymPolicies buyhold,cash,random,momentum,sma,voltarget] -quit
+    ///         [-gymSymbol ETHUSDT] [-gymPolicies buyhold,cash,random,momentum,sma,voltarget] -quit
     ///
+    /// -gymSymbol 选 gym-config.json 的 symbols 里的一只币（不给时是主币），记录里的 symbol、data_file 跟着它。
     /// -gymSegment 必须给（gym-config.json 里的一个评估段）：没给时抛异常、什么都不写，免得误考测试段
     /// ——评估流水只追加，写进去就撤不回。
     /// 对每一个费率，让选中的 policy（默认六个都跑：买入持有、一直拿现金、seed 0 … n−1 上的随机 policy
@@ -73,10 +74,11 @@ namespace Gym.Editor
             HashSet<string> policies = ParsePolicies(CommandLineArgs.ValueOf(args, PoliciesArg));
 
             GymSettings settings = GymConfigLoader.Load(configPath, GymConfigLoader.DefaultSymbolsPath, LoaderArgs(args));
+            foreach (string note in settings.Notes) Debug.Log("[Gym] " + note);
             SegmentSpec segment = settings.EvalSegment;
             var env = TradingEnv.ForSegment(settings.Series, settings.Rules, segment, settings.Config.initialCash, 0, 0);
             JsonObject market = Market(env);
-            Debug.Log($"[Gym] baselines on {segment}: {Json(market)}");
+            Debug.Log($"[Gym] baselines for {settings.Rules.Symbol} ({settings.DataFile}) on {segment}: {Json(market)}");
 
             foreach (double fee in feeRates)
             {
@@ -212,7 +214,7 @@ namespace Gym.Editor
                 { "policy", record.Policy },
                 { "generated_by", "Gym.Editor.EvalTools.RunBaselines" },
                 { "symbol", settings.Rules.Symbol },
-                { "data_file", RecordPaths.PathForRecords(settings.Config.dataFile) },
+                { "data_file", RecordPaths.PathForRecords(settings.DataFile) }, // 当前币的数据文件
                 { "segment", SegmentJson(settings.EvalSegment, settings.Series) },
                 { "market", market },
                 { "cost", new JsonObject { { "fee_rate", cost.FeeRate }, { "fixed_fee", cost.FixedFee }, { "slippage", cost.Slippage } } },

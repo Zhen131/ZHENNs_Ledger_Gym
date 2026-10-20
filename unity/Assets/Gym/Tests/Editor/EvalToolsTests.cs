@@ -24,7 +24,7 @@ namespace Gym.Tests.Editor
         }
 
         [Test]
-        public void PoliciesArgument_DefaultsToAllThreeAndRejectsUnknownNames()
+        public void PoliciesArgument_DefaultsToAllSixAndRejectsUnknownNames()
         {
             CollectionAssert.AreEquivalent(new[] { "buyhold", "cash", "random", "momentum", "sma", "voltarget" }, EvalTools.ParsePolicies(null));
             CollectionAssert.AreEquivalent(new[] { "random" }, EvalTools.ParsePolicies("random"));
@@ -129,6 +129,37 @@ namespace Gym.Tests.Editor
             Assert.AreEqual(6, details.Length);
             foreach (string name in new[] { "momentum_90d", "sma_cross", "vol_target" })
                 Assert.AreEqual(2, Array.FindAll(details, f => f.EndsWith($"-{name}-validation-bear.json") || f.Contains($"-{name}-validation-bear-")).Length, name);
+        }
+
+        // ---- -gymSymbol：经 LoaderArgs 转交，记录跟着当前币
+
+        [Test]
+        public void SymbolArgument_IsRecordedWithThatSymbolsDataFile()
+        {
+            EvalTools.Run(new[]
+            {
+                "x", "-gymSegment", "validation-bear", "-gymSymbol", "ETHUSDT", "-gymPolicies", "buyhold", "-gymFeeRates", "0.001",
+                "-gymOut", tempDir,
+            });
+            string[] lines = File.ReadAllLines(Path.Combine(tempDir, "log.csv"));
+            Assert.AreEqual(2, lines.Length, "header and one row");
+            int symbol = Array.IndexOf(lines[0].Split(','), "symbol");
+            Assert.AreEqual("ETHUSDT", lines[1].Split(',')[symbol]);
+            string[] details = Directory.GetFiles(Path.Combine(tempDir, "runs"), "*.json");
+            Assert.AreEqual(1, details.Length);
+            string text = File.ReadAllText(details[0]);
+            StringAssert.Contains("\"symbol\": \"ETHUSDT\"", text);
+            StringAssert.Contains("\"data_file\": \"data/ETHUSDT-1h.csv\"", text);
+            RecordFileAssert.NoMachinePath(text, details[0]);
+        }
+
+        [Test]
+        public void ASymbolThatIsNotInTheConfig_IsRefusedByTheLoaderAndNothingIsWritten()
+        {
+            var e = Assert.Throws<GymConfigException>(() => EvalTools.Run(new[]
+                { "x", "-gymSegment", "validation", "-gymSymbol", "BNBUSDT", "-gymFeeRates", "0.001", "-gymRandomSeeds", "1", "-gymOut", tempDir }));
+            StringAssert.Contains("-gymSymbol BNBUSDT is not one of the symbols in the config", e.Message);
+            Assert.IsFalse(Directory.Exists(tempDir), "nothing in -gymOut");
         }
     }
 }

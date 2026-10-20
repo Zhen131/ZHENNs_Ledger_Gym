@@ -214,7 +214,7 @@ namespace Gym.Runtime.Evaluation
         }
 
         /// <summary>
-        /// 一次 Agent 评估的明细 JSON。数据文件按配置里的写法记录，模型只记文件名（靠 SHA-256 识别），
+        /// 一次 Agent 评估的明细 JSON。symbol 和 data_file 是当前币（-gymSymbol）的，数据文件按配置里的写法记录，模型只记文件名（靠 SHA-256 识别），
         /// 这样提交进仓库的文件里不带任何机器的文件夹或用户名。
         /// </summary>
         public static JsonObject Details(EvaluationRecord record, EvalBuildInfo info, GymSettings settings, TradingEnv env,
@@ -236,7 +236,7 @@ namespace Gym.Runtime.Evaluation
                 { "deterministic_inference", deterministicInference },
                 { "inference_device", inferenceDevice },
                 { "symbol", settings.Rules.Symbol },
-                { "data_file", RecordPaths.PathForRecords(settings.Config.dataFile) },
+                { "data_file", RecordPaths.PathForRecords(settings.DataFile) }, // 当前币的数据文件
                 { "segment", new JsonObject
                     {
                         { "name", segment.Name },
