@@ -568,5 +568,37 @@ namespace Gym.Tests.Runtime.Configuration
             var fromConfig = Assert.Throws<GymConfigException>(() => GymConfigLoader.Load(WriteConfig(config), GymConfigLoader.DefaultSymbolsPath));
             CollectionAssert.AreEqual(problems, fromConfig.Errors);
         }
+
+        // ---- 风险系数（-gymRiskAversion，14 批）
+
+        [Test]
+        public void RiskAversionArgument_IsReadAndIsNullWithoutIt()
+        {
+            Assert.AreEqual("-gymRiskAversion", GymConfigLoader.RiskAversionArg);
+            Assert.IsNull(LoadDefault().RiskAversionArg, "without the argument the agent falls back to its default");
+            Assert.IsNull(LoadDefault("x", "-gymMode", "eval").RiskAversionArg);
+            Assert.AreEqual(0.01, LoadDefault("x", "-gymRiskAversion", "0.01").RiskAversionArg);
+            Assert.AreEqual(0.005, LoadDefault("x", "-gymMode", "eval", "-gymSegment", "validation", "-gymRiskAversion", "0.005").RiskAversionArg);
+            Assert.AreEqual(0.0, LoadDefault("x", "-gymRiskAversion", "0").RiskAversionArg);
+            Assert.AreEqual(0.02, LoadDefault("x", "-gymRiskAversion", "2e-2").RiskAversionArg, "invariant-culture number");
+            // 播放器接受任何有限的非负数；[0, 100] 只是 check_configs.py 对配置文件的检查
+            Assert.AreEqual(250.0, LoadDefault("x", "-gymRiskAversion", "250").RiskAversionArg);
+        }
+
+        [TestCase("-0.001", "is out of range")]
+        [TestCase("-1", "is out of range")]
+        [TestCase("abc", "is not a number")]
+        [TestCase("NaN", "is not a number")]
+        [TestCase("Infinity", "is not a number")]
+        public void NegativeOrNonNumericRiskAversion_IsAConfigError(string value, string reason)
+        {
+            var e = Assert.Throws<GymConfigException>(() => LoadDefault("x", "-gymRiskAversion", value));
+            Assert.AreEqual(1, e.Errors.Count, string.Join("; ", e.Errors));
+            StringAssert.StartsWith("-gymRiskAversion ", e.Errors[0]);
+            StringAssert.Contains(value, e.Errors[0]);
+            StringAssert.Contains(reason, e.Errors[0]);
+            var inEval = Assert.Throws<GymConfigException>(() => LoadDefault("x", "-gymMode", "eval", "-gymSegment", "validation", "-gymRiskAversion", value));
+            Assert.AreEqual(1, inEval.Errors.Count, string.Join("; ", inEval.Errors));
+        }
     }
 }

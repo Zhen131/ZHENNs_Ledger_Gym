@@ -456,5 +456,157 @@ namespace Gym.Tests.Core.Env
             }
             Assert.Throws<ArgumentException>(() => envA.WriteObservation(new float[35]), "a base-sized array is too short");
         }
+
+        // ---- 风险系数 λ（14 批）：得分 = r − λ × min(r, 0)²
+
+        /// <summary>
+        /// 0～33 号收盘都是 100，之后 100.5、100.0、99.2、97.0、97.0、99.5、99.3（open = close）。base 档从 32 号起决策，
+        /// 第 1 步全仓买入（无费用，100 个币、现金 0），之后每一步的 r = 100 × ln(c[t+1] ÷ c[t])，截到 ±1。
+        /// </summary>
+        static TradingEnv HandSequenceEnv()
+        {
+            double[] tail = { 100.5, 100.0, 99.2, 97.0, 97.0, 99.5, 99.3 };
+            CandleSeries s = TestData.Synthetic(34 + tail.Length, k => k < 34 ? 100 : tail[k - 34]);
+            return new TradingEnv(s, Btc, 0, s.Count - 1);
+        }
+
+        static List<StepResult> RunHandSequence(TradingEnv env)
+        {
+            var results = new List<StepResult> { env.Step(TradeAction.Buy, 1f) };
+            Assert.IsTrue(results[0].Traded, "premise: the first step buys");
+            Assert.AreEqual(0.0, env.Account.Cash, "premise: all in");
+            Assert.AreEqual(100.0, env.Account.Quantity, 1e-12, "premise: 100 coins");
+            while (!env.Done) results.Add(env.Step(TradeAction.Hold, 0f));
+            return results;
+        }
+
+        [Test]
+        public void RiskAversion_RewardSumAndPenaltySum_MatchTheHandComputedSequence()
+        {
+            // 手算（40 位十进制）：8 步的 r 是 0、0.4987541511039、−0.4987541511039、−0.8032171697264、
+            // −1（−2.2427 被截）、0、1（2.5447 被截）、−0.2012073113420；Σr = −1.0044244810684。
+            // λ = 0.01：罚款 0.0024875570324 + 0.0064515782174 + 0.01 + 0.0004048438214 = 0.0193439790712，
+            // 4 步有罚款；得分之和 = −1.0044244810684 − 0.0193439790712 = −1.0237684601397。
+            TradingEnv env = HandSequenceEnv();
+            env.ResetForEvaluation(0, new CostModel(0, 0, 0), 0.01);
+            Assert.AreEqual(0.01, env.RiskAversion);
+            List<StepResult> results = RunHandSequence(env);
+
+            Assert.AreEqual(8, results.Count);
+            Assert.AreEqual(2, env.ClippedRewards, "clipped still counts only r");
+            Assert.AreEqual(4, env.RiskPenaltySteps);
+            Assert.AreEqual(0.0193439790712419, env.RiskPenaltySum, 1e-12);
+            Assert.AreEqual(-1.0237684601396856, env.RewardSum, 1e-12);
+            double[] expected =
+            {
+                0, 0.4987541511039074, -0.4987541511039074 - 0.0024875570324338, -0.8032171697264259 - 0.0064515782174333,
+                -1.01, 0, 1, -0.2012073113420178 - 0.0004048438213748,
+            };
+            for (int i = 0; i < expected.Length; i++)
+                Assert.AreEqual(expected[i], results[i].Reward, 1e-12, $"step {i + 1}");
+            Assert.AreEqual(results.Sum(r => r.Reward), env.RewardSum, 1e-15);
+        }
+
+        [Test]
+        public void WithoutRiskAversion_TheEpisodeIsBitForBitAsBefore_AndHasNoPenalty()
+        {
+            // 不传 λ（默认 0）和显式传 0：每一步得分、RewardSum 逐位相同；Σr = −1.0044244810684，罚款 0。
+            TradingEnv byDefault = HandSequenceEnv();
+            byDefault.ResetForEvaluation(0, new CostModel(0, 0, 0));
+            TradingEnv withZero = HandSequenceEnv();
+            withZero.ResetForEvaluation(0, new CostModel(0, 0, 0), 0);
+            List<StepResult> a = RunHandSequence(byDefault), b = RunHandSequence(withZero);
+
+            Assert.AreEqual(0.0, byDefault.RiskAversion);
+            Assert.AreEqual(a.Count, b.Count);
+            for (int i = 0; i < a.Count; i++)
+            {
+                Assert.IsTrue(TestData.SameBits(a[i].Reward, b[i].Reward), $"step {i + 1}");
+                Assert.AreEqual(a[i].RewardClipped, b[i].RewardClipped, $"step {i + 1}");
+            }
+            Assert.IsTrue(TestData.SameBits(byDefault.RewardSum, withZero.RewardSum));
+            Assert.AreEqual(-1.0044244810684437, byDefault.RewardSum, 1e-12);
+            Assert.AreEqual(0.0, byDefault.RiskPenaltySum);
+            Assert.AreEqual(0, byDefault.RiskPenaltySteps);
+            Assert.AreEqual(2, byDefault.ClippedRewards);
+        }
+
+        [Test]
+        public void RiskAversion_OnRealData_EveryStepIsTheOldRewardMinusThePenalty_AndTradingIsUnchanged()
+        {
+            // 训练段、同一个 seed 和同一串 action：λ = 0.02 的那局每一步得分 = λ = 0 那局的得分 − 0.02 × min(r, 0)²（逐位），
+            // 资金曲线和成交逐位相同（奖励不影响交易）；罚款累计、罚款步数和 RewardSum 都对得上。
+            const double lambda = 0.02;
+            TradingEnv plain = TestData.TrainEnv(), risky = TestData.TrainEnv();
+            plain.ResetForTraining(1414, new CostModel());
+            risky.ResetForTraining(1414, new CostModel(), lambda);
+            Assert.AreEqual(plain.StartIndex, risky.StartIndex);
+            var actions = new System.Random(14);
+            double penaltySum = 0, rewardSum = 0;
+            int penalised = 0, losses = 0;
+            while (!plain.Done)
+            {
+                var branch = (TradeAction)actions.Next(3);
+                float x = (float)(actions.NextDouble() * 2 - 1);
+                StepResult r0 = plain.Step(branch, x);
+                StepResult r1 = risky.Step(branch, x);
+                double penalty = lambda * (Math.Min(r0.Reward, 0) * Math.Min(r0.Reward, 0));
+                Assert.IsTrue(TestData.SameBits(r0.Reward - penalty, r1.Reward), $"step {plain.StepCount}");
+                Assert.AreEqual(r0.RewardClipped, r1.RewardClipped);
+                Assert.AreEqual(r0.Traded, r1.Traded);
+                penaltySum += penalty;
+                rewardSum += r1.Reward;
+                if (penalty > 0) penalised++;
+                if (r0.Reward < 0) losses++;
+            }
+            Assert.IsTrue(risky.Done);
+            Assert.AreEqual(plain.EquityCurve.Count, risky.EquityCurve.Count);
+            for (int i = 0; i < plain.EquityCurve.Count; i++)
+                Assert.IsTrue(TestData.SameBits(plain.EquityCurve[i], risky.EquityCurve[i]), $"equity[{i}]");
+            Assert.AreEqual(plain.Account.Trades, risky.Account.Trades);
+            Assert.Greater(losses, 50, "premise: the episode has losing steps");
+            Assert.AreEqual(losses, penalised, "every losing step is penalised when lambda > 0");
+            Assert.AreEqual(penalised, risky.RiskPenaltySteps);
+            Assert.IsTrue(TestData.SameBits(penaltySum, risky.RiskPenaltySum), "penalty sum, same order of additions");
+            Assert.IsTrue(TestData.SameBits(rewardSum, risky.RewardSum));
+            Assert.AreEqual(plain.RewardSum - penaltySum, risky.RewardSum, 1e-9);
+            Assert.AreEqual(0.0, plain.RiskPenaltySum);
+            Assert.AreEqual(0, plain.RiskPenaltySteps);
+        }
+
+        [Test]
+        public void RiskAversion_IsSetByEveryReset_AndTheCountersStartAtZero()
+        {
+            TradingEnv env = HandSequenceEnv();
+            env.ResetForEvaluation(0, new CostModel(0, 0, 0), 0.02);
+            RunHandSequence(env);
+            Assert.Greater(env.RiskPenaltySum, 0);
+
+            env.Reset(new CostModel(0, 0, 0), 32, 0.005);
+            Assert.AreEqual(0.005, env.RiskAversion);
+            Assert.AreEqual(0.0, env.RiskPenaltySum, "a new episode starts without a penalty");
+            Assert.AreEqual(0, env.RiskPenaltySteps);
+            Assert.AreEqual(0.0, env.RewardSum);
+            env.Reset(new CostModel(0, 0, 0), 32);
+            Assert.AreEqual(0.0, env.RiskAversion, "Reset without lambda goes back to 0");
+
+            TradingEnv train = TestData.TrainEnv();
+            train.ResetForTraining(7, new CostModel(), 0.01);
+            Assert.AreEqual(0.01, train.RiskAversion);
+            train.ResetForTraining(7, new CostModel());
+            Assert.AreEqual(0.0, train.RiskAversion);
+        }
+
+        [TestCase(-0.001)]
+        [TestCase(double.NaN)]
+        [TestCase(double.PositiveInfinity)]
+        public void BadRiskAversion_IsRefusedByEveryReset(double lambda)
+        {
+            TradingEnv env = HandSequenceEnv();
+            Assert.Throws<ArgumentOutOfRangeException>(() => env.ResetForEvaluation(0, new CostModel(), lambda));
+            Assert.Throws<ArgumentOutOfRangeException>(() => env.Reset(new CostModel(), 32, lambda));
+            Assert.Throws<ArgumentOutOfRangeException>(() => TestData.TrainEnv().ResetForTraining(0, new CostModel(), lambda));
+            Assert.IsNull(env.Account, "nothing was started");
+        }
     }
 }

@@ -50,6 +50,7 @@ namespace Gym.Tests.Editor
             Assert.AreEqual(0.001, agent.DefaultFeeRate);
             Assert.AreEqual(0.0, agent.DefaultFixedFee);
             Assert.AreEqual(0.0, agent.DefaultSlippage);
+            Assert.AreEqual(0.0, agent.DefaultRiskAversion);
         }
 
         // ---- 各个 scene
