@@ -28,5 +28,10 @@ namespace Gym.Runtime.Configuration
         /// </summary>
         public NamedDateRange[] extraSegments;
         public string playStart;
+        /// <summary>
+        /// 观测集：base（第一轮的 35 个数）、long（再加 6 个长周期的数）或 long-ta（再加 MACD、RSI）。
+        /// 空或没有时是 base。命令行 -gymObs 盖过它，训练器的环境参数 obs_set 又盖过 -gymObs。
+        /// </summary>
+        public string observationSet;
     }
 }

@@ -11,7 +11,8 @@ namespace Gym.Runtime.Configuration
 {
     /// <summary>
     /// 从 StreamingAssets/Gym（或者 -gymConfig 给的文件）读 gym-config.json 和 symbols.json，
-    /// 载入配置里每只币的数据，并对每只币检查分段的划分。-gymSymbol 选当前币，不给时是主币。
+    /// 载入配置里每只币的数据，并对每只币检查分段的划分。-gymSymbol 选当前币，不给时是主币；
+    /// -gymObs 选观测集，不给时是配置里的 observationSet，再没有是 base。
     /// </summary>
     public static class GymConfigLoader
     {
@@ -22,6 +23,7 @@ namespace Gym.Runtime.Configuration
         public const string FixedFeeArg = "-gymFixedFee";
         public const string SlippageArg = "-gymSlippage";
         public const string SymbolArg = "-gymSymbol";
+        public const string ObservationSetArg = "-gymObs";
 
         /// <summary>
         /// 能接受的最大 initialCash。从大约 1e12 起，double 能分辨的最小金额差达到 0.0001 USDT 甚至更大，
@@ -54,7 +56,7 @@ namespace Gym.Runtime.Configuration
                     GymSettings settings = Load(configPath, DefaultSymbolsPath, args);
                     foreach (string note in settings.Notes) Debug.Log("[Gym] " + note);
                     foreach (string warning in settings.Warnings) Debug.LogWarning("[Gym] " + warning);
-                    Debug.Log($"[Gym] config {settings.ConfigPath}, symbol {settings.Rules.Symbol}, data {settings.DataPath} ({settings.Series.Count} candles), mode {settings.Mode}");
+                    Debug.Log($"[Gym] config {settings.ConfigPath}, symbol {settings.Rules.Symbol}, data {settings.DataPath} ({settings.Series.Count} candles), mode {settings.Mode}, observations {settings.ObservationSet.Name()}");
                     runtimeSettings = settings;
                     runtimeKey = key;
                     return settings;
@@ -66,6 +68,18 @@ namespace Gym.Runtime.Configuration
                     throw;
                 }
             }
+        }
+
+        /// <summary>
+        /// 运行中才发现的配置错误（例如训练器的 obs_set 换了一档、分段因此不够长）：和 <see cref="LoadForRuntime"/>
+        /// 一样，在 player 里写进日志并以退出码 1 退出；在 editor 里写进日志。返回要抛出的异常。
+        /// </summary>
+        public static GymConfigException FailAtRuntime(IEnumerable<string> errors)
+        {
+            var e = new GymConfigException(new List<string>(errors));
+            Debug.LogError("[Gym] " + e.Message);
+            if (!Application.isEditor) Application.Quit(1);
+            return e;
         }
 
         /// <summary>载入并检查。有问题时抛出 <see cref="GymConfigException"/>，列出找到的每一个问题。</summary>
@@ -89,6 +103,7 @@ namespace Gym.Runtime.Configuration
             settings.FeeRateArg = ReadCostArg(args, FeeRateArg, errors, v => new CostModel(v, 0, 0));
             settings.FixedFeeArg = ReadCostArg(args, FixedFeeArg, errors, v => new CostModel(0, v, 0));
             settings.SlippageArg = ReadCostArg(args, SlippageArg, errors, v => new CostModel(0, 0, v));
+            settings.ObservationSet = ReadObservationSet(args, config, errors);
             CheckNumbers(config, errors);
             var extraNames = new List<string>();
             bool datesOk = ReadDates(config, settings, errors, extraNames);
@@ -105,13 +120,44 @@ namespace Gym.Runtime.Configuration
                 settings.EvalSegment = settings.TryGetEvaluationSegment(evalSegmentName ?? SegmentNames.Test, out SegmentSpec chosen)
                     ? chosen
                     : settings.Test; // 名字不对时上面已经记了错误，这里的值不会被用到
-                CheckPlayStart(config, settings, errors);
+                settings.PlayStartIndex = settings.Series.FirstIndexOnOrAfter(settings.PlayStart);
+                CheckPlayStart(config, settings, settings.ObservationSet, errors);
             }
 
             if (errors.Count > 0) throw new GymConfigException(errors);
             settings.Warnings = warnings;
             settings.Notes = notes;
             return settings;
+        }
+
+        /// <summary>
+        /// 换成 <paramref name="set"/> 这一档时，依赖历史长度的检查（每只币的训练段够不够长、playStart 够不够靠后）
+        /// 还过不过：过返回空表，不过返回每一条错误（写法和载入时一样）。不改 <paramref name="settings"/>。
+        /// 训练器的环境参数 obs_set 和命令行、配置选的档不同时，Agent 用它重查一遍。
+        /// </summary>
+        public static List<string> ProblemsWithObservationSet(GymSettings settings, ObservationSet set)
+        {
+            if (settings == null) throw new ArgumentNullException(nameof(settings));
+            var errors = new List<string>();
+            CheckSplits(settings, Math.Max(settings.Config.episodeLength, 0), set, errors, new List<string>());
+            CheckPlayStart(settings.Config, settings, set, errors);
+            return errors;
+        }
+
+        /// <summary>
+        /// -gymObs（不分大小写）；没给时是配置里的 observationSet（空或没有时是 base）。配置里的名字不管有没有被
+        /// -gymObs 盖过都要对；名字不对时记一条错误，列出 base、long、long-ta。
+        /// </summary>
+        static ObservationSet ReadObservationSet(string[] args, GymConfig config, List<string> errors)
+        {
+            var chosen = ObservationSet.Base;
+            if (!string.IsNullOrEmpty(config.observationSet) && !ObservationSets.TryParse(config.observationSet, out chosen))
+                errors.Add($"observationSet '{config.observationSet}' is not an observation set; use {ObservationSets.NamesText}");
+            string wanted = CommandLineArgs.ValueOf(args, ObservationSetArg);
+            if (wanted == null) return chosen;
+            if (ObservationSets.TryParse(wanted, out ObservationSet fromArgs)) return fromArgs;
+            errors.Add($"{ObservationSetArg} {wanted} is not an observation set; use {ObservationSets.NamesText}");
+            return chosen;
         }
 
         static void CheckNumbers(GymConfig config, List<string> errors)
@@ -327,34 +373,49 @@ namespace Gym.Runtime.Configuration
 
         /// <summary>
         /// 每只币各查一次分段：先按它的数据起点裁训练段（裁剪记进 <paramref name="notes"/>，是普通日志，不算警告），
-        /// 再过 <see cref="SplitValidator"/>：验证段们和测试段必须完整落在这只币的数据里，裁过的训练段也要够长。
-        /// 当前币先查，它的问题照原样报；别的币的问题前面加「币名: 」，和当前币一字不差的不再重复报。
-        /// 最后 settings.Train 换成当前币的训练段。
+        /// 再过 <see cref="SplitValidator"/>：验证段们和测试段必须完整落在这只币的数据里，裁过的训练段从
+        /// 观测集的历史长度起也要够长。当前币先查，它的问题照原样报；别的币的问题前面加「币名: 」，
+        /// 和当前币一字不差的不再重复报。最后 settings.Train 换成当前币的训练段。
         /// </summary>
         static void ValidateSplits(GymConfig config, GymSettings settings, List<string> errors, List<string> warnings,
             List<string> notes)
         {
             SegmentSpec configured = settings.Train;
-            int episodeLength = Math.Max(config.episodeLength, 0);
-            var currentErrors = new List<string>();
-            var currentWarnings = new List<string>();
-            var ordered = new List<SymbolSettings> { settings.Current };
-            foreach (SymbolSettings symbol in settings.Symbols)
-                if (symbol != settings.Current) ordered.Add(symbol);
-
-            foreach (SymbolSettings symbol in ordered)
+            foreach (SymbolSettings symbol in CurrentFirst(settings))
             {
                 symbol.Train = configured;
                 if (symbol.Series == null) continue; // 读不了数据，上面已经记了错误
                 ClipTraining(symbol, configured, notes);
+            }
+            CheckSplits(settings, Math.Max(config.episodeLength, 0), settings.ObservationSet, errors, warnings);
+            settings.Train = settings.Current.Train;
+        }
+
+        /// <summary>当前币在前，别的币按配置里的顺序。</summary>
+        static List<SymbolSettings> CurrentFirst(GymSettings settings)
+        {
+            var ordered = new List<SymbolSettings> { settings.Current };
+            foreach (SymbolSettings symbol in settings.Symbols)
+                if (symbol != settings.Current) ordered.Add(symbol);
+            return ordered;
+        }
+
+        /// <summary>每只币（训练段已裁过）过一遍 <see cref="SplitValidator"/>，按 <paramref name="set"/> 的历史长度查训练段够不够长。</summary>
+        static void CheckSplits(GymSettings settings, int episodeLength, ObservationSet set, List<string> errors,
+            List<string> warnings)
+        {
+            var currentErrors = new List<string>();
+            var currentWarnings = new List<string>();
+            foreach (SymbolSettings symbol in CurrentFirst(settings))
+            {
+                if (symbol.Series == null) continue;
                 bool isCurrent = symbol == settings.Current;
                 string prefix = isCurrent ? "" : symbol.Symbol + ": ";
                 SplitReport report = SplitValidator.Validate(symbol.Train, settings.Validation, settings.Test,
-                    settings.ExtraSegments, symbol.Series, episodeLength);
+                    settings.ExtraSegments, symbol.Series, episodeLength, set);
                 AddOnce(report.Errors, isCurrent, prefix, currentErrors, errors);
                 AddOnce(report.Warnings, isCurrent, prefix, currentWarnings, warnings);
             }
-            settings.Train = settings.Current.Train;
         }
 
         /// <summary>当前币的条目原样加；别的币的条目和当前币一字不差时跳过，否则加上币名前缀。</summary>
@@ -385,12 +446,14 @@ namespace Gym.Runtime.Configuration
                       $"{configured} is clipped to {symbol.Train}");
         }
 
-        /// <summary>设置 PlayStartIndex（按当前币的序列），并检查 playStart 落在当前币的训练段里。</summary>
-        static void CheckPlayStart(GymConfig config, GymSettings settings, List<string> errors)
+        /// <summary>
+        /// 检查 playStart 落在当前币的训练段里，而且不早于 <paramref name="set"/> 的历史长度
+        /// （PlayStartIndex 已按当前币的序列设好）。
+        /// </summary>
+        static void CheckPlayStart(GymConfig config, GymSettings settings, ObservationSet set, List<string> errors)
         {
             int trainLast = settings.Train.LastIndex(settings.Series);
-            settings.PlayStartIndex = settings.Series.FirstIndexOnOrAfter(settings.PlayStart);
-            int playMin = Math.Max(settings.Train.FirstIndex(settings.Series), ObservationBuilder.Lookback);
+            int playMin = Math.Max(settings.Train.FirstIndex(settings.Series), set.HistoryLength());
             if (settings.PlayStart < settings.Train.StartDate || settings.PlayStart > settings.Train.EndDate ||
                 settings.PlayStartIndex < playMin || settings.PlayStartIndex >= trainLast)
                 errors.Add($"playStart {config.playStart} must fall inside the training segment {settings.Train}");

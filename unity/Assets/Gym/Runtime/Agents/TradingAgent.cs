@@ -6,6 +6,7 @@ using Gym.Core.Market;
 using Gym.Runtime.Configuration;
 using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
+using Unity.MLAgents.Policies;
 using Unity.MLAgents.Sensors;
 using UnityEngine;
 
@@ -20,6 +21,8 @@ namespace Gym.Runtime.Agents
         public const string FeeRateKey = "fee_rate";
         public const string FixedFeeKey = "fixed_fee";
         public const string SlippageKey = "slippage";
+        /// <summary>训练器的环境参数：0 = base、1 = long、2 = long-ta。没设时用命令行 -gymObs 或配置里的观测集。</summary>
+        public const string ObservationSetKey = "obs_set";
 
         [SerializeField] AgentStartMode startMode = AgentStartMode.Training;
         [Tooltip("Instance number; mixed with the clock to seed this agent's episode seeds.")]
@@ -28,7 +31,8 @@ namespace Gym.Runtime.Agents
         [SerializeField] double defaultFixedFee;
         [SerializeField] double defaultSlippage;
 
-        readonly float[] observation = new float[ObservationBuilder.Size];
+        /// <summary>按当前观测集的大小分配（<see cref="Initialize"/> 里）。</summary>
+        float[] observation = Array.Empty<float>();
         System.Random seedSource;
         bool firstEpisodeLogged;
 
@@ -63,6 +67,15 @@ namespace Gym.Runtime.Agents
         /// </summary>
         public CostModel CostOverride { get; set; }
 
+        /// <summary>
+        /// 测试和观战用：有值时 <see cref="Initialize"/> 用这一档观测，不看 trainer 的环境参数 obs_set、-gymObs 和配置。
+        /// 要在 Agent 启用之前设。训练和评估都不设它（为 null），走原来的路。
+        /// </summary>
+        public ObservationSet? ObservationSetOverride { get; set; }
+
+        /// <summary>这个 Agent 实际用的观测集（<see cref="Initialize"/> 之后才有意义）。</summary>
+        public ObservationSet ObservationSet => Env != null ? Env.ObservationSet : ObservationSet.Base;
+
         public GymSettings Settings { get; private set; }
         public TradingEnv Env { get; private set; }
         public int MasterSeed { get; private set; }
@@ -92,20 +105,25 @@ namespace Gym.Runtime.Agents
         {
             Settings = GymConfigLoader.LoadForRuntime();
             GymConfig c = Settings.Config;
+            // 先连上 trainer，再建环境：seed 和环境参数 obs_set 都由 trainer 发来，obs_set 决定环境的历史长度。
+            Academy academy = Academy.Instance;
+            ObservationSet observationSet = ChooseObservationSet(academy);
             AgentStartMode mode = EffectiveMode;
             SegmentSpec segment;
             if (SegmentOverride.HasValue) segment = SegmentFor(SegmentOverride.Value);
             else segment = mode == AgentStartMode.Evaluation ? Settings.EvalSegment : Settings.Train;
             Env = TradingEnv.ForSegment(Settings.Series, Settings.Rules, segment,
-                c.initialCash, c.episodeLength, c.randomInitialPositionShare);
-            Academy academy = Academy.Instance; // 先连上 trainer，seed 由 trainer 发来
+                c.initialCash, c.episodeLength, c.randomInitialPositionShare, observationSet);
+            UseObservationSize(observationSet.Size());
             int trainerSeed = 0;
             bool fromTrainer = academy.IsCommunicatorOn && MasterSeedChooser.TryReadTrainerSeed(academy, out trainerSeed);
             if (academy.IsCommunicatorOn && !fromTrainer)
                 Debug.LogWarning("[Gym] trainer attached but its seed could not be read; seeding from the clock");
             (MasterSeed, MasterSeedSource) = MasterSeedChooser.Choose(fromTrainer, trainerSeed, DateTime.UtcNow.Ticks, agentIndex);
             seedSource = new System.Random(MasterSeed);
-            Debug.Log($"[Gym] {name}: index {agentIndex}, mode {mode}, segment {segment}, master seed {MasterSeed} ({MasterSeedChooser.LogName(MasterSeedSource)})");
+            Debug.Log($"[Gym] {name}: index {agentIndex}, mode {mode}, segment {segment}, observations {observationSet.Name()} " +
+                      $"({observationSet.Size()} numbers, history {observationSet.HistoryLength()}), " +
+                      $"master seed {MasterSeed} ({MasterSeedChooser.LogName(MasterSeedSource)})");
             if (mode != AgentStartMode.Training) ResetEnv(); // 这样 view 和 runner 在第一个 step 之前就能读到起点
         }
 
@@ -202,6 +220,58 @@ namespace Gym.Runtime.Agents
                 ReadParameter(parameters, FeeRateKey, Settings.FeeRateArg ?? defaultFeeRate),
                 ReadParameter(parameters, FixedFeeKey, Settings.FixedFeeArg ?? defaultFixedFee),
                 ReadParameter(parameters, SlippageKey, Settings.SlippageArg ?? defaultSlippage));
+        }
+
+        /// <summary>
+        /// 这个 Agent 用哪一档观测：<see cref="ObservationSetOverride"/>，否则 trainer 的环境参数 obs_set（和费用用同一个
+        /// <see cref="ReadParameter"/> 读），否则 <see cref="GymSettings.ObservationSet"/>（-gymObs 或配置）。
+        /// obs_set 不是 0、1、2 时报错；选中的档和配置、命令行定的不同时，按它的历史长度把分段长度和 playStart
+        /// 重查一遍，不过就报错（player 以退出码 1 退出）。
+        /// </summary>
+        ObservationSet ChooseObservationSet(Academy academy)
+        {
+            ObservationSet chosen = Settings.ObservationSet;
+            if (ObservationSetOverride.HasValue)
+            {
+                chosen = ObservationSetOverride.Value;
+            }
+            else
+            {
+                double value = ReadParameter(academy.EnvironmentParameters, ObservationSetKey, double.NaN);
+                if (!double.IsNaN(value))
+                {
+                    if (!ObservationSets.TryFromParameter(value, out chosen))
+                        throw GymConfigLoader.FailAtRuntime(new[]
+                        {
+                            $"environment parameter {ObservationSetKey} = {value.ToString(System.Globalization.CultureInfo.InvariantCulture)} " +
+                            $"is not an observation set; use {ObservationSets.ParameterValuesText}",
+                        });
+                    if (chosen != Settings.ObservationSet)
+                        Debug.Log($"[Gym] {name}: the trainer's {ObservationSetKey} chooses the observation set {chosen.Name()} " +
+                                  $"(the config and command line said {Settings.ObservationSet.Name()})");
+                }
+            }
+            if (chosen != Settings.ObservationSet)
+            {
+                var problems = GymConfigLoader.ProblemsWithObservationSet(Settings, chosen);
+                if (problems.Count > 0)
+                {
+                    problems.Insert(0, $"with the observation set {chosen.Name()} (history {chosen.HistoryLength()} candles) the config does not work:");
+                    throw GymConfigLoader.FailAtRuntime(problems);
+                }
+            }
+            return chosen;
+        }
+
+        /// <summary>
+        /// 传感器按 BehaviorParameters 的向量观测长度新建，这一步在 <see cref="Initialize"/> 之后（ML-Agents 的
+        /// Agent.LazyInitialize）：在这里把长度改成当前档的大小，预制体里的 35 不动；观测数组也按它分配。
+        /// </summary>
+        void UseObservationSize(int size)
+        {
+            var behavior = GetComponent<BehaviorParameters>();
+            if (behavior != null) behavior.BrainParameters.VectorObservationSize = size;
+            observation = new float[size];
         }
 
         /// <summary><see cref="SegmentOverride"/> 选的那个评估分段。</summary>

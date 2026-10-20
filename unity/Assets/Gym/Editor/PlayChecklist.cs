@@ -73,7 +73,8 @@ namespace Gym.Editor
         static TradingEnv StartAtPlayStart(GymSettings s, CostModel cost)
         {
             GymConfig c = s.Config;
-            var env = TradingEnv.ForSegment(s.Series, s.Rules, s.Train, c.initialCash, c.episodeLength, c.randomInitialPositionShare);
+            var env = TradingEnv.ForSegment(s.Series, s.Rules, s.Train, c.initialCash, c.episodeLength, c.randomInitialPositionShare,
+                s.ObservationSet);
             env.Reset(cost, s.PlayStartIndex);
             return env;
         }

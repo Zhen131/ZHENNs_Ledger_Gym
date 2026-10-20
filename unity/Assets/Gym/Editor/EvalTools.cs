@@ -19,9 +19,10 @@ namespace Gym.Editor
     ///
     ///   Unity -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.EvalTools.RunBaselines
     ///         -gymSegment validation -gymFeeRates 0,0.001,0.003 -gymRandomSeeds 100 -gymOut "$PWD/evaluations"
-    ///         [-gymSymbol ETHUSDT] [-gymPolicies buyhold,cash,random,momentum,sma,voltarget] -quit
+    ///         [-gymSymbol ETHUSDT] [-gymObs long] [-gymPolicies buyhold,cash,random,momentum,sma,voltarget] -quit
     ///
     /// -gymSymbol 选 gym-config.json 的 symbols 里的一只币（不给时是主币），记录里的 symbol、data_file 跟着它。
+    /// -gymObs 选观测集（对照组不看观测，只有起点跟着它的历史长度走：评估从 max(段首, 历史长度) 开始）。
     /// -gymSegment 必须给（gym-config.json 里的一个评估段）：没给时抛异常、什么都不写，免得误考测试段
     /// ——评估流水只追加，写进去就撤不回。
     /// 对每一个费率，让选中的 policy（默认六个都跑：买入持有、一直拿现金、seed 0 … n−1 上的随机 policy
@@ -76,7 +77,8 @@ namespace Gym.Editor
             GymSettings settings = GymConfigLoader.Load(configPath, GymConfigLoader.DefaultSymbolsPath, LoaderArgs(args));
             foreach (string note in settings.Notes) Debug.Log("[Gym] " + note);
             SegmentSpec segment = settings.EvalSegment;
-            var env = TradingEnv.ForSegment(settings.Series, settings.Rules, segment, settings.Config.initialCash, 0, 0);
+            var env = TradingEnv.ForSegment(settings.Series, settings.Rules, segment, settings.Config.initialCash, 0, 0,
+                settings.ObservationSet);
             JsonObject market = Market(env);
             Debug.Log($"[Gym] baselines for {settings.Rules.Symbol} ({settings.DataFile}) on {segment}: {Json(market)}");
 
@@ -215,7 +217,7 @@ namespace Gym.Editor
                 { "generated_by", "Gym.Editor.EvalTools.RunBaselines" },
                 { "symbol", settings.Rules.Symbol },
                 { "data_file", RecordPaths.PathForRecords(settings.DataFile) }, // 当前币的数据文件
-                { "segment", SegmentJson(settings.EvalSegment, settings.Series) },
+                { "segment", SegmentJson(settings.EvalSegment, settings.Series, settings.ObservationSet.HistoryLength()) },
                 { "market", market },
                 { "cost", new JsonObject { { "fee_rate", cost.FeeRate }, { "fixed_fee", cost.FixedFee }, { "slippage", cost.Slippage } } },
                 { "initial_cash", settings.Config.initialCash },
@@ -281,11 +283,12 @@ namespace Gym.Editor
                 runs[0].Steps, Median(r => r.InitialEquity), Median(r => r.FinalEquity));
         }
 
-        public static JsonObject SegmentJson(SegmentSpec segment, CandleSeries series)
+        /// <summary>分段的明细：评估从 max(段首, <paramref name="historyLength"/>) 开始（base 的历史长度是 32）。</summary>
+        public static JsonObject SegmentJson(SegmentSpec segment, CandleSeries series, int historyLength = ObservationBuilder.Lookback)
         {
             int first = segment.FirstIndex(series);
             int last = segment.LastIndex(series);
-            int start = Math.Max(first, ObservationBuilder.Lookback);
+            int start = Math.Max(first, historyLength);
             return new JsonObject
             {
                 { "name", segment.Name },
@@ -297,10 +300,10 @@ namespace Gym.Editor
             };
         }
 
-        /// <summary>分段的价格变化：从评估起点的 close 到最后一个 close。</summary>
+        /// <summary>分段的价格变化：从评估起点（max(段首, 观测集的历史长度)）的 close 到最后一个 close。</summary>
         public static JsonObject Market(TradingEnv env)
         {
-            int start = Math.Max(env.First, ObservationBuilder.Lookback);
+            int start = env.FirstDecisionIndex;
             CandleSeries s = env.Series;
             double startClose = s.CloseAt(start), endClose = s.CloseAt(env.Last);
             return new JsonObject

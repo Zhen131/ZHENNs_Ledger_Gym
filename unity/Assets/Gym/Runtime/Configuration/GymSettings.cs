@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Gym.Core.Env;
 using Gym.Core.Market;
 
 namespace Gym.Runtime.Configuration
@@ -27,6 +28,12 @@ namespace Gym.Runtime.Configuration
         public DateTime PlayStart;
         public int PlayStartIndex;
         public GymMode Mode;
+        /// <summary>
+        /// 命令行 -gymObs 选的观测集，没给时是配置里的 observationSet，再没有是 base。分段长度和 playStart 已按它的
+        /// 历史长度查过。训练时训练器的环境参数 obs_set 还能换一档，由 Agent 另查一遍（见
+        /// <see cref="GymConfigLoader.ProblemsWithObservationSet"/>），不改这里。
+        /// </summary>
+        public ObservationSet ObservationSet;
         /// <summary>-gymSegment 为评估选的分段（任何一个评估段的名字；默认 test）。</summary>
         public SegmentSpec EvalSegment;
         /// <summary>来自 -gymFeeRate / -gymFixedFee / -gymSlippage 的成本；没给时为 null。</summary>

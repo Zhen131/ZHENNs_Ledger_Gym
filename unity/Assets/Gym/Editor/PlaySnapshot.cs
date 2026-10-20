@@ -44,7 +44,8 @@ namespace Gym.Editor
             GymSettings s = GymConfigLoader.Load(GymConfigLoader.DefaultConfigPath, GymConfigLoader.DefaultSymbolsPath,
                 PlayChecklist.SymbolArgs(Environment.GetCommandLineArgs()));
             GymConfig c = s.Config;
-            var env = TradingEnv.ForSegment(s.Series, s.Rules, s.Train, c.initialCash, c.episodeLength, c.randomInitialPositionShare);
+            var env = TradingEnv.ForSegment(s.Series, s.Rules, s.Train, c.initialCash, c.episodeLength, c.randomInitialPositionShare,
+                s.ObservationSet);
             env.Reset(new CostModel(), s.PlayStartIndex);
 
             EditorSceneManager.OpenScene(GymSceneBuilder.PlayScenePath, OpenSceneMode.Single);
