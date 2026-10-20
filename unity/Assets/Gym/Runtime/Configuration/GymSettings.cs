@@ -53,6 +53,12 @@ namespace Gym.Runtime.Configuration
         public IReadOnlyList<SymbolSettings> Symbols = Array.Empty<SymbolSettings>();
         /// <summary>当前币：-gymSymbol 选的那只，没给时是主币（配置里的 symbol）。</summary>
         public SymbolSettings Current;
+        /// <summary>
+        /// 训练用的币（混训的清单），按清单里的顺序：-gymTrainSymbols 给的，没给时是配置里的 trainSymbols，再没有（或是空的）
+        /// 时只有当前币。清单里的名字都查过：是配置里的币、不是 evalOnly、不重复。训练模式的 Agent 开工前还要过一遍
+        /// <see cref="GymConfigLoader.ProblemsWithTraining"/>（当前币是 evalOnly 时拒绝）。只有训练模式的 Agent 用它。
+        /// </summary>
+        public IReadOnlyList<SymbolSettings> TrainSymbols = Array.Empty<SymbolSettings>();
 
         /// <summary>-gymSymbol 接受的名字，按配置里的顺序。</summary>
         public IReadOnlyList<string> SymbolNames
@@ -61,6 +67,17 @@ namespace Gym.Runtime.Configuration
             {
                 var names = new List<string>();
                 foreach (SymbolSettings symbol in Symbols) names.Add(symbol.Symbol);
+                return names;
+            }
+        }
+
+        /// <summary><see cref="TrainSymbols"/> 的名字，按清单里的顺序。</summary>
+        public IReadOnlyList<string> TrainSymbolNames
+        {
+            get
+            {
+                var names = new List<string>();
+                foreach (SymbolSettings symbol in TrainSymbols) names.Add(symbol.Symbol);
                 return names;
             }
         }

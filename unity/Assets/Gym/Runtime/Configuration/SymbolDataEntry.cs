@@ -12,7 +12,10 @@ namespace Gym.Runtime.Configuration
         public string symbol;
         /// <summary>和顶层的 dataFile 一样：相对路径先找配置文件旁边，再找 StreamingAssets/Gym。</summary>
         public string dataFile;
-        /// <summary>true：这只币只用来评估（没见过的卷子），混训的清单不许有它（15 批检查）。</summary>
+        /// <summary>
+        /// true：这只币只用来评估（没见过的卷子）。训练用的币（trainSymbols、-gymTrainSymbols）不许有它；
+        /// -gymSymbol 选了它时，训练模式的 Agent 也拒绝开工（见 GymConfigLoader.ProblemsWithTraining）。
+        /// </summary>
         public bool evalOnly;
     }
 }

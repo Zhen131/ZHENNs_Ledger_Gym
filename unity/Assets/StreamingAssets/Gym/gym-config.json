@@ -8,6 +8,7 @@
     { "symbol": "DOGEUSDT", "dataFile": "data/DOGEUSDT-1h.csv", "evalOnly": true },
     { "symbol": "XRPUSDT",  "dataFile": "data/XRPUSDT-1h.csv",  "evalOnly": false }
   ],
+  "trainSymbols": [],
   "initialCash": 10000,
   "episodeLength": 720,
   "randomInitialPositionShare": 0.5,

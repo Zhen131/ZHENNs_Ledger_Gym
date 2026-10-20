@@ -13,6 +13,7 @@ namespace Gym.Runtime.Configuration
     /// 从 StreamingAssets/Gym（或者 -gymConfig 给的文件）读 gym-config.json 和 symbols.json，
     /// 载入配置里每只币的数据，并对每只币检查分段的划分。-gymSymbol 选当前币，不给时是主币；
     /// -gymObs 选观测集，不给时是配置里的 observationSet，再没有是 base。-gymRiskAversion 给奖励的风险系数（≥ 0、有限）。
+    /// -gymTrainSymbols 给训练用的币（混训），不给时是配置里的 trainSymbols，再没有只用当前币。
     /// </summary>
     public static class GymConfigLoader
     {
@@ -25,6 +26,10 @@ namespace Gym.Runtime.Configuration
         public const string SymbolArg = "-gymSymbol";
         public const string ObservationSetArg = "-gymObs";
         public const string RiskAversionArg = "-gymRiskAversion";
+        /// <summary>训练用的币，逗号分隔，例如 -gymTrainSymbols BTCUSDT,ETHUSDT。盖过配置里的 trainSymbols。</summary>
+        public const string TrainSymbolsArg = "-gymTrainSymbols";
+        /// <summary>配置里训练用的币那个字段的名字（写进错误信息）。</summary>
+        public const string TrainSymbolsField = "trainSymbols";
 
         /// <summary>
         /// 能接受的最大 initialCash。从大约 1e12 起，double 能分辨的最小金额差达到 0.0001 USDT 甚至更大，
@@ -113,6 +118,7 @@ namespace Gym.Runtime.Configuration
             settings.Symbols = symbols;
             settings.Current = ChooseSymbol(args, config, symbols, errors);
             UseCurrentSymbol(settings);
+            settings.TrainSymbols = ReadTrainSymbols(args, config, settings, errors);
             CheckEvalSegmentName(evalSegmentName, extraNames, errors);
 
             var notes = new List<string>();
@@ -360,6 +366,102 @@ namespace Gym.Runtime.Configuration
                 errors.Add($"{SymbolArg} {wanted} is not one of the symbols in the config; " +
                            $"use {JoinWithOr(symbols.ConvertAll(s => s.Symbol))}");
             return chosen;
+        }
+
+        /// <summary>
+        /// 训练用的币：-gymTrainSymbols（逗号分隔，名字前后的空格不算，空的项跳过），没给时是配置里的 trainSymbols，
+        /// 再没有（或是空的）时只有当前币。配置里的清单不管有没有被命令行盖过都要对（和 observationSet 一样）。
+        /// 每个名字都要是配置里的币、不是 evalOnly、不重复（<see cref="ResolveTrainSymbols"/>）。
+        /// 当前币是 evalOnly 时这里不拒绝：评估、试玩和观战可以用它，训练模式的 Agent 开工前另查（<see cref="ProblemsWithTraining"/>）。
+        /// </summary>
+        static IReadOnlyList<SymbolSettings> ReadTrainSymbols(string[] args, GymConfig config, GymSettings settings, List<string> errors)
+        {
+            List<SymbolSettings> fromConfig = null;
+            if (config.trainSymbols != null && config.trainSymbols.Length > 0)
+                fromConfig = ResolveTrainSymbols(settings, config.trainSymbols, TrainSymbolsField, errors);
+            string text = CommandLineArgs.ValueOf(args, TrainSymbolsArg);
+            if (text != null)
+            {
+                string[] names = text.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                var trimmed = new List<string>();
+                foreach (string name in names)
+                    if (name.Trim().Length > 0) trimmed.Add(name.Trim());
+                if (trimmed.Count > 0) return ResolveTrainSymbols(settings, trimmed, TrainSymbolsArg, errors);
+                errors.Add($"{TrainSymbolsArg} '{text}' names no symbol; give one or more, separated by commas, " +
+                           $"for example {TrainSymbolsArg} BTCUSDT,ETHUSDT");
+            }
+            if (fromConfig != null) return fromConfig;
+            return settings.Current != null ? new[] { settings.Current } : Array.Empty<SymbolSettings>();
+        }
+
+        /// <summary>
+        /// 把训练用的币名换成配置里的币（不分大小写），按给的顺序。名字为空、不是配置里的币、是 evalOnly 的、或者重复时，
+        /// 各记一条错误（开头是 <paramref name="source"/>，例如 -gymTrainSymbols），这一项跳过；不是配置里的币和 evalOnly
+        /// 的那两种错误列出能训练的名字。载入器读 trainSymbols 和 -gymTrainSymbols 用它，Agent 的
+        /// <c>TrainSymbolsOverride</c>（只给测试用）也用它。
+        /// </summary>
+        public static List<SymbolSettings> ResolveTrainSymbols(GymSettings settings, IEnumerable<string> names, string source,
+            List<string> errors)
+        {
+            if (settings == null) throw new ArgumentNullException(nameof(settings));
+            var chosen = new List<SymbolSettings>();
+            foreach (string raw in names ?? Array.Empty<string>())
+            {
+                string name = raw?.Trim();
+                if (string.IsNullOrEmpty(name))
+                {
+                    errors.Add($"{source}: a symbol name is empty");
+                    continue;
+                }
+                if (!settings.TryGetSymbol(name, out SymbolSettings symbol))
+                {
+                    errors.Add($"{source}: {name} is not one of the symbols in the config; use {TrainableNamesText(settings)}");
+                    continue;
+                }
+                if (symbol.EvalOnly)
+                {
+                    errors.Add($"{source}: {symbol.Symbol} is evalOnly (only evaluated, never trained on); use {TrainableNamesText(settings)}");
+                    continue;
+                }
+                if (chosen.Contains(symbol))
+                {
+                    errors.Add($"{source}: {symbol.Symbol} is listed twice");
+                    continue;
+                }
+                chosen.Add(symbol);
+            }
+            return chosen;
+        }
+
+        /// <summary>
+        /// 训练模式的 Agent 开工前查一遍：当前币或训练用的币里有 evalOnly 的（实际上只会是 -gymSymbol 选了只考不训的币，
+        /// 清单里的 evalOnly 载入时已经拒绝了），或者清单是空的，返回每一条错误；都没有时返回空表。不改 <paramref name="settings"/>。
+        /// </summary>
+        public static List<string> ProblemsWithTraining(GymSettings settings, IReadOnlyList<SymbolSettings> trainSymbols)
+        {
+            if (settings == null) throw new ArgumentNullException(nameof(settings));
+            var errors = new List<string>();
+            if (settings.Current != null && settings.Current.EvalOnly)
+                errors.Add($"{settings.Current.Symbol} is evalOnly (only evaluated, never trained on), so a training agent cannot use it " +
+                           $"as the current symbol; choose another {SymbolArg} ({TrainableNamesText(settings)})");
+            if (trainSymbols == null || trainSymbols.Count == 0)
+            {
+                errors.Add("there is no symbol to train on");
+                return errors;
+            }
+            foreach (SymbolSettings symbol in trainSymbols)
+                if (symbol.EvalOnly && symbol != settings.Current)
+                    errors.Add($"{symbol.Symbol} is evalOnly (only evaluated, never trained on), so a training agent cannot use it");
+            return errors;
+        }
+
+        /// <summary>能训练的币（配置里不是 evalOnly 的），拼成 "a, b or c"。</summary>
+        static string TrainableNamesText(GymSettings settings)
+        {
+            var names = new List<string>();
+            foreach (SymbolSettings symbol in settings.Symbols)
+                if (!symbol.EvalOnly) names.Add(symbol.Symbol);
+            return JoinWithOr(names);
         }
 
         /// <summary>DataPath、DataFile、Rules、Series 指向当前币。</summary>

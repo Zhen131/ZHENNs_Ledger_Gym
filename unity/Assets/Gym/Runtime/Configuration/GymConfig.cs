@@ -16,6 +16,12 @@ namespace Gym.Runtime.Configuration
         /// JsonUtility 不支持字典，所以用数组。
         /// </summary>
         public SymbolDataEntry[] symbols;
+        /// <summary>
+        /// 训练用的币（混训的清单）：symbols 里的币名（不分大小写），不许有 evalOnly 的，不许重复。训练时每局从里面选一只，
+        /// 选哪只由这一局的 seed 定。空或没有时只用当前币（-gymSymbol 选的那只，没给时是主币）。
+        /// 命令行 -gymTrainSymbols 盖过它。
+        /// </summary>
+        public string[] trainSymbols;
         public double initialCash;
         public int episodeLength;
         public double randomInitialPositionShare;
