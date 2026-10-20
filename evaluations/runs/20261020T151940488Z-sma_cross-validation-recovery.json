@@ -1,0 +1,45 @@
+{
+  "timestamp_utc": "2026-10-20T15:19:40.488Z",
+  "kind": "baseline",
+  "policy": "sma_cross",
+  "generated_by": "Gym.Editor.EvalTools.RunBaselines",
+  "symbol": "XRPUSDT",
+  "data_file": "data/XRPUSDT-1h.csv",
+  "segment": {
+    "name": "validation-recovery",
+    "start_date": "2023-01-01",
+    "end_date": "2024-08-31",
+    "first_candle_utc": "2023-01-01T00:00:00.000Z",
+    "last_candle_utc": "2024-08-31T23:00:00.000Z",
+    "steps": 14615
+  },
+  "market": {
+    "start_candle_utc": "2023-01-01T00:00:00.000Z",
+    "start_open": 0.3389,
+    "start_close": 0.3385,
+    "end_candle_utc": "2024-08-31T23:00:00.000Z",
+    "end_close": 0.5662,
+    "change": 0.67267355982274735
+  },
+  "cost": {
+    "fee_rate": 0.001,
+    "fixed_fee": 0,
+    "slippage": 0
+  },
+  "initial_cash": 10000,
+  "seeds": 1,
+  "metrics": {
+    "total_return": -0.39526676303600006,
+    "max_drawdown": 0.56835060020992578,
+    "sharpe": -0.59282788701349132,
+    "trades": 33,
+    "rejected": 0,
+    "turnover": 30.732080571952313,
+    "fees_paid": 267.23393035999987,
+    "fees_pct": 2.6723393035999985,
+    "exposure": 0.4380431063975368,
+    "steps": 14615,
+    "initial_equity": 10000,
+    "final_equity": 6047.3323696399993
+  }
+}

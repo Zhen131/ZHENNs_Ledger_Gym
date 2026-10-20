@@ -1,0 +1,45 @@
+{
+  "timestamp_utc": "2026-10-20T15:18:56.672Z",
+  "kind": "baseline",
+  "policy": "sma_cross",
+  "generated_by": "Gym.Editor.EvalTools.RunBaselines",
+  "symbol": "ETHUSDT",
+  "data_file": "data/ETHUSDT-1h.csv",
+  "segment": {
+    "name": "validation-bear",
+    "start_date": "2022-01-01",
+    "end_date": "2022-12-31",
+    "first_candle_utc": "2022-01-01T00:00:00.000Z",
+    "last_candle_utc": "2022-12-31T23:00:00.000Z",
+    "steps": 8759
+  },
+  "market": {
+    "start_candle_utc": "2022-01-01T00:00:00.000Z",
+    "start_open": 3676.22,
+    "start_close": 3723.04,
+    "end_candle_utc": "2022-12-31T23:00:00.000Z",
+    "end_close": 1196.13,
+    "change": -0.67872222699729257
+  },
+  "cost": {
+    "fee_rate": 0.001,
+    "fixed_fee": 0,
+    "slippage": 0
+  },
+  "initial_cash": 10000,
+  "seeds": 1,
+  "metrics": {
+    "total_return": -0.206577397773,
+    "max_drawdown": 0.50999805404487464,
+    "sharpe": -0.47640491993797052,
+    "trades": 12,
+    "rejected": 0,
+    "turnover": 11.762330281742171,
+    "fees_paid": 111.67627972999999,
+    "fees_pct": 1.1167627972999998,
+    "exposure": 0.33519808197282797,
+    "steps": 8759,
+    "initial_equity": 10000,
+    "final_equity": 7934.2260222700006
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "timestamp_utc": "2026-10-20T15:19:14.299Z",
+  "kind": "baseline",
+  "policy": "sma_cross",
+  "generated_by": "Gym.Editor.EvalTools.RunBaselines",
+  "symbol": "ADAUSDT",
+  "data_file": "data/ADAUSDT-1h.csv",
+  "segment": {
+    "name": "validation-recovery",
+    "start_date": "2023-01-01",
+    "end_date": "2024-08-31",
+    "first_candle_utc": "2023-01-01T00:00:00.000Z",
+    "last_candle_utc": "2024-08-31T23:00:00.000Z",
+    "steps": 14615
+  },
+  "market": {
+    "start_candle_utc": "2023-01-01T00:00:00.000Z",
+    "start_open": 0.2458,
+    "start_close": 0.2445,
+    "end_candle_utc": "2024-08-31T23:00:00.000Z",
+    "end_close": 0.345,
+    "change": 0.41104294478527592
+  },
+  "cost": {
+    "fee_rate": 0.001,
+    "fixed_fee": 0,
+    "slippage": 0
+  },
+  "initial_cash": 10000,
+  "seeds": 1,
+  "metrics": {
+    "total_return": 0.508888618024,
+    "max_drawdown": 0.45979055064013896,
+    "sharpe": 0.46220277882364641,
+    "trades": 23,
+    "rejected": 0,
+    "turnover": 21.525604348874221,
+    "fees_paid": 319.53943976000005,
+    "fees_pct": 3.1953943976000003,
+    "exposure": 0.44837495723571674,
+    "steps": 14615,
+    "initial_equity": 10000,
+    "final_equity": 15088.88618024
+  }
+}

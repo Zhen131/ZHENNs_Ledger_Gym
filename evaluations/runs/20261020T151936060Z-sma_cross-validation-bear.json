@@ -1,0 +1,45 @@
+{
+  "timestamp_utc": "2026-10-20T15:19:36.060Z",
+  "kind": "baseline",
+  "policy": "sma_cross",
+  "generated_by": "Gym.Editor.EvalTools.RunBaselines",
+  "symbol": "XRPUSDT",
+  "data_file": "data/XRPUSDT-1h.csv",
+  "segment": {
+    "name": "validation-bear",
+    "start_date": "2022-01-01",
+    "end_date": "2022-12-31",
+    "first_candle_utc": "2022-01-01T00:00:00.000Z",
+    "last_candle_utc": "2022-12-31T23:00:00.000Z",
+    "steps": 8759
+  },
+  "market": {
+    "start_candle_utc": "2022-01-01T00:00:00.000Z",
+    "start_open": 0.8298,
+    "start_close": 0.8395,
+    "end_candle_utc": "2022-12-31T23:00:00.000Z",
+    "end_close": 0.3389,
+    "change": -0.59630732578916024
+  },
+  "cost": {
+    "fee_rate": 0.001,
+    "fixed_fee": 0,
+    "slippage": 0
+  },
+  "initial_cash": 10000,
+  "seeds": 1,
+  "metrics": {
+    "total_return": -0.073450284841999891,
+    "max_drawdown": 0.31531445764589072,
+    "sharpe": -0.14880903240830159,
+    "trades": 16,
+    "rejected": 0,
+    "turnover": 15.973283703551646,
+    "fees_paid": 145.31098842,
+    "fees_pct": 1.4531098842,
+    "exposure": 0.35426418540929328,
+    "steps": 8759,
+    "initial_equity": 10000,
+    "final_equity": 9265.49715158
+  }
+}

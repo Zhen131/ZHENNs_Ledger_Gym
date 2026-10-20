@@ -1,0 +1,45 @@
+{
+  "timestamp_utc": "2026-10-20T15:19:01.092Z",
+  "kind": "baseline",
+  "policy": "momentum_90d",
+  "generated_by": "Gym.Editor.EvalTools.RunBaselines",
+  "symbol": "ETHUSDT",
+  "data_file": "data/ETHUSDT-1h.csv",
+  "segment": {
+    "name": "validation-recovery",
+    "start_date": "2023-01-01",
+    "end_date": "2024-08-31",
+    "first_candle_utc": "2023-01-01T00:00:00.000Z",
+    "last_candle_utc": "2024-08-31T23:00:00.000Z",
+    "steps": 14615
+  },
+  "market": {
+    "start_candle_utc": "2023-01-01T00:00:00.000Z",
+    "start_open": 1196.13,
+    "start_close": 1194.09,
+    "end_candle_utc": "2024-08-31T23:00:00.000Z",
+    "end_close": 2513.01,
+    "change": 1.1045398588046131
+  },
+  "cost": {
+    "fee_rate": 0.001,
+    "fixed_fee": 0,
+    "slippage": 0
+  },
+  "initial_cash": 10000,
+  "seeds": 1,
+  "metrics": {
+    "total_return": 0.62454032562959738,
+    "max_drawdown": 0.33512105316167207,
+    "sharpe": 0.62374520273361145,
+    "trades": 124,
+    "rejected": 0,
+    "turnover": 123.42892291395887,
+    "fees_paid": 1690.3546337039993,
+    "fees_pct": 16.903546337039995,
+    "exposure": 0.70236058843653781,
+    "steps": 14615,
+    "initial_equity": 10000,
+    "final_equity": 16245.403256295973
+  }
+}

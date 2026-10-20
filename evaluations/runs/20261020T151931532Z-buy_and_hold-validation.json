@@ -1,0 +1,45 @@
+{
+  "timestamp_utc": "2026-10-20T15:19:31.532Z",
+  "kind": "baseline",
+  "policy": "buy_and_hold",
+  "generated_by": "Gym.Editor.EvalTools.RunBaselines",
+  "symbol": "DOGEUSDT",
+  "data_file": "data/DOGEUSDT-1h.csv",
+  "segment": {
+    "name": "validation",
+    "start_date": "2024-09-01",
+    "end_date": "2025-08-31",
+    "first_candle_utc": "2024-09-01T00:00:00.000Z",
+    "last_candle_utc": "2025-08-31T23:00:00.000Z",
+    "steps": 8759
+  },
+  "market": {
+    "start_candle_utc": "2024-09-01T00:00:00.000Z",
+    "start_open": 0.10128,
+    "start_close": 0.10112,
+    "end_candle_utc": "2025-08-31T23:00:00.000Z",
+    "end_close": 0.21371,
+    "change": 1.1134295886075951
+  },
+  "cost": {
+    "fee_rate": 0.001,
+    "fixed_fee": 0,
+    "slippage": 0
+  },
+  "initial_cash": 10000,
+  "seeds": 1,
+  "metrics": {
+    "total_return": 1.111522782867,
+    "max_drawdown": 0.723029694165719,
+    "sharpe": 0.71213773312269935,
+    "trades": 1,
+    "rejected": 0,
+    "turnover": 0.44893148335498051,
+    "fees_paid": 9.9899713300000013,
+    "fees_pct": 0.099899713300000012,
+    "exposure": 1,
+    "steps": 8759,
+    "initial_equity": 10000,
+    "final_equity": 21115.227828670002
+  }
+}

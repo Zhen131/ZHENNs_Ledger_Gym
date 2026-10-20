@@ -1,0 +1,45 @@
+{
+  "timestamp_utc": "2026-10-20T15:19:09.718Z",
+  "kind": "baseline",
+  "policy": "momentum_90d",
+  "generated_by": "Gym.Editor.EvalTools.RunBaselines",
+  "symbol": "ADAUSDT",
+  "data_file": "data/ADAUSDT-1h.csv",
+  "segment": {
+    "name": "validation-bear",
+    "start_date": "2022-01-01",
+    "end_date": "2022-12-31",
+    "first_candle_utc": "2022-01-01T00:00:00.000Z",
+    "last_candle_utc": "2022-12-31T23:00:00.000Z",
+    "steps": 8759
+  },
+  "market": {
+    "start_candle_utc": "2022-01-01T00:00:00.000Z",
+    "start_open": 1.308,
+    "start_close": 1.331,
+    "end_candle_utc": "2022-12-31T23:00:00.000Z",
+    "end_close": 0.2458,
+    "change": -0.81532682193839223
+  },
+  "cost": {
+    "fee_rate": 0.001,
+    "fixed_fee": 0,
+    "slippage": 0
+  },
+  "initial_cash": 10000,
+  "seeds": 1,
+  "metrics": {
+    "total_return": -0.188171778058,
+    "max_drawdown": 0.30026669118457161,
+    "sharpe": -1.3276989038562983,
+    "trades": 48,
+    "rejected": 0,
+    "turnover": 48.540562774662035,
+    "fees_paid": 455.85880058,
+    "fees_pct": 4.5585880058,
+    "exposure": 0.033222970658750996,
+    "steps": 8759,
+    "initial_equity": 10000,
+    "final_equity": 8118.28221942
+  }
+}

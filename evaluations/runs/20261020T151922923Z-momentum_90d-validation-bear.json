@@ -1,0 +1,45 @@
+{
+  "timestamp_utc": "2026-10-20T15:19:22.923Z",
+  "kind": "baseline",
+  "policy": "momentum_90d",
+  "generated_by": "Gym.Editor.EvalTools.RunBaselines",
+  "symbol": "DOGEUSDT",
+  "data_file": "data/DOGEUSDT-1h.csv",
+  "segment": {
+    "name": "validation-bear",
+    "start_date": "2022-01-01",
+    "end_date": "2022-12-31",
+    "first_candle_utc": "2022-01-01T00:00:00.000Z",
+    "last_candle_utc": "2022-12-31T23:00:00.000Z",
+    "steps": 8759
+  },
+  "market": {
+    "start_candle_utc": "2022-01-01T00:00:00.000Z",
+    "start_open": 0.1703,
+    "start_close": 0.1719,
+    "end_candle_utc": "2022-12-31T23:00:00.000Z",
+    "end_close": 0.07025,
+    "change": -0.5913321698662013
+  },
+  "cost": {
+    "fee_rate": 0.001,
+    "fixed_fee": 0,
+    "slippage": 0
+  },
+  "initial_cash": 10000,
+  "seeds": 1,
+  "metrics": {
+    "total_return": -0.43523437754500061,
+    "max_drawdown": 0.59633672040513352,
+    "sharpe": -0.86252872783862677,
+    "trades": 81,
+    "rejected": 0,
+    "turnover": 73.069531547269662,
+    "fees_paid": 589.69259545,
+    "fees_pct": 5.8969259545,
+    "exposure": 0.21783308596871789,
+    "steps": 8759,
+    "initial_equity": 10000,
+    "final_equity": 5647.6562245499945
+  }
+}

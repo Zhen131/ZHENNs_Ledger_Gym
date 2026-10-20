@@ -1,0 +1,45 @@
+{
+  "timestamp_utc": "2026-10-20T15:19:44.851Z",
+  "kind": "baseline",
+  "policy": "momentum_90d",
+  "generated_by": "Gym.Editor.EvalTools.RunBaselines",
+  "symbol": "XRPUSDT",
+  "data_file": "data/XRPUSDT-1h.csv",
+  "segment": {
+    "name": "validation",
+    "start_date": "2024-09-01",
+    "end_date": "2025-08-31",
+    "first_candle_utc": "2024-09-01T00:00:00.000Z",
+    "last_candle_utc": "2025-08-31T23:00:00.000Z",
+    "steps": 8759
+  },
+  "market": {
+    "start_candle_utc": "2024-09-01T00:00:00.000Z",
+    "start_open": 0.5662,
+    "start_close": 0.5651,
+    "end_candle_utc": "2025-08-31T23:00:00.000Z",
+    "end_close": 2.7757,
+    "change": 3.9118740046009552
+  },
+  "cost": {
+    "fee_rate": 0.001,
+    "fixed_fee": 0,
+    "slippage": 0
+  },
+  "initial_cash": 10000,
+  "seeds": 1,
+  "metrics": {
+    "total_return": 1.1758891150800004,
+    "max_drawdown": 0.68452215123778293,
+    "sharpe": 0.87331840903472835,
+    "trades": 121,
+    "rejected": 0,
+    "turnover": 100.23529513047919,
+    "fees_paid": 2366.5206691999997,
+    "fees_pct": 23.665206691999995,
+    "exposure": 0.68409635803173874,
+    "steps": 8759,
+    "initial_equity": 10000,
+    "final_equity": 21758.891150800002
+  }
+}
