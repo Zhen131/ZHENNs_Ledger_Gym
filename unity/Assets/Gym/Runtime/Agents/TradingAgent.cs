@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Gym.Core.Accounting;
 using Gym.Core.Env;
 using Gym.Core.Evaluation;
@@ -36,6 +37,8 @@ namespace Gym.Runtime.Agents
 
         /// <summary>按当前观测集的大小分配（<see cref="Initialize"/> 里）。</summary>
         float[] observation = Array.Empty<float>();
+        /// <summary>训练模式下训练用的每只币一个环境（按清单的顺序）；别的模式只有当前币一个。<see cref="Env"/> 是其中正在用的那个。</summary>
+        TradingEnv[] envs = Array.Empty<TradingEnv>();
         System.Random seedSource;
         bool firstEpisodeLogged;
 
@@ -77,11 +80,23 @@ namespace Gym.Runtime.Agents
         /// </summary>
         public ObservationSet? ObservationSetOverride { get; set; }
 
+        /// <summary>
+        /// 测试用：有值时训练模式的 Agent 用这份清单（币名）混训，不看 -gymTrainSymbols 和配置里的 trainSymbols；
+        /// 名字照样要是配置里的币、不是 evalOnly、不重复。要在 Agent 启用之前设。训练和评估都不设它（为 null），走原来的路。
+        /// </summary>
+        public IReadOnlyList<string> TrainSymbolsOverride { get; set; }
+
         /// <summary>这个 Agent 实际用的观测集（<see cref="Initialize"/> 之后才有意义）。</summary>
         public ObservationSet ObservationSet => Env != null ? Env.ObservationSet : ObservationSet.Base;
 
         public GymSettings Settings { get; private set; }
+        /// <summary>这一局用的环境。训练模式下有几只训练用的币，每局开始时就在 <see cref="Envs"/> 里按本局的 seed 选一个。</summary>
         public TradingEnv Env { get; private set; }
+        /// <summary>
+        /// 这个 Agent 的所有环境：训练模式下训练用的每只币一个（各用这只币裁过的训练段、同一档观测），按清单的顺序；
+        /// 别的模式（评估、试玩、观战）只有当前币一个。
+        /// </summary>
+        public IReadOnlyList<TradingEnv> Envs => envs;
         public int MasterSeed { get; private set; }
         /// <summary>seed 来自 mlagents-learn（--seed）时为 Trainer，否则为 Clock。</summary>
         public SeedSource MasterSeedSource { get; private set; }
@@ -114,10 +129,32 @@ namespace Gym.Runtime.Agents
             ObservationSet observationSet = ChooseObservationSet(academy);
             AgentStartMode mode = EffectiveMode;
             SegmentSpec segment;
+            IReadOnlyList<SymbolSettings> trainSymbols = null;
             if (SegmentOverride.HasValue) segment = SegmentFor(SegmentOverride.Value);
-            else segment = mode == AgentStartMode.Evaluation ? Settings.EvalSegment : Settings.Train;
-            Env = TradingEnv.ForSegment(Settings.Series, Settings.Rules, segment,
-                c.initialCash, c.episodeLength, c.randomInitialPositionShare, observationSet);
+            else if (mode == AgentStartMode.Evaluation) segment = Settings.EvalSegment;
+            else if (mode == AgentStartMode.Training)
+            {
+                trainSymbols = ChooseTrainSymbols();
+                segment = trainSymbols[0].Train;
+            }
+            else segment = Settings.Train; // 试玩：当前币的训练段
+            if (trainSymbols != null)
+            {
+                // 训练：清单里每只币一个环境，各用这只币裁过的训练段；只有当前币一只时就是改动前的那一个环境
+                envs = new TradingEnv[trainSymbols.Count];
+                for (int i = 0; i < envs.Length; i++)
+                    envs[i] = TradingEnv.ForSegment(trainSymbols[i].Series, trainSymbols[i].Rules, trainSymbols[i].Train,
+                        c.initialCash, c.episodeLength, c.randomInitialPositionShare, observationSet);
+            }
+            else
+            {
+                envs = new[]
+                {
+                    TradingEnv.ForSegment(Settings.Series, Settings.Rules, segment,
+                        c.initialCash, c.episodeLength, c.randomInitialPositionShare, observationSet),
+                };
+            }
+            Env = envs[0];
             UseObservationSize(observationSet.Size());
             int trainerSeed = 0;
             bool fromTrainer = academy.IsCommunicatorOn && MasterSeedChooser.TryReadTrainerSeed(academy, out trainerSeed);
@@ -128,6 +165,9 @@ namespace Gym.Runtime.Agents
             Debug.Log($"[Gym] {name}: index {agentIndex}, mode {mode}, segment {segment}, observations {observationSet.Name()} " +
                       $"({observationSet.Size()} numbers, history {observationSet.HistoryLength()}), " +
                       $"master seed {MasterSeed} ({MasterSeedChooser.LogName(MasterSeedSource)})");
+            if (trainSymbols != null)
+                Debug.Log($"[Gym] {name}: training symbols {TrainSymbolsText(trainSymbols)}" +
+                          (trainSymbols.Count > 1 ? "; each episode picks one from its episode seed" : ""));
             if (mode != AgentStartMode.Training) ResetEnv(); // 这样 view 和 runner 在第一个 step 之前就能读到起点
         }
 
@@ -204,6 +244,8 @@ namespace Gym.Runtime.Agents
                     firstEpisodeLogged = true;
                     Debug.Log($"[Gym] {name}: first episode seed {EpisodeSeed}");
                 }
+                // 选币只看本局的 seed（不再从 seedSource 抽数）；只有一只币时恒为 0，Env 不变
+                Env = envs[SymbolPicker.Pick(EpisodeSeed, envs.Length)];
                 Env.ResetForTraining(EpisodeSeed, cost, riskAversion);
             }
             HasStepped = false;
@@ -297,6 +339,30 @@ namespace Gym.Runtime.Agents
             observation = new float[size];
         }
 
+        /// <summary>
+        /// 训练模式的 Agent 用哪些币：<see cref="TrainSymbolsOverride"/>，否则 <see cref="GymSettings.TrainSymbols"/>
+        /// （-gymTrainSymbols、配置里的 trainSymbols，或者只有当前币）。再查一遍 <see cref="GymConfigLoader.ProblemsWithTraining"/>：
+        /// 当前币是 evalOnly（只考不训）时报错（player 以退出码 1 退出）。
+        /// </summary>
+        IReadOnlyList<SymbolSettings> ChooseTrainSymbols()
+        {
+            IReadOnlyList<SymbolSettings> chosen = Settings.TrainSymbols;
+            var errors = new List<string>();
+            if (TrainSymbolsOverride != null)
+                chosen = GymConfigLoader.ResolveTrainSymbols(Settings, TrainSymbolsOverride, nameof(TrainSymbolsOverride), errors);
+            if (errors.Count == 0) errors.AddRange(GymConfigLoader.ProblemsWithTraining(Settings, chosen));
+            if (errors.Count > 0) throw GymConfigLoader.FailAtRuntime(errors);
+            return chosen;
+        }
+
+        /// <summary>日志里的清单，例如 "BTCUSDT (train 2017-08-17..2021-12-31), ADAUSDT (train 2018-04-17..2021-12-31)"。</summary>
+        static string TrainSymbolsText(IReadOnlyList<SymbolSettings> symbols)
+        {
+            var parts = new List<string>();
+            foreach (SymbolSettings symbol in symbols) parts.Add($"{symbol.Symbol} ({symbol.Train})");
+            return string.Join(", ", parts);
+        }
+
         /// <summary><see cref="SegmentOverride"/> 选的那个评估分段。</summary>
         SegmentSpec SegmentFor(EvaluationSegment which) =>
             which == EvaluationSegment.Validation ? Settings.Validation : Settings.Test;
@@ -328,6 +394,17 @@ namespace Gym.Runtime.Agents
             recorder.Add("Trading/FixedFee", (float)stats.FixedFee, StatAggregationMethod.Average);
             recorder.Add("Trading/RiskAversion", (float)stats.RiskAversion, StatAggregationMethod.Average);
             recorder.Add("Trading/RiskPenalty", (float)stats.RiskPenalty, StatAggregationMethod.Average);
+            // 每只币各记一条：本局是这只记 1、不是记 0，按平均聚合就是各币的占比
+            foreach ((string key, float value) in EpisodeStats.SymbolShares(SymbolNames(), Env.Rules.Symbol))
+                recorder.Add(key, value, StatAggregationMethod.Average);
+        }
+
+        /// <summary><see cref="Envs"/> 的币名，按顺序。</summary>
+        List<string> SymbolNames()
+        {
+            var names = new List<string>(envs.Length);
+            foreach (TradingEnv env in envs) names.Add(env.Rules.Symbol);
+            return names;
         }
     }
 }

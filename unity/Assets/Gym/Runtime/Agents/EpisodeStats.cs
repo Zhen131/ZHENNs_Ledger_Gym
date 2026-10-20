@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Gym.Core.Accounting;
 using Gym.Core.Env;
 
@@ -6,6 +8,9 @@ namespace Gym.Runtime.Agents
     /// <summary>episode 结束时发给 TensorBoard 的数字，放在 Trading/… 下面。</summary>
     public readonly struct EpisodeStats
     {
+        /// <summary>每只币占比曲线的前缀：Trading/SymbolShare/&lt;币名&gt;。</summary>
+        public const string SymbolSharePrefix = "Trading/SymbolShare/";
+
         /// <summary>Final equity ÷ initial equity − 1.</summary>
         public readonly double Return;
         public readonly int Trades;
@@ -40,6 +45,19 @@ namespace Gym.Runtime.Agents
             Steps = steps;
             RiskAversion = riskAversion;
             RiskPenalty = riskPenalty;
+        }
+
+        /// <summary>
+        /// 一局结束时每只币各记一条：键是 <see cref="SymbolSharePrefix"/> 加币名，本局用的是这只记 1，不是记 0
+        /// （按平均聚合，曲线就是这段时间里各币的局数占比）。按 <paramref name="symbols"/> 的顺序，比较币名时分大小写。
+        /// </summary>
+        public static List<(string key, float value)> SymbolShares(IReadOnlyList<string> symbols, string current)
+        {
+            if (symbols == null) throw new ArgumentNullException(nameof(symbols));
+            var shares = new List<(string, float)>(symbols.Count);
+            foreach (string symbol in symbols)
+                shares.Add((SymbolSharePrefix + symbol, symbol == current ? 1f : 0f));
+            return shares;
         }
 
         public static EpisodeStats From(TradingEnv env)
