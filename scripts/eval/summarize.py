@@ -21,7 +21,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-POLICY_ORDER = {"buy_and_hold": 0, "cash": 1, "random": 2, "agent": 3}
+POLICY_ORDER = {"buy_and_hold": 0, "cash": 1, "random": 2, "momentum_90d": 3, "sma_cross": 4, "vol_target": 5, "agent": 6}
 
 
 def policy_label(row: dict) -> str:

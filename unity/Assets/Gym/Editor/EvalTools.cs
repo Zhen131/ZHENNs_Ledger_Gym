@@ -19,13 +19,13 @@ namespace Gym.Editor
     ///
     ///   Unity -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.EvalTools.RunBaselines
     ///         -gymSegment validation -gymFeeRates 0,0.001,0.003 -gymRandomSeeds 100 -gymOut "$PWD/evaluations"
-    ///         [-gymPolicies buyhold,cash,random] -quit
+    ///         [-gymPolicies buyhold,cash,random,momentum,sma,voltarget] -quit
     ///
     /// -gymSegment 必须给（gym-config.json 里的一个评估段）：没给时抛异常、什么都不写，免得误考测试段
     /// ——评估流水只追加，写进去就撤不回。
-    /// 对每一个费率，让选中的 policy（默认三个都跑：买入持有、一直拿现金，以及 seed 0 … n−1 上的
-    /// 随机 policy，seed 经 SeedMixer 打散）在评估模式下走 TradingEnv；每个 policy 往 log.csv 追加一行，
-    /// 并在 runs/ 下写一份明细 JSON。
+    /// 对每一个费率，让选中的 policy（默认六个都跑：买入持有、一直拿现金、seed 0 … n−1 上的随机 policy
+    /// （seed 经 SeedMixer 打散），以及三条规则 momentum_90d、sma_cross、vol_target）在评估模式下走
+    /// TradingEnv；每个 policy 往 log.csv 追加一行，并在 runs/ 下写一份明细 JSON。
     /// </summary>
     public static class EvalTools
     {
@@ -36,7 +36,11 @@ namespace Gym.Editor
         public const string BuyAndHoldPolicy = "buyhold";
         public const string CashPolicy = "cash";
         public const string RandomPolicy = "random";
-        public static readonly string[] PolicyNames = { BuyAndHoldPolicy, CashPolicy, RandomPolicy };
+        public const string MomentumPolicy = "momentum";
+        public const string SmaCrossPolicy = "sma";
+        public const string VolTargetPolicy = "voltarget";
+        public static readonly string[] PolicyNames =
+            { BuyAndHoldPolicy, CashPolicy, RandomPolicy, MomentumPolicy, SmaCrossPolicy, VolTargetPolicy };
 
         static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
@@ -93,6 +97,13 @@ namespace Gym.Editor
                 }
 
                 if (policies.Contains(RandomPolicy)) RunRandomPolicy(outDir, settings, env, market, cost, seeds);
+
+                if (policies.Contains(MomentumPolicy))
+                    RunRulePolicy(outDir, settings, market, cost, Baselines.MomentumName, Baselines.RunMomentum(env, cost));
+                if (policies.Contains(SmaCrossPolicy))
+                    RunRulePolicy(outDir, settings, market, cost, Baselines.SmaCrossName, Baselines.RunSmaCross(env, cost));
+                if (policies.Contains(VolTargetPolicy))
+                    RunRulePolicy(outDir, settings, market, cost, Baselines.VolTargetName, Baselines.RunVolTarget(env, cost));
             }
 
             string logPath = Path.Combine(outDir, EvaluationLog.FileName);
@@ -126,6 +137,14 @@ namespace Gym.Editor
             text.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(x => double.Parse(x.Trim(), NumberStyles.Float, Inv)).ToArray();
 
+        /// <summary>一条规则：和买入持有一样只跑一次，写一行和一份明细文件。</summary>
+        static void RunRulePolicy(string outDir, GymSettings settings, JsonObject market, CostModel cost,
+            string policy, EpisodeMetrics metrics)
+        {
+            WriteSingleRun(outDir, settings, cost, market, policy, metrics);
+            Debug.Log($"[Gym] fee {cost.FeeRate}: {policy} {metrics.TotalReturn:P2} ({metrics.Trades} trades)");
+        }
+
         /// <summary>seed 0 … n−1 上的随机 policy：评估流水里一行记中位数，明细文件里记每个 seed。</summary>
         static void RunRandomPolicy(string outDir, GymSettings settings, TradingEnv env, JsonObject market, CostModel cost, int seeds)
         {
@@ -140,7 +159,7 @@ namespace Gym.Editor
             Debug.Log($"[Gym] fee {cost.FeeRate}: random median {median.TotalReturn:P2} (p5 {p5:P2}, p95 {p95:P2})");
         }
 
-        /// <summary>只运行一次的 policy（买入持有、一直拿现金）：写评估流水的一行，和一份带指标的明细文件。</summary>
+        /// <summary>只运行一次的 policy（买入持有、一直拿现金、三条规则）：写评估流水的一行，和一份带指标的明细文件。</summary>
         static void WriteSingleRun(string outDir, GymSettings settings, CostModel cost, JsonObject market,
             string policy, EpisodeMetrics metrics)
         {
@@ -233,7 +252,7 @@ namespace Gym.Editor
             EvaluationLog.WriteRunDetails(outDir, now, record.Policy, record.Segment, details);
         }
 
-        /// <summary>-gymPolicies：buyhold、cash、random 里用逗号分隔的一部分；没给时三个都要。</summary>
+        /// <summary>-gymPolicies：buyhold、cash、random、momentum、sma、voltarget 里用逗号分隔的一部分；没给时六个都要。</summary>
         public static HashSet<string> ParsePolicies(string text)
         {
             if (string.IsNullOrWhiteSpace(text)) return new HashSet<string>(PolicyNames);

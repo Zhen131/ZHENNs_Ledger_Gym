@@ -26,10 +26,10 @@ namespace Gym.Tests.Editor
         [Test]
         public void PoliciesArgument_DefaultsToAllThreeAndRejectsUnknownNames()
         {
-            CollectionAssert.AreEquivalent(new[] { "buyhold", "cash", "random" }, EvalTools.ParsePolicies(null));
+            CollectionAssert.AreEquivalent(new[] { "buyhold", "cash", "random", "momentum", "sma", "voltarget" }, EvalTools.ParsePolicies(null));
             CollectionAssert.AreEquivalent(new[] { "random" }, EvalTools.ParsePolicies("random"));
             CollectionAssert.AreEquivalent(new[] { "cash", "random" }, EvalTools.ParsePolicies(" Random , cash "));
-            Assert.Throws<ArgumentException>(() => EvalTools.ParsePolicies("random,momentum"));
+            Assert.Throws<ArgumentException>(() => EvalTools.ParsePolicies("random,martingale"));
             Assert.Throws<ArgumentException>(() => EvalTools.ParsePolicies(","));
         }
 
@@ -93,13 +93,42 @@ namespace Gym.Tests.Editor
         {
             EvalTools.Run(new[] { "x", "-gymSegment", "validation", "-gymFeeRates", "0.001", "-gymRandomSeeds", "2", "-gymOut", tempDir });
             string[] files = Directory.GetFiles(tempDir, "*", SearchOption.AllDirectories);
-            Assert.AreEqual(4, files.Length, "log.csv and one JSON per policy"); // 买入持有、一直拿现金、随机
+            // log.csv，加上每个只跑一次的 policy 各一份（买入持有、一直拿现金、三条规则），随机 policy 一份
+            Assert.AreEqual(1 + 5 + 1, files.Length, "log.csv and one JSON per policy");
             foreach (string file in files)
             {
                 string text = File.ReadAllText(file);
                 RecordFileAssert.NoMachinePath(text, file);
                 if (file.EndsWith(".json")) StringAssert.Contains("\"data_file\": \"data/BTCUSDT-1h.csv\"", text, file);
             }
+        }
+
+        [Test]
+        public void RulePolicies_AreLoggedUnderTheirUnderscoredNames()
+        {
+            EvalTools.Run(new[]
+            {
+                "x", "-gymSegment", "validation-bear", "-gymPolicies", "momentum,sma,voltarget", "-gymFeeRates", "0,0.001",
+                "-gymOut", tempDir,
+            });
+            string[] lines = File.ReadAllLines(Path.Combine(tempDir, "log.csv"));
+            string[] header = lines[0].Split(',');
+            int policy = Array.IndexOf(header, "policy"), segment = Array.IndexOf(header, "segment"), fee = Array.IndexOf(header, "fee_rate");
+            var rows = new System.Collections.Generic.List<string>();
+            for (int i = 1; i < lines.Length; i++)
+            {
+                string[] cells = lines[i].Split(',');
+                rows.Add($"{cells[policy]} {cells[segment]} {cells[fee]}");
+            }
+            CollectionAssert.AreEqual(new[]
+            {
+                "momentum_90d validation-bear 0", "sma_cross validation-bear 0", "vol_target validation-bear 0",
+                "momentum_90d validation-bear 0.001", "sma_cross validation-bear 0.001", "vol_target validation-bear 0.001",
+            }, rows);
+            string[] details = Directory.GetFiles(Path.Combine(tempDir, "runs"), "*.json");
+            Assert.AreEqual(6, details.Length);
+            foreach (string name in new[] { "momentum_90d", "sma_cross", "vol_target" })
+                Assert.AreEqual(2, Array.FindAll(details, f => f.EndsWith($"-{name}-validation-bear.json") || f.Contains($"-{name}-validation-bear-")).Length, name);
         }
     }
 }
