@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -16,7 +17,7 @@ namespace Gym.Editor
     /// 用 TradingEnv 按默认配置算出来。同时也写一份 Logs/play-checklist.md。
     /// 左下角口袋应该显示的现金变化、飘字和盈亏另写一份 Logs/play-checklist-pnl.md（前一份的内容不变）。
     ///
-    ///   Unity -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.PlayChecklist.Print -quit
+    ///   Unity -batchmode -nographics -projectPath "$PWD/unity" -executeMethod Gym.Editor.PlayChecklist.Print [-gymSymbol ETHUSDT] -quit
     /// </summary>
     public static class PlayChecklist
     {
@@ -30,7 +31,8 @@ namespace Gym.Editor
         [MenuItem("Gym/Print Play Checklist")]
         public static void Print()
         {
-            GymSettings s = GymConfigLoader.Load(GymConfigLoader.DefaultConfigPath, GymConfigLoader.DefaultSymbolsPath);
+            GymSettings s = GymConfigLoader.Load(GymConfigLoader.DefaultConfigPath, GymConfigLoader.DefaultSymbolsPath,
+                SymbolArgs(Environment.GetCommandLineArgs()));
             var cost = new CostModel(CostModel.DefaultFeeRate, 0, 0);
             TradingEnv env = StartAtPlayStart(s, cost);
 
@@ -38,7 +40,7 @@ namespace Gym.Editor
             var md = new StringBuilder();
             md.AppendLine($"Start: {s.Series.OpenTimeUtc(env.CurrentIndex).ToString("yyyy-MM-dd HH:mm", inv)} UTC, close {env.CurrentClose.ToString("F2", inv)}, cash {env.Account.Cash.ToString("F4", inv)}, fee {cost.FeeRate}, fixed {cost.FixedFee}, slippage {cost.Slippage}");
             md.AppendLine();
-            md.AppendLine("| Step | Keys | Candle now (UTC) | Fill price | Cash | Coin units | Coin BTC | Fee this step | Equity | Fees total | Trades | Rejected |");
+            md.AppendLine($"| Step | Keys | Candle now (UTC) | Fill price | Cash | Coin units | Coin {PlayText.BaseAsset(s.Rules.Symbol)} | Fee this step | Equity | Fees total | Trades | Rejected |");
             md.AppendLine("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |");
 
             for (int i = 0; i < Presses.Length; i++)
@@ -59,6 +61,13 @@ namespace Gym.Editor
             Debug.Log("[Gym] Play checklist\n" + report);
 
             WriteProfitAndLoss(s, cost);
+        }
+
+        /// <summary>只把命令行里的 -gymSymbol（选试玩的币）交给配置载入；没有时为空，用主币。</summary>
+        public static string[] SymbolArgs(string[] commandLine)
+        {
+            string symbol = CommandLineArgs.ValueOf(commandLine, GymConfigLoader.SymbolArg);
+            return symbol == null ? Array.Empty<string>() : new[] { GymConfigLoader.SymbolArg, symbol };
         }
 
         static TradingEnv StartAtPlayStart(GymSettings s, CostModel cost)

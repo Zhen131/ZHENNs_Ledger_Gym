@@ -7,6 +7,8 @@ namespace Gym.Runtime.Play
     public struct HudSnapshot
     {
         public bool Ready;
+        /// <summary>币对名（例如 BTCUSDT），持币那一行由它推出基础资产名。</summary>
+        public string Symbol;
         public DateTime TimeUtc;
         public double Close;
         public double Cash;

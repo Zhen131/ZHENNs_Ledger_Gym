@@ -25,7 +25,7 @@ namespace Gym.Editor
     ///
     /// 画面上的东西都由那台相机画（字是 TextMesh），所以图里什么都有。需要图形设备（运行时不要加 -nographics）：
     ///
-    ///   Unity -batchmode -projectPath "$PWD/unity" -executeMethod Gym.Editor.PlaySnapshot.Render -quit
+    ///   Unity -batchmode -projectPath "$PWD/unity" -executeMethod Gym.Editor.PlaySnapshot.Render [-gymSymbol ETHUSDT] -quit
     /// </summary>
     public static class PlaySnapshot
     {
@@ -41,7 +41,8 @@ namespace Gym.Editor
         [MenuItem("Gym/Render Play Snapshot")]
         public static void Render()
         {
-            GymSettings s = GymConfigLoader.Load(GymConfigLoader.DefaultConfigPath, GymConfigLoader.DefaultSymbolsPath);
+            GymSettings s = GymConfigLoader.Load(GymConfigLoader.DefaultConfigPath, GymConfigLoader.DefaultSymbolsPath,
+                PlayChecklist.SymbolArgs(Environment.GetCommandLineArgs()));
             GymConfig c = s.Config;
             var env = TradingEnv.ForSegment(s.Series, s.Rules, s.Train, c.initialCash, c.episodeLength, c.randomInitialPositionShare);
             env.Reset(new CostModel(), s.PlayStartIndex);

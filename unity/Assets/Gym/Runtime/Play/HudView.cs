@@ -131,6 +131,7 @@ namespace Gym.Runtime.Play
             return new HudSnapshot
             {
                 Ready = true,
+                Symbol = env.Rules.Symbol,
                 TimeUtc = env.Series.OpenTimeUtc(env.CurrentIndex),
                 Close = close,
                 Cash = a.Cash,

@@ -41,8 +41,8 @@ namespace Gym.Tests.Runtime.Play
         [Test]
         public void Format_FillsInNumbersThatAreAlreadyWrittenTheEnglishWay()
         {
-            Assert.AreEqual("0.05879 BTC（5879 个单位）", PlayText.Format(PlayTextKey.CoinAmount, PlayLanguage.Chinese, "0.05879", 5879));
-            Assert.AreEqual("0.05879 BTC (5879 units)", PlayText.Format(PlayTextKey.CoinAmount, PlayLanguage.English, "0.05879", 5879));
+            Assert.AreEqual("0.05879 BTC（5879 个单位）", PlayText.Format(PlayTextKey.CoinAmount, PlayLanguage.Chinese, "0.05879", 5879, PlayText.BaseAsset("BTCUSDT")));
+            Assert.AreEqual("0.05879 ETH (5879 units)", PlayText.Format(PlayTextKey.CoinAmount, PlayLanguage.English, "0.05879", 5879, PlayText.BaseAsset("ETHUSDT")));
             Assert.AreEqual("买入 25% 成交", PlayText.Format(PlayTextKey.ActionBuyFilled, PlayLanguage.Chinese, "25%"));
             Assert.AreEqual("BUY 25%: filled", PlayText.Format(PlayTextKey.ActionBuyFilled, PlayLanguage.English, "25%"));
         }

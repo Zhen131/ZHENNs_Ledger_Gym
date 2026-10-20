@@ -19,7 +19,8 @@ namespace Gym.Runtime.Play
                 [PlayTextKey.Close] = ("收盘价", "Close"),
                 [PlayTextKey.Cash] = ("现金", "Cash"),
                 [PlayTextKey.Coin] = ("持币", "Coin"),
-                [PlayTextKey.CoinAmount] = ("{0} BTC（{1} 个单位）", "{0} BTC ({1} units)"),
+                // {2} 是基础资产名，由当前币推出来（BTCUSDT → BTC），见 BaseAsset
+                [PlayTextKey.CoinAmount] = ("{0} {2}（{1} 个单位）", "{0} {2} ({1} units)"),
                 [PlayTextKey.Position] = ("仓位", "Position"),
                 [PlayTextKey.Equity] = ("总资产", "Equity"),
                 [PlayTextKey.Return] = ("累计收益", "Return"),
@@ -69,5 +70,18 @@ namespace Gym.Runtime.Play
 
         public static string Format(PlayTextKey key, PlayLanguage language, params object[] values) =>
             string.Format(CultureInfo.InvariantCulture, Get(key, language), values);
+
+        /// <summary>
+        /// 币对名里的基础资产：去掉结尾的 USDT（BTCUSDT → BTC、DOGEUSDT → DOGE）。不以 USDT 结尾的名字原样返回，
+        /// 没有名字时返回空串。
+        /// </summary>
+        public static string BaseAsset(string symbol)
+        {
+            const string Quote = "USDT";
+            if (string.IsNullOrEmpty(symbol)) return "";
+            return symbol.Length > Quote.Length && symbol.EndsWith(Quote, StringComparison.Ordinal)
+                ? symbol.Substring(0, symbol.Length - Quote.Length)
+                : symbol;
+        }
     }
 }

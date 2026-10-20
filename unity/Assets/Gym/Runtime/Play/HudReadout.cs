@@ -30,7 +30,9 @@ namespace Gym.Runtime.Play
                 case PlayTextKey.Step: return s.Step.ToString(Numbers);
                 case PlayTextKey.Close: return s.Close.ToString("N2", Numbers);
                 case PlayTextKey.Cash: return s.Cash.ToString("N4", Numbers) + " USDT";
-                case PlayTextKey.Coin: return PlayText.Format(PlayTextKey.CoinAmount, language, s.Quantity.ToString("F5", Numbers), s.CoinUnits);
+                case PlayTextKey.Coin:
+                    return PlayText.Format(PlayTextKey.CoinAmount, language, s.Quantity.ToString("F5", Numbers), s.CoinUnits,
+                        PlayText.BaseAsset(s.Symbol));
                 case PlayTextKey.Position: return (s.PositionRatio * 100).ToString("F2", Numbers) + " %";
                 case PlayTextKey.Equity: return s.Equity.ToString("N4", Numbers) + " USDT";
                 case PlayTextKey.Return: return (s.Return * 100).ToString("F4", Numbers) + " %";
