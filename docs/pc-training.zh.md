@@ -544,7 +544,7 @@ Select-String -Path unity\Logs\eval-bad-risk.log -Pattern 'RiskAversion'
 
 `decision_hours`、`rebalance_band` 三份都没写，用的是 `gym-config.json` 的 24 和 0.05。**没有 `dial-mix.yaml`**：混训线用的就是 `dial.yaml`，币写在 `-EnvArgs`，和第二轮一样；两条线的设置因此一字不差（`22A` 第二节第 9 条）。
 
-`max_steps` 现在仍是 200 万。旋钮模式一步是一天，200 万步约等于把训练段过 1,250 遍；正式跑多少步，按冒烟 14 的测速定（`22A` 第三节第 2 条，倾向 50 万步起）。**要改步数先问讨论会话**：直接改 `dial.yaml` 的 `max_steps`，它就和基础 `long.yaml` 差两项，`check_configs.py` 会判 FAIL。
+`max_steps` 现在仍是 200 万。旋钮模式一步是一天，200 万步约等于把训练段过 1,250 遍；正式跑多少步，按冒烟 14 的测速定（`22A` 第三节第 2 条，倾向 50 万步起）。**要改步数，别动 `dial.yaml`**：在 `config\v3\` 新建一份只差 `max_steps` 的文件，第一行声明基础，再跑一遍 `check_configs.py`（直接改 `dial.yaml` 的 `max_steps`，它就和基础 `long.yaml` 差两项，会判 FAIL）。第三轮定了 50 万步（27 批）：`dial-500k.yaml`（基础 `config\v3\dial.yaml`，只差 `max_steps: 500000`）和 `dial-base-500k.yaml`（基础 `config\v3\dial-500k.yaml`，只差 `obs_set: 0`）；混训线也用 `dial-500k.yaml` 加 `-Prefix mix`，所以 run-id 和算分时的配置名都带 `-500k`；14.3、14.4 的命令照抄时，把 `dial.yaml` 换成 `dial-500k.yaml`、`dial-base.yaml` 换成 `dial-base-500k.yaml`。
 
 ### 14.3 两条线和对照怎么起
 
