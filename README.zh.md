@@ -47,7 +47,7 @@ python scripts/eval/summarize.py evaluations/smoke/log.csv
 | 位置 | 里面是什么 |
 | --- | --- |
 | `unity/` | Unity 工程；用 Unity 打开的就是这个文件夹 |
-| `unity/Assets/Gym/Core/` | `Gym.Core`：纯 C# 的交易环境（不引用 Unity），一个概念一个文件夹、一个命名空间：`Market/`（K 线、币种规则、分段：`CandleSeries`、`SymbolRules`、`SegmentSpec`、`SplitValidator`）、`Accounting/`（账户和手续费：`Account`、`CostModel`）、`Env/`（动作和遮罩、两种动作模式和调仓规则、观测集、奖励、一局、种子、混训时一局用哪只币：`TradingEnv`、`TradeAction`、`ActionCodec`、`ActionMode`、`DialSettings`、`Rebalancer`、`ObservationSet`、`ObservationBuilder`、`RewardFunction`、`SeedMixer`、`SymbolPicker`）、`Evaluation/`（指标、对照组、评估流水：`Metrics`、`Baselines`、`EvaluationLog`、`JsonWriter`） |
+| `unity/Assets/Gym/Core/` | `Gym.Core`：纯 C# 的交易环境（不引用 Unity），一个概念一个文件夹、一个命名空间：`Market/`（K 线、币种规则、分段：`CandleSeries`、`SymbolRules`、`SegmentSpec`、`SplitValidator`）、`Accounting/`（账户和手续费：`Account`、`CostModel`）、`Env/`（动作和遮罩、两种动作模式和调仓规则、观测集、奖励、一局、种子、混训时一局用哪只币：`TradingEnv`、`TradeAction`、`ActionCodec`、`ActionMode`、`DialSettings`、`Rebalancer`、`ActionShape`、`ObservationSet`、`ObservationBuilder`、`RewardFunction`、`SeedMixer`、`SymbolPicker`）、`Evaluation/`（指标、对照组、评估流水：`Metrics`、`Baselines`、`EvaluationLog`、`ActionRecord`、`JsonWriter`） |
 | `unity/Assets/Gym/Runtime/` | `Gym.Runtime`：`Agents/`（包在 `TradingEnv` 外面的 ML-Agents 智能体 `TradingAgent`，以及 `EpisodeStats`）、`Configuration/`（读配置：`GymConfigLoader`、`GymDataCache`）、`Evaluation/`（评估跑手 `EvalRunner`）、`Play/`（试玩场景：`PlayController`；画面组件 `HudView`、`CandleChartView`、`WalletView`、`AvatarView`、`PlayLanguageSwitch`、`FrameRateLimiter`；文字表 `PlayText` 和按名字找系统字体的 `PlayFont`；头像图 `AvatarPictureLoader` 和占位图 `AvatarPlaceholder`；纯函数 `HudReadout`、`PriceScale`、`TimeAxis`、`MoneyText`、`FloatingAmount`、`AvatarAnimation`、`AvatarPose`、`AvatarHint`；画图的小工具 `WorldText`、`ShapeLayer`、`ColoredMeshBuilder`、`PocketShape`、`PlayLayout`、`PlayPalette`）、`Watch/`（观战场景：`WatchController`、它的播放逻辑 `WatchPlayback` 和它推着走的 `AgentWatchTarget`；提示 `WatchNotice`；记住的模型 `WatchModelMemory`） |
 | `unity/Assets/Gym/Editor/` | `BuildScript`（打训练包和评估包）、`EvalTools`（对照组评估）、`GymSceneBuilder`（场景生成）、`PlayChecklist` 和 `PlaySnapshot`（试玩核对表和截图工具）、`WatchSetup`（菜单 **Gym > Watch a Model...**）、`WatchModelAttacher`（把记住的模型挂到观战的智能体上）、`WatchSnapshot`（观战截图） |
 | `unity/Assets/Gym/Scenes/` | `Training`（16 个智能体）、`Play`（键盘试玩）、`Watch`（训练好的模型来交易；只在编辑器里用，不进打包清单）、`Eval`（1 个智能体加评估跑手） |
@@ -61,8 +61,9 @@ python scripts/eval/summarize.py evaluations/smoke/log.csv
 | `config/` | 训练配置（`ppo_base.yaml`、几份冒烟配置）、对比组（`variants/`）和第二轮的配置（`v2/`）；见 [config/README.md](config/README.md) |
 | `scripts/data/` | 从 Binance Vision 下载数据的脚本（`fetch_binance_klines.py`），和算几只币收益率相关性的脚本（`correlation.py`） |
 | `scripts/train/` | 成批训练脚本（`run_series.sh`、`run_series.ps1`）、配置检查（`check_configs.py`）、读 TensorBoard 曲线（`read_scalars.py`） |
-| `scripts/eval/` | 汇总评估流水的 `summarize.py` |
+| `scripts/eval/` | 汇总评估流水的 `summarize.py`；第三轮的尺子 `score_round3.py`（BTC 跌段、涨段两道门槛，再按三个验证段「收益 ÷ 回撤」的平均排名），和它的测试 `test_score_round3.py` |
 | `evaluations/` | 只追加的评估流水（`log.csv`）和每次评估的明细（`runs/*.json`），进 Git |
+| `models/` | 留在仓库里的模型，一轮一个文件夹：`round2/ppo_v2-s3-20261020/` 是第二轮的终版（`TradingAgent.onnx`，连同它的 `build-info.json`、`config-used.yaml`、`env-args.txt`）；有一个 EditMode 测试读它的动作形状 |
 | `docs/` | 下面列的这些文档 |
 | `results/`、`data/raw/`、`unity/Builds/`、`evaluations/smoke/`、`unity/UserSettings/` | 本机产物和本机设置（包括观战记住的模型），不进 Git |
 
@@ -73,7 +74,7 @@ python scripts/eval/summarize.py evaluations/smoke/log.csv
 - [docs/setup.md](docs/setup.md)：版本、Python 环境（macOS 和 Windows）、用 VS Code 看代码
 - [docs/architecture.md](docs/architecture.md)：三层结构、一步怎么走、三档观测集和它们的公式、两种动作模式（下单和旋钮）和调仓规则、奖励和它的风险系数、种子、从哪个文件开始读
 - [docs/data.md](docs/data.md)：五只币的数据、许可、怎么重新生成、缺口怎么补、各币和 BTC 的相关性、分段（训练段 2017-08-17～2021-12-31；验证段三段：validation-bear 2022 年、validation-recovery 2023-01～2024-08、validation 2024-09～2025-08；测试段 2025-09～2026-08）
-- [docs/evaluation.md](docs/evaluation.md)：评估流水、指标、评估段、用 `-gymSymbol` 选币、用 `-gymObs` 选观测集、用 `-gymActionMode` 选动作模式、模型输入维数的核对，六个对照组（买入持有、一直拿现金、随机，加三条简单规则：`momentum_90d` 过去 90 天涨才持有、`sma_cross` 1 周均线在 1 月均线之上才持有、`vol_target` 按波动率调仓），和第三轮的两个旋钮对手（`constant_mix_50` 永远 50 %、`dial_momentum_90d` 过去 90 天涨了拧到 70 %、否则 30 %）
+- [docs/evaluation.md](docs/evaluation.md)：评估流水、指标、评估段、用 `-gymSymbol` 选币、用 `-gymObs` 选观测集、用 `-gymActionMode` 选动作模式、模型输入维数和动作形状的核对，六个对照组（买入持有、一直拿现金、随机，加三条简单规则：`momentum_90d` 过去 90 天涨才持有、`sma_cross` 1 周均线在 1 月均线之上才持有、`vol_target` 按波动率调仓），和第三轮的两个旋钮对手（`constant_mix_50` 永远 50 %、`dial_momentum_90d` 过去 90 天涨了拧到 70 %、否则 30 %），以及用 `score_round3.py` 给第三轮算分
 - [docs/training.md](docs/training.md)：在 Mac 上跑成批训练、观测集 `obs_set`、风险系数 `risk_aversion`、动作模式 `action_mode` 和 `decision_hours`、`rebalance_band`、混着几只币训练（`trainSymbols`、`-gymTrainSymbols`），以及 `Trading/*` 曲线的意思
 - [docs/development.md](docs/development.md)：重建场景、试玩核对表和截图、要训练好的模型才能跑的测试；Unity 会自己写哪些文件
 - [docs/pc-training.zh.md](docs/pc-training.zh.md)（[英文版](docs/pc-training.md)）：在 Windows 电脑上训练

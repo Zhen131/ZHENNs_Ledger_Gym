@@ -11,7 +11,9 @@ exposure (share of steps holding coin). Random baselines are medians over their 
 Rows are grouped by symbol, segment, fee rate, fixed fee and slippage, so runs on
 different coins or with different costs never share a table. The heading reads
 "symbol · segment (dates) · costs" and names a fixed fee or slippage only when it
-is not zero.
+is not zero. Within a table the six baselines come first, then round three's two
+opponents (constant_mix_50, dial_momentum_90d), then the agents. Round three's
+thresholds and ranking are in score_round3.py.
 """
 
 from __future__ import annotations
