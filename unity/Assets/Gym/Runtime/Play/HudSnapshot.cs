@@ -38,5 +38,12 @@ namespace Gym.Runtime.Play
         public double RealizedPnl;
         /// <summary>按当前这根的 close 算的未实现盈亏（USDT）。</summary>
         public double UnrealizedPnl;
+
+        /// <summary>环境是不是旋钮模式；为 false（下单模式）时下面两项没有意义。</summary>
+        public bool DialMode;
+        /// <summary>旋钮模式下最近一次选的目标仓位（0～1）；这一局还没决策时为 −1。</summary>
+        public double DialTarget;
+        /// <summary>旋钮模式下这一局换档的次数（<see cref="Gym.Core.Env.TradingEnv.DialChanges"/>）。</summary>
+        public int DialChanges;
     }
 }

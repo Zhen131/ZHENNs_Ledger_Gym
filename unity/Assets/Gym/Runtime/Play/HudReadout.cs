@@ -62,6 +62,25 @@ namespace Gym.Runtime.Play
             }
         }
 
+        /// <summary>
+        /// 「上一步」那一行的名字和值。<paramref name="showsDialTarget"/> 为 true（观战）且读数来自旋钮模式的环境时，
+        /// 改写成「目标仓位」和「50%｜换档 3 次」（英文 "Target position"、"50% | changes: 3"）：旋钮模式下 Agent 的上一步
+        /// 永远记成不动（买卖由规则代劳），照原样写会误导人。别的情况照原样（<see cref="Label"/>、<see cref="LastAction"/>）。
+        /// </summary>
+        public static (string label, string value) LastActionRow(HudSnapshot s, PlayLanguage language, bool showsDialTarget)
+        {
+            if (!showsDialTarget || !s.DialMode)
+                return (Label(PlayTextKey.LastAction, language), LastAction(s, language));
+            return (PlayText.Get(PlayTextKey.DialTarget, language), DialTargetValue(s, language));
+        }
+
+        /// <summary>旋钮模式的目标仓位和本局换档次数，例如「50%｜换档 3 次」；这一局还没决策时目标仓位写「还没有」。</summary>
+        public static string DialTargetValue(HudSnapshot s, PlayLanguage language)
+        {
+            string target = s.DialTarget >= 0 ? Percent(s.DialTarget) : PlayText.Get(PlayTextKey.ActionNone, language);
+            return PlayText.Format(PlayTextKey.DialTargetValue, language, target, s.DialChanges.ToString(Numbers));
+        }
+
         /// <summary>和 <see cref="HudSnapshot.LastAction"/> 里的写法相同，例如 "25%"、"12.5%"。</summary>
         public static string Percent(double fraction) => (fraction * 100).ToString("0.#", Numbers) + "%";
 

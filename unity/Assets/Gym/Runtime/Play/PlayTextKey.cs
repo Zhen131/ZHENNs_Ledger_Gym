@@ -45,5 +45,7 @@ namespace Gym.Runtime.Play
         WatchKeysSecond,
         WatchNoModel,
         WatchEnd,
+        DialTarget,
+        DialTargetValue,
     }
 }

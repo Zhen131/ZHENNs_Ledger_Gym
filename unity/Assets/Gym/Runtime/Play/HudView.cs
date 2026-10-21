@@ -53,6 +53,21 @@ namespace Gym.Runtime.Play
 
         IReadoutControls controls;
         bool frozen;
+        bool showsDialTarget;
+
+        /// <summary>
+        /// 为 true 时（只有观战设它），环境是旋钮模式的话「上一步」那一行改写成目标仓位和换档次数
+        /// （<see cref="HudReadout.LastActionRow"/>）；行数不变。下单模式下、以及为 false（键盘试玩，默认）时照原样画。
+        /// </summary>
+        public bool ShowsDialTarget
+        {
+            get => showsDialTarget;
+            set
+            {
+                showsDialTarget = value;
+                Draw();
+            }
+        }
 
         /// <summary>
         /// 换掉面板最下面的按键提示和「下单比例」那一行（观战这类场景用，写自己的按键和状态）。
@@ -154,6 +169,9 @@ namespace Gym.Runtime.Play
                 LastFilled = lastFilled,
                 RealizedPnl = a.RealizedPnl,
                 UnrealizedPnl = a.UnrealizedPnl(close),
+                DialMode = env.ActionMode == ActionMode.Dial,
+                DialTarget = env.ActionMode == ActionMode.Dial && env.CurrentLevel >= 0 ? env.Dial.Levels[env.CurrentLevel] : -1,
+                DialChanges = env.DialChanges,
             };
         }
 
@@ -187,6 +205,11 @@ namespace Gym.Runtime.Play
             {
                 labels[i].text = HudReadout.Label(HudReadout.Rows[i], lang);
                 values[i].text = HudReadout.Value(HudReadout.Rows[i], Shown, lang, fraction, autoPlay);
+            }
+            if (showsDialTarget)
+            {
+                int row = System.Array.IndexOf(HudReadout.Rows, PlayTextKey.LastAction);
+                (labels[row].text, values[row].text) = HudReadout.LastActionRow(Shown, lang, true);
             }
             keysLabel.text = PlayText.Get(PlayTextKey.Keys, lang);
             keysTrade.text = PlayText.Get(PlayTextKey.KeysTrade, lang);

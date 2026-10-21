@@ -15,7 +15,9 @@ namespace Gym.Runtime.Watch
     /// 画面上说去点哪个菜单，Agent 一直不激活，日志里没有错误。之后按自己的时钟一步一步推，走法和评估包一样。
     ///
     /// P 暂停和继续；暂停时 N 走一步；[ 和 ] 在 <see cref="StepsPerSecondChoices"/> 里调慢、调快；R 回到段首重来；
-    /// L（或左上角的按钮）切换语言，由 <see cref="PlayLanguageSwitch"/> 管。读数面板最下面写观战自己的按键和状态。
+    /// L（或左上角的按钮）切换语言，由 <see cref="PlayLanguageSwitch"/> 管。读数面板最下面写观战自己的按键和状态；
+    /// 旋钮模式下「上一步」那一行写目标仓位和换档次数（<see cref="HudView.ShowsDialTarget"/>）。观战用哪种动作模式
+    /// 看 gym-config.json 的 actionMode（或 -gymActionMode），测试用 <see cref="TradingAgent.ActionModeOverride"/>。
     /// 走到段尾就停住，画面定格在走完那一刻，提示按 R 重来。
     /// </summary>
     public class WatchController : MonoBehaviour, IReadoutControls
@@ -75,7 +77,10 @@ namespace Gym.Runtime.Watch
 
         void Awake()
         {
-            if (hud != null) hud.Controls = this;
+            if (hud == null) return;
+            hud.Controls = this;
+            // 旋钮模式下「上一步」那一行改写成目标仓位和换档次数（下单模式照原样）
+            hud.ShowsDialTarget = true;
         }
 
         void Start()

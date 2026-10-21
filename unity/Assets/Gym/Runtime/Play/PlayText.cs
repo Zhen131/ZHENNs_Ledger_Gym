@@ -57,6 +57,9 @@ namespace Gym.Runtime.Play
                 [PlayTextKey.WatchNoModel] = ("还没有选模型。\n在 Unity 菜单里点 Gym > Watch a Model...，\n选一个训练好的 .onnx 文件，模型就开始交易。",
                     "No model chosen yet.\nIn the Unity menu, click Gym > Watch a Model...\nand pick a trained .onnx file to watch it trade."),
                 [PlayTextKey.WatchEnd] = ("这一段走完了。按 R 从头再看。", "End of the segment. Press R to watch it again."),
+                // 观战旋钮模式下「上一步」那一行换成的名字和值：{0} 是目标仓位（例如 50%），{1} 是本局换档次数
+                [PlayTextKey.DialTarget] = ("目标仓位", "Target position"),
+                [PlayTextKey.DialTargetValue] = ("{0}｜换档 {1} 次", "{0} | changes: {1}"),
             };
 
         public static IEnumerable<PlayTextKey> Keys => Table.Keys;
