@@ -1,6 +1,6 @@
 # ZHENN Ledger Gym（中文说明）
 
-一个 Unity ML-Agents 环境：强化学习智能体按小时一根一根地走过 BTC/USDT 的历史 K 线，每小时决定买、卖还是不动、动多少；每一笔成交都要付手续费。另有四只币（ETH、ADA、DOGE、XRP）用来评估。智能体看到的是三档观测集里的一档：`base` 是第一轮的 35 个数（最近 32 根收盘价、仓位、浮盈、距上次交易多久；默认就是它），`long` 再加 6 个长周期的数（过去 1 天、1 周、30 天、90 天的收益率按波动率归一，过去 30 天的波动率，距过去 90 天最高点的回撤），`long-ta` 在 `long` 上再加按天算的 MACD 和 RSI，只当对照组。每小时的得分是资产的对数收益（乘 100、截到 ±1）；可选的风险系数（环境参数 `risk_aversion`，默认 0，此时得分不变）在每个亏损的小时再扣一笔「亏损的平方」的罚款。
+一个 Unity ML-Agents 环境：强化学习智能体按小时一根一根地走过 BTC/USDT 的历史 K 线，每小时决定买、卖还是不动、动多少；每一笔成交都要付手续费（这是第一、二轮的下单模式，现在仍是默认）。第三轮的旋钮模式里，智能体每天（每 24 根 K 线）只拧一次旋钮：币占总资产的目标比例 30 %、50 % 或 70 %，实际仓位偏离目标超过 5 个点时由调仓规则自动买卖调回去。另有四只币（ETH、ADA、DOGE、XRP）用来评估。智能体看到的是三档观测集里的一档：`base` 是第一轮的 35 个数（最近 32 根收盘价、仓位、浮盈、距上次交易多久；默认就是它），`long` 再加 6 个长周期的数（过去 1 天、1 周、30 天、90 天的收益率按波动率归一，过去 30 天的波动率，距过去 90 天最高点的回撤），`long-ta` 在 `long` 上再加按天算的 MACD 和 RSI，只当对照组。每小时的得分是资产的对数收益（乘 100、截到 ±1）；可选的风险系数（环境参数 `risk_aversion`，默认 0，此时得分不变）在每个亏损的小时再扣一笔「亏损的平方」的罚款。
 
 这是一个大学课程项目（德布勒森大学「强化学习导论」，2026 年秋）。它**不是**交易策略，**不是**投资建议，也不承诺任何收益。它要回答的问题是：手续费怎样改变智能体学到的做法，而不是它能不能赚钱。
 
@@ -47,11 +47,11 @@ python scripts/eval/summarize.py evaluations/smoke/log.csv
 | 位置 | 里面是什么 |
 | --- | --- |
 | `unity/` | Unity 工程；用 Unity 打开的就是这个文件夹 |
-| `unity/Assets/Gym/Core/` | `Gym.Core`：纯 C# 的交易环境（不引用 Unity），一个概念一个文件夹、一个命名空间：`Market/`（K 线、币种规则、分段：`CandleSeries`、`SymbolRules`、`SegmentSpec`、`SplitValidator`）、`Accounting/`（账户和手续费：`Account`、`CostModel`）、`Env/`（动作和遮罩、观测集、奖励、一局、种子、混训时一局用哪只币：`TradingEnv`、`TradeAction`、`ActionCodec`、`ObservationSet`、`ObservationBuilder`、`RewardFunction`、`SeedMixer`、`SymbolPicker`）、`Evaluation/`（指标、对照组、评估流水：`Metrics`、`Baselines`、`EvaluationLog`、`JsonWriter`） |
+| `unity/Assets/Gym/Core/` | `Gym.Core`：纯 C# 的交易环境（不引用 Unity），一个概念一个文件夹、一个命名空间：`Market/`（K 线、币种规则、分段：`CandleSeries`、`SymbolRules`、`SegmentSpec`、`SplitValidator`）、`Accounting/`（账户和手续费：`Account`、`CostModel`）、`Env/`（动作和遮罩、两种动作模式和调仓规则、观测集、奖励、一局、种子、混训时一局用哪只币：`TradingEnv`、`TradeAction`、`ActionCodec`、`ActionMode`、`DialSettings`、`Rebalancer`、`ObservationSet`、`ObservationBuilder`、`RewardFunction`、`SeedMixer`、`SymbolPicker`）、`Evaluation/`（指标、对照组、评估流水：`Metrics`、`Baselines`、`EvaluationLog`、`JsonWriter`） |
 | `unity/Assets/Gym/Runtime/` | `Gym.Runtime`：`Agents/`（包在 `TradingEnv` 外面的 ML-Agents 智能体 `TradingAgent`，以及 `EpisodeStats`）、`Configuration/`（读配置：`GymConfigLoader`、`GymDataCache`）、`Evaluation/`（评估跑手 `EvalRunner`）、`Play/`（试玩场景：`PlayController`；画面组件 `HudView`、`CandleChartView`、`WalletView`、`AvatarView`、`PlayLanguageSwitch`、`FrameRateLimiter`；文字表 `PlayText` 和按名字找系统字体的 `PlayFont`；头像图 `AvatarPictureLoader` 和占位图 `AvatarPlaceholder`；纯函数 `HudReadout`、`PriceScale`、`TimeAxis`、`MoneyText`、`FloatingAmount`、`AvatarAnimation`、`AvatarPose`、`AvatarHint`；画图的小工具 `WorldText`、`ShapeLayer`、`ColoredMeshBuilder`、`PocketShape`、`PlayLayout`、`PlayPalette`）、`Watch/`（观战场景：`WatchController`、它的播放逻辑 `WatchPlayback` 和它推着走的 `AgentWatchTarget`；提示 `WatchNotice`；记住的模型 `WatchModelMemory`） |
 | `unity/Assets/Gym/Editor/` | `BuildScript`（打训练包和评估包）、`EvalTools`（对照组评估）、`GymSceneBuilder`（场景生成）、`PlayChecklist` 和 `PlaySnapshot`（试玩核对表和截图工具）、`WatchSetup`（菜单 **Gym > Watch a Model...**）、`WatchModelAttacher`（把记住的模型挂到观战的智能体上）、`WatchSnapshot`（观战截图） |
 | `unity/Assets/Gym/Scenes/` | `Training`（16 个智能体）、`Play`（键盘试玩）、`Watch`（训练好的模型来交易；只在编辑器里用，不进打包清单）、`Eval`（1 个智能体加评估跑手） |
-| `unity/Assets/Gym/Prefabs/` | `TradingAgent.prefab`（里面写的是 `base` 的 35 个观测，智能体开场时改成自己那一档的大小）；它的观测和动作见 [docs/architecture.md](docs/architecture.md)（英文） |
+| `unity/Assets/Gym/Prefabs/` | `TradingAgent.prefab`（里面写的是 `base` 的 35 个观测和下单模式的动作，智能体开场时改成自己那一档观测的大小，旋钮模式下再把动作形状改成旋钮的）；它的观测和动作见 [docs/architecture.md](docs/architecture.md)（英文） |
 | `unity/Assets/Gym/Materials/` | `CandleChart.mat`，试玩场景里 K 线图用的材质 |
 | `unity/Assets/Gym/Models/` | 打评估包时、以及用 **Gym > Watch a Model...** 选模型时导入的模型放进 `Imported/`，不进 Git（见 [Models/README.md](unity/Assets/Gym/Models/README.md)） |
 | `unity/Assets/Gym/Tests/` | EditMode 测试在 `Core/`（内核，按同样的四个文件夹摆）、`Runtime/`、`Editor/`（智能体预制体、场景和对照组工具 `EvalTools`）；PlayMode 测试在 `PlayMode/` |
@@ -71,10 +71,10 @@ python scripts/eval/summarize.py evaluations/smoke/log.csv
 除了 PC 训练指南有中文版，其余都是英文。
 
 - [docs/setup.md](docs/setup.md)：版本、Python 环境（macOS 和 Windows）、用 VS Code 看代码
-- [docs/architecture.md](docs/architecture.md)：三层结构、一步怎么走、三档观测集和它们的公式、动作、奖励和它的风险系数、种子、从哪个文件开始读
+- [docs/architecture.md](docs/architecture.md)：三层结构、一步怎么走、三档观测集和它们的公式、两种动作模式（下单和旋钮）和调仓规则、奖励和它的风险系数、种子、从哪个文件开始读
 - [docs/data.md](docs/data.md)：五只币的数据、许可、怎么重新生成、缺口怎么补、各币和 BTC 的相关性、分段（训练段 2017-08-17～2021-12-31；验证段三段：validation-bear 2022 年、validation-recovery 2023-01～2024-08、validation 2024-09～2025-08；测试段 2025-09～2026-08）
-- [docs/evaluation.md](docs/evaluation.md)：评估流水、指标、评估段、用 `-gymSymbol` 选币、用 `-gymObs` 选观测集、模型输入维数的核对，和六个对照组（买入持有、一直拿现金、随机，加三条简单规则：`momentum_90d` 过去 90 天涨才持有、`sma_cross` 1 周均线在 1 月均线之上才持有、`vol_target` 按波动率调仓）
-- [docs/training.md](docs/training.md)：在 Mac 上跑成批训练、观测集 `obs_set`、风险系数 `risk_aversion`、混着几只币训练（`trainSymbols`、`-gymTrainSymbols`），以及 `Trading/*` 曲线的意思
+- [docs/evaluation.md](docs/evaluation.md)：评估流水、指标、评估段、用 `-gymSymbol` 选币、用 `-gymObs` 选观测集、用 `-gymActionMode` 选动作模式、模型输入维数的核对，六个对照组（买入持有、一直拿现金、随机，加三条简单规则：`momentum_90d` 过去 90 天涨才持有、`sma_cross` 1 周均线在 1 月均线之上才持有、`vol_target` 按波动率调仓），和第三轮的两个旋钮对手（`constant_mix_50` 永远 50 %、`dial_momentum_90d` 过去 90 天涨了拧到 70 %、否则 30 %）
+- [docs/training.md](docs/training.md)：在 Mac 上跑成批训练、观测集 `obs_set`、风险系数 `risk_aversion`、动作模式 `action_mode` 和 `decision_hours`、`rebalance_band`、混着几只币训练（`trainSymbols`、`-gymTrainSymbols`），以及 `Trading/*` 曲线的意思
 - [docs/development.md](docs/development.md)：重建场景、试玩核对表和截图、要训练好的模型才能跑的测试；Unity 会自己写哪些文件
 - [docs/pc-training.zh.md](docs/pc-training.zh.md)（[英文版](docs/pc-training.md)）：在 Windows 电脑上训练
 - [config/README.md](config/README.md)：训练配置和对比组

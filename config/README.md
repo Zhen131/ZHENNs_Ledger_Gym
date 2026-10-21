@@ -1,6 +1,6 @@
 # Training configs
 
-All configs train the behavior `TradingAgent` on the CPU (the one exception is `smoke-100k-cuda.yaml`, below) and pass the costs to the environment as `environment_parameters` (`fee_rate`, `fixed_fee`, `slippage`); the two `obs-*` variants also pass the observation set (`obs_set`), and the three `risk-*` variants the reward's risk coefficient (`risk_aversion`); so do round two's files in `v2/`. The first line of every file says how it differs from its base: `ppo_base.yaml`, unless the line declares another one, as every file in `v2/` does, for example `# base: config/v2/ppo_v2.yaml — Differs from ppo_v2.yaml only in …`.
+All configs train the behavior `TradingAgent` on the CPU (the one exception is `smoke-100k-cuda.yaml`, below) and pass the costs to the environment as `environment_parameters` (`fee_rate`, `fixed_fee`, `slippage`); the two `obs-*` variants also pass the observation set (`obs_set`), and the three `risk-*` variants the reward's risk coefficient (`risk_aversion`); so do round two's files in `v2/`. Round three's dial mode adds three optional environment parameters: `action_mode` (0 orders, 1 dial), `decision_hours` (candles per decision) and `rebalance_band` (the rebalancing rule's band); no file here sets them yet, so every file trains the order mode (see [docs/training.md](../docs/training.md#action-mode-action_mode-decision_hours-rebalance_band)). The first line of every file says how it differs from its base: `ppo_base.yaml`, unless the line declares another one, as every file in `v2/` does, for example `# base: config/v2/ppo_v2.yaml — Differs from ppo_v2.yaml only in …`.
 
 What the `Trading/*` curves in TensorBoard mean is in the [Training curves](../docs/training.md#training-curves-trading-in-tensorboard) table of `docs/training.md`. Note that `Trading/Turnover` divides the traded value by the **starting** equity of the episode, while `turnover` in the evaluation log divides by the **average** equity.
 
@@ -51,6 +51,8 @@ Round two builds on the setting that won round one (`normalize: true`) and then 
 | `smoke-long.yaml` | `config/v2/long.yaml` (not compared: a smoke config) | `max_steps` 15000, `checkpoint_interval` 15000, `summary_freq` 1000 | The PC's smoke run of round two: `Trading/*` appears from 12,000 steps, after the first episodes end at 11,520. Check that `obs_set` and the costs arrived (see [docs/pc-training.md](../docs/pc-training.md)) |
 
 The coins are not in these files: training on several coins is given on the player's command line, `--env-args "-gymTrainSymbols BTCUSDT,ETHUSDT,ADAUSDT,XRPUSDT"` (Windows: `-EnvArgs "…"`) for the series scripts, which record it in `results/<run-id>/env-args.txt`. The observation set comes from `obs_set` in the file, which `config-used.yaml` keeps with every run; do not also pass `-gymObs` (the environment parameter wins over it, so the two could disagree without an error).
+
+`check_configs.py` checks the optional environment parameters wherever they appear: `obs_set` 0, 1 or 2; `risk_aversion` in [0, 100]; `action_mode` 0 or 1; `decision_hours` only 24 and `rebalance_band` in [0.02, 0.10], narrower than what the player accepts, because round three's decision document fixes one decision a day and lets the band be tried between 2 and 10 points.
 
 Check the variants after editing any of them:
 

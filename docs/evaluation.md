@@ -47,6 +47,15 @@ Six policies, all on the same environment as the agent (same fills, fees and mas
 | `sma` | `sma_cross` | target position 1 while the mean close of the last 168 hours (1 week) is above that of the last 720 hours (30 days), otherwise 0 |
 | `voltarget` | `vol_target` | target position min(1, 0.0045 ÷ σ), σ the standard deviation of the last 720 hourly log returns (taken as at least 1e-6) |
 
+Round three adds two opponents for the dial mode, defined in `Core/Evaluation/Baselines.cs` (`RunConstantMix50`, `RunDialMomentum`). They are not yet in `-gymPolicies` or the log (that is batch 24):
+
+| `policy` | What it does |
+| --- | --- |
+| `constant_mix_50` | the dial always at the 50 % level |
+| `dial_momentum_90d` | once a day, the 70 % level while the close is above the close 2160 hours (90 days) earlier, otherwise the 30 % level; also 30 % without 2160 hours of history |
+
+Both run on the dial mode's mechanics: a decision every 24 candles and the rebalancing rule with a band of 0.05, levels 0.3, 0.5 and 0.7, starting in cash at the first candle of the segment. These parameters are the opponents' own, fixed constants (`OpponentBand`, `OpponentDecisionHours`, `OpponentLevels`, `DialMomentumLookback`, from round three's decision document): the opponents read neither `gym-config.json` nor environment parameters, so changing the model's band or levels does not move them. Each builds its own dial environment on the coin, candles, segment, cash and observation set of the environment it is given, so the call is the same as for the other rules; the fee comes from the caller.
+
 The three rules decide every hour from the closes up to the decision candle only (the order fills at the next open, as for the agent). The target position is a share of the equity in coin; without enough history (2160, 720 and 720 hours) the target is 0. With p the coin's share of the equity, a rule buys when the target is more than 0.10 above p, with the fraction min(1, (target − p) × equity ÷ cash) of its cash, sells when it is more than 0.10 below, with the fraction min(1, (p − target) ÷ p) of its coin, and otherwise holds; an order the mask does not allow becomes a hold.
 
 ```bash
@@ -61,6 +70,10 @@ Options: `-gymSegment <name>` (**required**: without it nothing is written and t
 A trained model is evaluated in its own build (`BuildMacEval` / `BuildWindowsEval` with `-gymModel`), which records the run id and the model's SHA-256 in every row; `-gymFixedFee` and `-gymSlippage` set the other costs, and `-gymSymbol` the coin. The evaluation player refuses to start (exit code 1, nothing written) without `-gymMode eval`, `-gymSegment <name>` and `-gymOut <dir>`; it has no default segment, so the test segment is never evaluated by accident. A name that is not an evaluation segment in `gym-config.json` also stops it with exit code 1 before anything is written; the player's log lists the names.
 
 `-gymRiskAversion` (the reward's risk coefficient, see [architecture.md](architecture.md#observation-action-reward)) changes no metric: the evaluation measures the equity, not the reward. The evaluation player and the baseline tool still check it like the costs (a negative value stops them with exit code 1 before anything is written); the baselines always run with 0.
+
+## Action mode
+
+`-gymActionMode orders|dial` chooses the action mode for the evaluation player and the Play scene, `-gymDecisionHours <n>` and `-gymBand <x>` the dial mode's candles per decision and band; without them they use `actionMode`, `decisionHours` and `rebalanceBand` in `gym-config.json` (`orders`, 24, 0.05). A name that is not a mode, a number of candles that is not a whole number ≥ 1, or a band outside (0, 0.5) is refused with exit code 1 before anything is written. The baseline tool hands these switches on like every other `-gym*` argument; the six policies above always run in the order mode, and the two opponents use their own fixed parameters. The Play scene does not support the dial mode yet: it stops with an error.
 
 ## Observation set and the model's input size
 

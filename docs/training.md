@@ -30,6 +30,10 @@ Which numbers the agent sees is chosen by the environment parameter `obs_set` in
 
 The environment parameter `risk_aversion` is the reward's risk coefficient λ: every hour scores r − λ × min(r, 0)², so only losing hours pay the extra penalty (the formula is in [architecture.md](architecture.md#observation-action-reward)). `config/variants/risk-0.005.yaml`, `risk-0.01.yaml` and `risk-0.02.yaml` set it; `ppo_base.yaml` leaves it out, and then the player uses `-gymRiskAversion` or the agent's default 0, which is the first round's reward bit for bit. The agent reads it at the start of every episode, like the costs. A negative, NaN or infinite value stops the training player with exit code 1; `check_configs.py` is stricter and only accepts [0, 100] in a config. The Mac tests cannot send environment parameters, so check `Trading/RiskAversion` in a smoke run: it should be the config's value.
 
+## Action mode (`action_mode`, `decision_hours`, `rebalance_band`)
+
+Round three's dial mode is chosen by the environment parameter `action_mode`: 0 is the order mode (rounds one and two, and what every file without it trains), 1 is the dial mode, where the agent picks a target position of 30 %, 50 % or 70 % once every `decision_hours` candles and the rebalancing rule trades towards it (details in [architecture.md](architecture.md#observation-action-reward)). Without it the player uses `-gymActionMode orders|dial` or `actionMode` in `gym-config.json` (`orders`). `decision_hours` (default `decisionHours` 24) and `rebalance_band` (default `rebalanceBand` 0.05) override `-gymDecisionHours`/`decisionHours` and `-gymBand`/`rebalanceBand`; the levels (`dialLevels`, 0.3, 0.5, 0.7) and the dial episode length (`dialEpisodeLength`, 2160 candles) only come from `gym-config.json`. The player accepts any `action_mode` of 0 or 1, any whole `decision_hours` ≥ 1 and any `rebalance_band` inside (0, 0.5), and stops with exit code 1 otherwise; `check_configs.py` is stricter and holds a config to round three's decisions: `decision_hours` only 24, `rebalance_band` in [0.02, 0.10]. Every agent writes its mode to the player log, for example `actions dial (levels 0.3, 0.5, 0.7, decision hours 24, band 0.05, episodes of 2160 candles)`; check that line and the `Trading/Decisions` curve in a smoke run, because the Mac tests cannot send environment parameters. A model trained in one mode only works in that mode.
+
 ## Training on several coins (`trainSymbols`, `-gymTrainSymbols`)
 
 By default an agent trains on one coin: the current symbol, which is the main symbol BTCUSDT, or the one `-gymSymbol` picks. To mix coins, list them in `trainSymbols` in `gym-config.json` (empty by default), for example `"trainSymbols": ["BTCUSDT", "ETHUSDT", "ADAUSDT", "XRPUSDT"]`, or give them on the player's command line, which overrides the config: `-gymTrainSymbols BTCUSDT,ETHUSDT,ADAUSDT,XRPUSDT`. Every name must be one of the config's `symbols` (case does not matter, no repeats), and none may be `evalOnly`: DOGEUSDT is kept as a coin the agent has never seen, so listing it stops the player with exit code 1 and a list of the coins that can be trained on. The config's list is checked even when the command line overrides it. A training agent also refuses `-gymSymbol DOGEUSDT`; evaluation, Play and Watch still take it.
@@ -38,7 +42,7 @@ With a list, each agent builds one environment per coin, each on that coin's tra
 
 ## Training curves (`Trading/*` in TensorBoard)
 
-During training every agent reports eleven numbers at the end of each episode, plus one per coin it trains on; TensorBoard shows their average over the episodes that ended in each summary period. They describe training episodes (720 steps from a random start, possibly holding coin at the start), so they are not the evaluation metrics of [evaluation.md](evaluation.md), even where the names match.
+During training every agent reports thirteen numbers at the end of each episode, plus one per coin it trains on; TensorBoard shows their average over the episodes that ended in each summary period. They describe training episodes (720 steps from a random start, possibly holding coin at the start; 2160 candles in the dial mode), so they are not the evaluation metrics of [evaluation.md](evaluation.md), even where the names match.
 
 | Tag | Meaning |
 | --- | --- |
@@ -53,4 +57,6 @@ During training every agent reports eleven numbers at the end of each episode, p
 | `Trading/FixedFee` | Fixed fee per order the episode used |
 | `Trading/RiskAversion` | Risk coefficient λ the episode used, to check that the config's `risk_aversion` arrived (0 when it is not set) |
 | `Trading/RiskPenalty` | The episode's total risk penalty Σ λ × min(r, 0)², already taken out of `Environment/Cumulative Reward` (0 when λ = 0) |
+| `Trading/DialChanges` | Level changes in the episode: decisions whose target differs from the one before (the first is not a change); 0 in the order mode |
+| `Trading/Decisions` | Decisions in the episode: 90 for a 2160-candle dial episode; in the order mode the number of steps |
 | `Trading/SymbolShare/<symbol>` | One per coin the agent trains on: 1 when the episode used that coin, else 0, so the curve is that coin's share of the episodes (with four coins each should be near 0.25; with one coin a single curve at 1) |
