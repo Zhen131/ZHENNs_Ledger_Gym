@@ -1,0 +1,57 @@
+{
+  "timestamp_utc": "2026-10-21T13:30:53.727Z",
+  "kind": "baseline",
+  "policy": "dial_momentum_90d",
+  "generated_by": "Gym.Editor.EvalTools.RunBaselines",
+  "symbol": "XRPUSDT",
+  "data_file": "data/XRPUSDT-1h.csv",
+  "segment": {
+    "name": "validation-bear",
+    "start_date": "2022-01-01",
+    "end_date": "2022-12-31",
+    "first_candle_utc": "2022-01-01T00:00:00.000Z",
+    "last_candle_utc": "2022-12-31T23:00:00.000Z",
+    "steps": 8759
+  },
+  "market": {
+    "start_candle_utc": "2022-01-01T00:00:00.000Z",
+    "start_open": 0.8298,
+    "start_close": 0.8395,
+    "end_candle_utc": "2022-12-31T23:00:00.000Z",
+    "end_close": 0.3389,
+    "change": -0.59630732578916024
+  },
+  "cost": {
+    "fee_rate": 0.001,
+    "fixed_fee": 0,
+    "slippage": 0
+  },
+  "initial_cash": 10000,
+  "seeds": 1,
+  "action_mode": "dial",
+  "decision_hours": 24,
+  "rebalance_band": 0.05,
+  "dial_levels": [
+    0.3,
+    0.5,
+    0.7
+  ],
+  "dial_changes": 24,
+  "decisions": 365,
+  "last_decision_hours": 23,
+  "lookback": 2160,
+  "metrics": {
+    "total_return": -0.40722862847699992,
+    "max_drawdown": 0.43525895062746733,
+    "sharpe": -1.29178769129604,
+    "trades": 32,
+    "rejected": 0,
+    "turnover": 10.565726844072111,
+    "fees_paid": 80.22004477000003,
+    "fees_pct": 0.80220044770000032,
+    "exposure": 1,
+    "steps": 8759,
+    "initial_equity": 10000,
+    "final_equity": 5927.7137152300011
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "timestamp_utc": "2026-10-21T13:31:18.327Z",
+  "kind": "baseline",
+  "policy": "constant_mix_50",
+  "generated_by": "Gym.Editor.EvalTools.RunBaselines",
+  "symbol": "BTCUSDT",
+  "data_file": "data/BTCUSDT-1h.csv",
+  "segment": {
+    "name": "test",
+    "start_date": "2025-09-01",
+    "end_date": "2026-08-31",
+    "first_candle_utc": "2025-09-01T00:00:00.000Z",
+    "last_candle_utc": "2026-08-31T23:00:00.000Z",
+    "steps": 8759
+  },
+  "market": {
+    "start_candle_utc": "2025-09-01T00:00:00.000Z",
+    "start_open": 108246.36,
+    "start_close": 108222.37,
+    "end_candle_utc": "2026-08-31T23:00:00.000Z",
+    "end_close": 78581.29,
+    "change": -0.27389050895854528
+  },
+  "cost": {
+    "fee_rate": 0.001,
+    "fixed_fee": 0,
+    "slippage": 0
+  },
+  "initial_cash": 10000,
+  "seeds": 1,
+  "action_mode": "dial",
+  "decision_hours": 24,
+  "rebalance_band": 0.05,
+  "dial_levels": [
+    0.3,
+    0.5,
+    0.7
+  ],
+  "dial_changes": 0,
+  "decisions": 365,
+  "last_decision_hours": 23,
+  "metrics": {
+    "total_return": -0.12921979443582,
+    "max_drawdown": 0.31092081575005159,
+    "sharpe": -0.6404750252001129,
+    "trades": 5,
+    "rejected": 0,
+    "turnover": 0.7641753651568437,
+    "fees_paid": 6.6915178582,
+    "fees_pct": 0.066915178582,
+    "exposure": 1,
+    "steps": 8759,
+    "initial_equity": 10000,
+    "final_equity": 8707.8020556418
+  }
+}

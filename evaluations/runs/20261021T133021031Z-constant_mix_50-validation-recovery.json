@@ -1,0 +1,56 @@
+{
+  "timestamp_utc": "2026-10-21T13:30:21.031Z",
+  "kind": "baseline",
+  "policy": "constant_mix_50",
+  "generated_by": "Gym.Editor.EvalTools.RunBaselines",
+  "symbol": "BTCUSDT",
+  "data_file": "data/BTCUSDT-1h.csv",
+  "segment": {
+    "name": "validation-recovery",
+    "start_date": "2023-01-01",
+    "end_date": "2024-08-31",
+    "first_candle_utc": "2023-01-01T00:00:00.000Z",
+    "last_candle_utc": "2024-08-31T23:00:00.000Z",
+    "steps": 14615
+  },
+  "market": {
+    "start_candle_utc": "2023-01-01T00:00:00.000Z",
+    "start_open": 16541.77,
+    "start_close": 16529.67,
+    "end_candle_utc": "2024-08-31T23:00:00.000Z",
+    "end_close": 58973.99,
+    "change": 2.56776572067077
+  },
+  "cost": {
+    "fee_rate": 0.001,
+    "fixed_fee": 0,
+    "slippage": 0
+  },
+  "initial_cash": 10000,
+  "seeds": 1,
+  "action_mode": "dial",
+  "decision_hours": 24,
+  "rebalance_band": 0.05,
+  "dial_levels": [
+    0.3,
+    0.5,
+    0.7
+  ],
+  "dial_changes": 0,
+  "decisions": 609,
+  "last_decision_hours": 23,
+  "metrics": {
+    "total_return": 1.0338959762670301,
+    "max_drawdown": 0.16103751529875635,
+    "sharpe": 1.7559067598022884,
+    "trades": 15,
+    "rejected": 0,
+    "turnover": 1.0655867713419673,
+    "fees_paid": 17.1654356297,
+    "fees_pct": 0.171654356297,
+    "exposure": 1,
+    "steps": 14615,
+    "initial_equity": 10000,
+    "final_equity": 20338.9597626703
+  }
+}

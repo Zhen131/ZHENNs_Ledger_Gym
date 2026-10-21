@@ -1,0 +1,56 @@
+{
+  "timestamp_utc": "2026-10-21T13:30:49.651Z",
+  "kind": "baseline",
+  "policy": "constant_mix_50",
+  "generated_by": "Gym.Editor.EvalTools.RunBaselines",
+  "symbol": "ADAUSDT",
+  "data_file": "data/ADAUSDT-1h.csv",
+  "segment": {
+    "name": "validation",
+    "start_date": "2024-09-01",
+    "end_date": "2025-08-31",
+    "first_candle_utc": "2024-09-01T00:00:00.000Z",
+    "last_candle_utc": "2025-08-31T23:00:00.000Z",
+    "steps": 8759
+  },
+  "market": {
+    "start_candle_utc": "2024-09-01T00:00:00.000Z",
+    "start_open": 0.3451,
+    "start_close": 0.3444,
+    "end_candle_utc": "2025-08-31T23:00:00.000Z",
+    "end_close": 0.8113,
+    "change": 1.3556910569105693
+  },
+  "cost": {
+    "fee_rate": 0.001,
+    "fixed_fee": 0,
+    "slippage": 0
+  },
+  "initial_cash": 10000,
+  "seeds": 1,
+  "action_mode": "dial",
+  "decision_hours": 24,
+  "rebalance_band": 0.05,
+  "dial_levels": [
+    0.3,
+    0.5,
+    0.7
+  ],
+  "dial_changes": 0,
+  "decisions": 365,
+  "last_decision_hours": 23,
+  "metrics": {
+    "total_return": 0.78857831842199966,
+    "max_drawdown": 0.31834219728324714,
+    "sharpe": 1.0438834690724135,
+    "trades": 27,
+    "rejected": 0,
+    "turnover": 1.7999744076341164,
+    "fees_paid": 27.64116578,
+    "fees_pct": 0.27641165780000004,
+    "exposure": 1,
+    "steps": 8759,
+    "initial_equity": 10000,
+    "final_equity": 17885.783184219996
+  }
+}
