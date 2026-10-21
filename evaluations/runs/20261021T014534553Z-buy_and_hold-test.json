@@ -1,0 +1,45 @@
+{
+  "timestamp_utc": "2026-10-21T01:45:34.553Z",
+  "kind": "baseline",
+  "policy": "buy_and_hold",
+  "generated_by": "Gym.Editor.EvalTools.RunBaselines",
+  "symbol": "XRPUSDT",
+  "data_file": "data/XRPUSDT-1h.csv",
+  "segment": {
+    "name": "test",
+    "start_date": "2025-09-01",
+    "end_date": "2026-08-31",
+    "first_candle_utc": "2025-09-01T00:00:00.000Z",
+    "last_candle_utc": "2026-08-31T23:00:00.000Z",
+    "steps": 8759
+  },
+  "market": {
+    "start_candle_utc": "2025-09-01T00:00:00.000Z",
+    "start_open": 2.7757,
+    "start_close": 2.7624,
+    "end_candle_utc": "2026-08-31T23:00:00.000Z",
+    "end_close": 1.3798,
+    "change": -0.50050680567622363
+  },
+  "cost": {
+    "fee_rate": 0.001,
+    "fixed_fee": 0,
+    "slippage": 0
+  },
+  "initial_cash": 10000,
+  "seeds": 1,
+  "metrics": {
+    "total_return": -0.50101094925000011,
+    "max_drawdown": 0.68843389142198563,
+    "sharpe": -1.0865880096172256,
+    "trades": 1,
+    "rejected": 0,
+    "turnover": 1.5944520421074049,
+    "fees_paid": 9.9897525000000016,
+    "fees_pct": 0.099897525000000015,
+    "exposure": 1,
+    "steps": 8759,
+    "initial_equity": 10000,
+    "final_equity": 4989.8905074999993
+  }
+}
