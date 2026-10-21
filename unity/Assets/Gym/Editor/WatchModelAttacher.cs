@@ -1,5 +1,7 @@
 using System;
+using Gym.Core.Env;
 using Gym.Runtime.Agents;
+using Gym.Runtime.Configuration;
 using Gym.Runtime.Watch;
 using Unity.InferenceEngine;
 using Unity.MLAgents.Policies;
@@ -12,7 +14,8 @@ namespace Gym.Editor
     /// 程序集：editor 一加载（包括每次进入播放时重新加载脚本），就把自己登记到 <see cref="WatchController.ModelSource"/>。
     /// 推理设置（只推理、确定性、Burst）已经由场景生成器按评估包的那一份写进 Watch scene，这里只挂模型。
     /// 挂之前核对模型的输入维数和 Agent 要用的观测集（<see cref="TradingAgent.ObservationSetOverride"/>，没有时是
-    /// <see cref="WatchSetup.WatchedObservationSet"/>）对得上；对不上就不挂，原因写进 problem。
+    /// <see cref="WatchSetup.WatchedObservationSet"/>）对得上，模型的动作形状和 Agent 要用的动作模式
+    /// （<see cref="TradingAgent.ActionModeOverride"/>，没有时是配置的 actionMode 或 -gymActionMode）对得上；对不上就不挂，原因写进 problem。
     /// </summary>
     [InitializeOnLoad]
     public sealed class WatchModelAttacher : IWatchModelSource
@@ -29,11 +32,16 @@ namespace Gym.Editor
             }
             try
             {
-                problem = WatchSetup.FitProblem(modelAsset, agent.ObservationSetOverride ?? WatchSetup.WatchedObservationSet());
+                GymSettings settings = null;
+                GymSettings Settings() => settings ?? (settings = GymConfigLoader.LoadForRuntime());
+                ObservationSet set = agent.ObservationSetOverride ?? Settings().ObservationSet;
+                ActionMode mode = agent.ActionModeOverride ?? Settings().ActionMode;
+                int levels = mode == ActionMode.Dial ? Settings().DialLevels.Count : 0;
+                problem = WatchSetup.FitProblem(modelAsset, set, mode, levels);
             }
             catch (Exception e)
             {
-                problem = $"could not check the watch model {modelAsset} against the observation set: {e.Message}";
+                problem = $"could not check the watch model {modelAsset} against the observation set and the action mode: {e.Message}";
             }
             if (problem != null) return false;
             agent.GetComponent<BehaviorParameters>().Model = model;

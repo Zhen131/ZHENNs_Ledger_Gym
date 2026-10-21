@@ -15,7 +15,8 @@ namespace Gym.Editor
     /// 「选文件」和后面那一段分开：文件对话框在命令行下弹不出来，后一段（<see cref="Watch"/>、<see cref="Remember"/>）
     /// 能被测试和截图工具直接调用。
     /// 选好的模型要和观战用的观测集（gym-config.json 的 observationSet，或启动 editor 时的 -gymObs）对得上：
-    /// 模型的输入维数不等于这一档的大小时，在菜单这一步就报错，不记住、不进播放。
+    /// 模型的输入维数不等于这一档的大小时，在菜单这一步就报错，不记住、不进播放。动作形状同样要和观战用的动作模式
+    /// （gym-config.json 的 actionMode，或 -gymActionMode）对得上。
     /// </summary>
     public static class WatchSetup
     {
@@ -50,7 +51,8 @@ namespace Gym.Editor
             }
             modelPath = Path.GetFullPath(modelPath);
             string asset = Import(modelPath);
-            string problem = FitProblem(asset, WatchedObservationSet());
+            GymSettings watched = GymConfigLoader.LoadForRuntime();
+            string problem = FitProblem(asset, watched.ObservationSet, watched.ActionMode, watched.DialLevels.Count);
             if (problem != null)
             {
                 Debug.LogError("[Gym] " + problem);
@@ -102,6 +104,20 @@ namespace Gym.Editor
             string problem = ObservationSets.ModelInputProblem(ModelInputs.VectorObservationSizeAt(modelAsset), set);
             return problem == null ? null
                 : $"{problem}. The Watch scene uses the observationSet of gym-config.json (or -gymObs); change it, or choose another model with {MenuPath}";
+        }
+
+        /// <summary>
+        /// 观测集之外再核对动作形状：模型读出来的动作形状（<see cref="ModelActions"/>）和动作模式 <paramref name="mode"/>
+        /// （旋钮模式有 <paramref name="levelCount"/> 档）要的形状比，和评估包用同一个比较（<see cref="ActionShape.ModelActionProblem"/>）。
+        /// 先查观测集，对得上再查动作形状；都对得上返回 null。两个参数的那个重载不变，只查观测集。
+        /// </summary>
+        public static string FitProblem(string modelAsset, ObservationSet set, ActionMode mode, int levelCount)
+        {
+            string problem = FitProblem(modelAsset, set);
+            if (problem != null) return problem;
+            string actions = ActionShape.ModelActionProblem(ModelActions.ActionShapeAt(modelAsset), mode, levelCount);
+            return actions == null ? null
+                : $"{actions}. The Watch scene uses the actionMode of gym-config.json (or -gymActionMode); change it, or choose another model with {MenuPath}";
         }
 
         /// <summary>Watch- 加上模型所在文件夹的名字（训练的输出是 results/&lt;run-id&gt;/TradingAgent.onnx）。</summary>

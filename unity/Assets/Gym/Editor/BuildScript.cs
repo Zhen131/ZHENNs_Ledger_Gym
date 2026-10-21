@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using Gym.Core.Env;
 using Gym.Runtime.Agents;
 using Gym.Runtime.Configuration;
 using Gym.Runtime.Evaluation;
@@ -57,8 +58,10 @@ namespace Gym.Editor
         /// <summary>
         /// 把 -gymModel 给的 ONNX 复制成 Assets/Gym/Models/Imported/&lt;run-id&gt;.onnx，
         /// 在同一个文件夹里复制一份 Eval scene，把模型挂到 Agent 上（Inference Only、确定性、CPU/Burst），
-        /// 用这份副本打包出 Builds/mac/GymEval.app，再把 run id、模型的 SHA-256 和模型的向量观测输入维数（用推理引擎从模型里读）
-        /// 写进包里的 StreamingAssets/Gym/build-info.json；评估包开工时拿这个维数和当前观测集的大小比。
+        /// 用这份副本打包出 Builds/mac/GymEval.app，再把 run id、模型的 SHA-256、模型的向量观测输入维数和动作形状（都用推理引擎从模型里读，
+        /// 见 <see cref="ModelInputs"/>、<see cref="ModelActions"/>）写进包里的 StreamingAssets/Gym/build-info.json
+        /// （continuous_actions、discrete_branches、action_shape_recorded = true）；评估包开工时拿维数和当前观测集的大小比、
+        /// 拿动作形状和当前动作模式要的形状比。
         /// run id 取 -gymRunId；没给时取 ONNX 上一级文件夹的名字（results/&lt;run-id&gt;/）。
         /// </summary>
         [MenuItem("Gym/Build/Mac Evaluation Player (needs -gymModel)")]
@@ -77,11 +80,12 @@ namespace Gym.Editor
                 string sha = Sha256(modelPath);
                 ModelAsset model = ImportModel(modelPath, runId);
                 int inputSize = ModelInputs.VectorObservationSize(model); // 读不出来就打包失败
+                ActionShape actions = ModelActions.ActionShapeOf(model); // 两个形状输出都没有就打包失败
                 string scenePath = MakeEvalScene(runId, model);
                 BuildSummary summary = BuildPlayer(target, output, scenePath);
-                string infoPath = WriteBuildInfo(target, output, runId, sha, modelPath, inputSize);
+                string infoPath = WriteBuildInfo(target, output, runId, sha, modelPath, inputSize, actions);
                 if (target == BuildTarget.StandaloneOSX) ResignMacApp(output);
-                Debug.Log($"[Gym] eval build: run id {runId}, model sha256 {sha}, {inputSize} observation inputs, " +
+                Debug.Log($"[Gym] eval build: run id {runId}, model sha256 {sha}, {inputSize} observation inputs, actions {actions}, " +
                           $"{summary.totalSize / 1048576.0:F1} MB -> {output}; wrote {infoPath}");
             }
             catch (Exception e)
@@ -143,8 +147,9 @@ namespace Gym.Editor
             behavior.InferenceDevice = InferenceDevice.Burst;
         }
 
-        /// <summary>把 run id、模型的 SHA-256 和输入维数写进包里的 StreamingAssets/Gym/build-info.json；返回这个文件的路径。</summary>
-        static string WriteBuildInfo(BuildTarget target, string output, string runId, string sha, string modelPath, int inputSize)
+        /// <summary>把 run id、模型的 SHA-256、输入维数和动作形状写进包里的 StreamingAssets/Gym/build-info.json；返回这个文件的路径。</summary>
+        static string WriteBuildInfo(BuildTarget target, string output, string runId, string sha, string modelPath, int inputSize,
+            ActionShape actions)
         {
             var info = new EvalBuildInfo
             {
@@ -154,6 +159,9 @@ namespace Gym.Editor
                 built_at_utc = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'"),
                 unity_version = Application.unityVersion,
                 vector_observation_size = inputSize,
+                continuous_actions = actions.Continuous,
+                discrete_branches = actions.Branches.ToArray(),
+                action_shape_recorded = true,
             };
             string infoPath = Path.Combine(StreamingGymFolder(target, output), EvalRunner.BuildInfoFile);
             File.WriteAllText(infoPath, JsonUtility.ToJson(info, true));

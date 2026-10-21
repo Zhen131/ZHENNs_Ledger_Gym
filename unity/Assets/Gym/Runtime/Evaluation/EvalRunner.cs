@@ -19,7 +19,7 @@ namespace Gym.Runtime.Evaluation
     /// 直到 Agent 的 episode 结束；把结果追加到 &lt;-gymOut&gt;/log.csv，另写一份 JSON 明细文件；
     /// 然后退出（成功为 0，失败为 1）。只有带着 -gymMode eval、-gymSegment &lt;段名&gt; 和
     /// -gymOut &lt;folder&gt; 启动时才运行；段名是 gym-config.json 里的一个评估段，由 GymConfigLoader 检查。
-    /// 开工前还核对打包时记下的模型输入维数和当前观测集的大小，对不上就退出码 1、什么都不写。
+    /// 开工前还核对打包时记下的模型输入维数和当前观测集的大小、模型的动作形状和当前动作模式，对不上就退出码 1、什么都不写。
     /// </summary>
     public class EvalRunner : MonoBehaviour
     {
@@ -115,6 +115,31 @@ namespace Gym.Runtime.Evaluation
             return problem == null ? null : $"{problem} (from {BuildInfoFile}, model run {info.run_id}). Nothing was written.";
         }
 
+        /// <summary>
+        /// 评估包里的模型和当前动作模式对不对得上：对不上返回报错（写明两边的动作形状，Nothing was written），对得上返回 null。
+        /// 期望的形状来自 <see cref="ActionShape.For"/>（即 ActionCodec）。没有 build-info.json，或它没记动作形状
+        /// （<see cref="EvalBuildInfo.action_shape_recorded"/> 为 false：24 批之前打的包）时不查，返回 null，原因写进
+        /// <paramref name="notChecked"/>。旧包只按 action_shape_recorded 判，不看 continuous_actions 是不是 0（0 是旋钮模式的正常值）。
+        /// </summary>
+        public static string CheckModelActions(EvalBuildInfo info, ActionMode mode, int levelCount, out string notChecked)
+        {
+            notChecked = null;
+            if (info == null)
+            {
+                notChecked = $"no {BuildInfoFile}, so the model's action shape is not checked against the action mode {mode.Name()}";
+                return null;
+            }
+            if (!info.action_shape_recorded)
+            {
+                notChecked = $"{BuildInfoFile} does not record the model's action shape (built before action shapes were recorded), " +
+                             $"so it is not checked against the action mode {mode.Name()}";
+                return null;
+            }
+            var model = new ActionShape(info.continuous_actions, info.discrete_branches);
+            string problem = ActionShape.ModelActionProblem(model, mode, levelCount);
+            return problem == null ? null : $"{problem} (from {BuildInfoFile}, model run {info.run_id}). Nothing was written.";
+        }
+
         /// <summary>评估流水 agent 行的 notes 列：推理设置、走了几步、观测集。</summary>
         public static string AgentNotes(bool deterministicInference, string inferenceDevice, int steps, ObservationSet set) =>
             $"deterministic={deterministicInference}; device={inferenceDevice}; steps={steps}; obs={set.Name()}";
@@ -150,9 +175,14 @@ namespace Gym.Runtime.Evaluation
             buildInfoRead = true;
             string mismatch = CheckModelInput(buildInfo, agent.Env.ObservationSet, out string notChecked);
             if (notChecked != null) Debug.LogWarning("[Gym] " + notChecked);
-            if (mismatch != null)
+            TradingEnv checkedEnv = agent.Env;
+            string actionMismatch = CheckModelActions(buildInfo, checkedEnv.ActionMode, checkedEnv.Dial?.Levels.Count ?? 0,
+                out string actionsNotChecked);
+            if (actionsNotChecked != null) Debug.LogWarning("[Gym] " + actionsNotChecked);
+            if (mismatch != null || actionMismatch != null)
             {
-                Debug.LogError("[Gym] " + mismatch);
+                if (mismatch != null) Debug.LogError("[Gym] " + mismatch);
+                if (actionMismatch != null) Debug.LogError("[Gym] " + actionMismatch);
                 Quit(1);
                 yield break;
             }
