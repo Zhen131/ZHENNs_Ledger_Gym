@@ -53,8 +53,10 @@ namespace Gym.Runtime.Agents
         bool firstEpisodeLogged;
         /// <summary>训练玩家开工那一行已经为哪份设置写过（每份设置写一次，不是每个 Agent 一次）。</summary>
         static GymSettings trainingStartLoggedFor;
-        /// <summary><see cref="OnEnable"/> 已经选过动作模式、改过动作形状（只做一次）。</summary>
+        /// <summary>这次启用已经选过动作模式、改过动作形状（<see cref="OnEnable"/> 里设，<see cref="OnDisable"/> 里清）。</summary>
         bool actionModeChosen;
+        /// <summary>这次启用已经调过 base.OnEnable()（ML-Agents 的初始化）；没调过时 <see cref="OnDisable"/> 也不调 base。</summary>
+        bool baseEnabled;
 
         public AgentStartMode StartMode
         {
@@ -154,8 +156,21 @@ namespace Gym.Runtime.Agents
         /// </summary>
         protected override void OnEnable()
         {
-            if (!actionModeChosen) ChooseActionModeAndShape();
+            ChooseActionModeAndShape();
+            baseEnabled = true;
             base.OnEnable();
+        }
+
+        /// <summary>
+        /// 启用时在 base.OnEnable() 之前就报了错（例如试玩场景遇到旋钮模式）的 Agent，ML-Agents 从没初始化过它，
+        /// 这时不调 base.OnDisable()（它会去更新不存在的传感器，抛 NullReferenceException）。别的情况照常调。
+        /// </summary>
+        protected override void OnDisable()
+        {
+            actionModeChosen = false;
+            if (!baseEnabled) return;
+            baseEnabled = false;
+            base.OnDisable();
         }
 
         void ChooseActionModeAndShape()
