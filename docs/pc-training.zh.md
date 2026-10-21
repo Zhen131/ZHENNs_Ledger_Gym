@@ -165,6 +165,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 | `-Smoke` / `-SmokeSteps` | 在 `results\_tmp\` 里复制一份缩短版（15,000 步）再跑 | 关 |
 | `-DryRun` | 只打印要跑的命令，什么文件都不写 | 关 |
 | `-EnvArgs` | 传给训练包的参数，整串用引号包起来，例如 `-EnvArgs "-gymTrainSymbols BTCUSDT,ETHUSDT"`；写法和规矩见第 12 节 | 不传 |
+| `-BasePort` | 这条流水线的端口起点（第 k 个环境用「起点 + k」），几条流水线同时跑时每条一个，见第 14.4 节 | 不传（`mlagents-learn` 用 5005） |
 
 run-id 的格式是 `<配置名>-s<种子>-<年月日>`（UTC 日期）。`results\<run-id>` 已经存在的就跳过，绝不覆盖。每次训练留下 `results\<run-id>\`（里面有模型、`config-used.yaml`、`seed-used.txt`、`env-args.txt`，训练包里有 `build-info.json` 时还有它的副本，见第 12 节）和 `results\<run-id>.log`。每份对比配置改了什么，见 `config\README.md`；改过配置后用 `python scripts\train\check_configs.py` 检查。
 
@@ -203,6 +204,7 @@ $e.ExitCode   # 0 表示成功；不是 0 就看 unity\Logs\eval.log 的最后�
 
 - `-gymFeeRate` 用这个模型训练时的费率。测试段只留到最后出正式数字时用。
 - **第二轮的模型**（`config\v2\` 训出来的）观测集是 `long` 或 `long-ta`，评估命令要加 `'-gymObs', 'long'`（或 `'long-ta'`），三个验证段都评；详见第 12 节。
+- **第三轮的模型**（`config\v3\` 训出来的）是旋钮模式，评估命令还要加 `'-gymActionMode', 'dial'`；详见第 14.5 节。
 - 评估包必须带 `-gymMode eval`、`-gymSegment`（`gym-config.json` 里的一个评估段：`validation-bear`、`validation-recovery`、`validation` 或 `test`）和 `-gymOut`，少一个、或者段名不在配置里，它就报错退出（退出码 1），什么都不写。段没有默认值，免得一不小心跑了测试段。费率写错（比如 `1.5`）也是几秒内退出码 1，`unity\Logs\eval.log` 里写着是哪个参数。
 - 跑完马上提交，例如：
 
@@ -446,7 +448,9 @@ Select-String -Path unity\Logs\watch-model.log -Pattern 'RESULT:'
 Remove-Item Env:GYM_WATCH_MODEL, Env:GYM_WATCH_EVAL_LOG
 ```
 
-应该看到：评估那行 `kind` 是 `agent`、`segment` 是 `validation`、`notes` 以 `obs=base` 结尾；测试退出码 0，`<test-run` 那行 `total="2" passed="2"`、`skipped="0"`；日志里有 `RESULT: the watch row equals the evaluation row in every column but timestamp_utc and model_run_id, and the final equity is the same`。跑完 `git status` 若只有 `unity\ProjectSettings\ProjectSettings.asset` 里 `SENTIS_ANALYTICS_ENABLED` 那一处变了，用 `git checkout -- unity/ProjectSettings/ProjectSettings.asset` 还原。
+**只认 24 批之后的评估包写的流水**：`GYM_WATCH_EVAL_LOG` 只能指向这样的评估包刚写的 `log.csv`（它的 `build-info.json` 有 `"action_shape_recorded": true`）。24 批起，agent 行的 `notes` 末尾多了 `; mode=orders`，观战那一行也是；拿老评估包写的流水（或老的 `evaluations\log.csv`）去比，只会在 `notes` 上不同，这是预期，不是错（`24B` 第 2 步）。第三轮再做这一项时，先照第 10 步用这一版重打冒烟 6 的评估包。
+
+应该看到：评估那行 `kind` 是 `agent`、`segment` 是 `validation`、`notes` 以 `obs=base; mode=orders` 结尾（24 批之前的包写的是以 `obs=base` 结尾）；测试退出码 0，`<test-run` 那行 `total="2" passed="2"`、`skipped="0"`；日志里有 `RESULT: the watch row equals the evaluation row in every column but timestamp_utc and model_run_id, and the final equity is the same`。跑完 `git status` 若只有 `unity\ProjectSettings\ProjectSettings.asset` 里 `SENTIS_ANALYTICS_ENABLED` 那一处变了，用 `git checkout -- unity/ProjectSettings/ProjectSettings.asset` 还原。
 
 ### 冒烟 8：评估包认新段名，不认不存在的段名
 
@@ -511,3 +515,286 @@ Select-String -Path unity\Logs\eval-bad-risk.log -Pattern 'RiskAversion'
 应该看到：退出码 1，`c16-bad-risk` 里什么都没有，日志里有 `-gymRiskAversion -1 is out of range: …`。
 
 冒烟 0 到冒烟 10 都对上了，再按 12.2 的例子跑正式的第二轮。
+
+## 14. 第三轮：仓位旋钮
+
+第三轮的模型不再下单，只拧「目标仓位」旋钮：30%、50%、70% 三档，每 24 根小时 K 线（一天）选一次，买卖由规则代劳（实际仓位偏离目标超过带宽就买或卖回去）。旋钮模式的环境、对手、评估包的动作形状核对、算分脚本都在 Mac 上做好、测过，但**训练包和评估包带旋钮模式的真跑只能在这台 PC 上做**，`run_series.ps1` 的 `-BasePort` 也还没在 Windows 上真跑过。所以先做完第 15 节的冒烟，再跑正式的。
+
+### 14.1 新参数一览
+
+| 参数 | 给谁 | 意思 | 不写时 |
+| --- | --- | --- | --- |
+| 环境参数 `action_mode`（yaml 的 `environment_parameters`） | 训练 | 0 = 下单模式（第一、二轮）、1 = 旋钮模式 | 用 `-gymActionMode`，再没有用 `gym-config.json` 的 `actionMode`（`orders`） |
+| 环境参数 `decision_hours`（同上） | 训练 | 旋钮模式每次决策走几根 K 线。`check_configs.py` 只收 24（`22A` 第二节第 5 条） | 用 `-gymDecisionHours`，再没有用 `decisionHours`（24） |
+| 环境参数 `rebalance_band`（同上） | 训练 | 调仓带宽：实际仓位偏离目标超过它才下单。`check_configs.py` 只收 0.02～0.10 | 用 `-gymBand`，再没有用 `rebalanceBand`（0.05） |
+| `-gymActionMode orders\|dial` | 评估包、观战（启动编辑器时带）；训练包也认 | 动作模式。模型只能用它训练时的那一种。试玩场景不支持 `dial`，会报错退出 | `gym-config.json` 的 `actionMode`（`orders`） |
+| `-gymDecisionHours <n>` | 评估包、观战；训练包也认 | 每次决策走几根，整数 ≥ 1 | `decisionHours`（24） |
+| `-gymBand <x>` | 评估包、观战；训练包也认 | 调仓带宽，(0, 0.5) 之内 | `rebalanceBand`（0.05） |
+| `-BasePort <n>`（`run_series.ps1`） | 训练脚本 | 这一条流水线的端口起点：第 k 个环境用「起点 + k」。整数，1024 到 65535 − `-NumEnvs`，不对就报错退出 | 不传，`mlagents-learn` 用它自己的 5005 |
+
+档位（`dialLevels` 0.3、0.5、0.7）和旋钮模式每局的长度（`dialEpisodeLength` 2160 根，也就是 90 次决策）只在 `gym-config.json` 里，不走命令行。规矩和第二轮的观测集一样：**训练时这三样只写在 yaml 里**，`-EnvArgs` 里别写 `-gymActionMode`、`-gymDecisionHours`、`-gymBand`（环境参数赢，两边写得不一样也不报错）。
+
+### 14.2 `config\v3\` 的三份配置
+
+| 文件 | 基础（第一行写着） | 和基础差什么 | 用来做什么 |
+| --- | --- | --- | --- |
+| `dial.yaml` | `config\v2\long.yaml` | `action_mode: 1` | 主线，两条线都用它：BTC 单币线、四币混训线 |
+| `dial-base.yaml` | `config\v3\dial.yaml` | `obs_set: 0`（`base`，35 个数） | `base` 对照，只跑 BTC 单币线 |
+| `smoke-dial.yaml` | `config\v3\dial.yaml`（冒烟配置，不和基础比） | `max_steps` 15000、`checkpoint_interval` 15000、`summary_freq` 1000 | 第 15 节的冒烟。一步是一次决策（24 根），第一批局在 16 个智能体 × 90 次决策 = 1,440 步结束，`Trading/…` 从 2,000 步起才有 |
+
+`decision_hours`、`rebalance_band` 三份都没写，用的是 `gym-config.json` 的 24 和 0.05。**没有 `dial-mix.yaml`**：混训线用的就是 `dial.yaml`，币写在 `-EnvArgs`，和第二轮一样；两条线的设置因此一字不差（`22A` 第二节第 9 条）。
+
+`max_steps` 现在仍是 200 万。旋钮模式一步是一天，200 万步约等于把训练段过 1,250 遍；正式跑多少步，按冒烟 14 的测速定（`22A` 第三节第 2 条，倾向 50 万步起）。**要改步数先问讨论会话**：直接改 `dial.yaml` 的 `max_steps`，它就和基础 `long.yaml` 差两项，`check_configs.py` 会判 FAIL。
+
+### 14.3 两条线和对照怎么起
+
+| 线 | 配置 | 种子 | `-Prefix` | `-EnvArgs` | run-id |
+| --- | --- | --- | --- | --- | --- |
+| BTC 单币（主线） | `config\v3\dial.yaml` | 1～5 | 不加 | 不传 | `dial-s<种子>-<日期>` |
+| 四币混训（主线） | `config\v3\dial.yaml` | 1～5 | `mix` | `"-gymTrainSymbols BTCUSDT,ETHUSDT,ADAUSDT,XRPUSDT"` | `mix-dial-s<种子>-<日期>` |
+| `base` 对照 | `config\v3\dial-base.yaml` | 1～3 | 不加 | 不传 | `dial-base-s<种子>-<日期>` |
+
+一条流水线一次只跑一个训练；几条流水线同时跑见 14.4。一次只开一条时，三条命令依次是：
+
+```powershell
+.\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Seeds 1,2,3,4,5 -Configs config\v3\dial.yaml
+.\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Seeds 1,2,3,4,5 -Prefix mix -Configs config\v3\dial.yaml -EnvArgs "-gymTrainSymbols BTCUSDT,ETHUSDT,ADAUSDT,XRPUSDT"
+.\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Seeds 1,2,3 -Configs config\v3\dial-base.yaml
+```
+
+`-Prefix` 在第三轮**只用来分「线」**（混训线 `mix`）。算分脚本 `score_round3.py` 把 run-id 去掉 `-s<种子>-<日期>` 当成「配置」：`dial`、`mix-dial`、`dial-base` 正好是三个配置。别的前缀会凭空多出配置，把同一个配置的种子拆开，配置得分和「几个种子过门槛」就都算错了，而且不会报错。
+
+### 14.4 几条流水线同时跑
+
+第二轮看到 CPU 只用了三成左右，所以第三轮几条流水线同时跑（`22A` 第二节第 10 条）。**起步建议 3 条**，最后开几条由 Windows 派活会话按冒烟 14 的测速定。
+
+规矩：
+
+- **一条流水线一个终端、一个 `-BasePort`**，相邻的至少隔 `-NumEnvs` 个数，例如 5005、5105、5205。两条用了同一个端口，后起的那条会直接报 `UnityWorkerInUseException` 退出，不会悄悄串线。
+- **流水线之间靠种子或线分开，不靠 `-Prefix`。** 三条流水线最简单是一条线一条：BTC 单币、混训、`base` 对照各一条。流水线比线多时，把一条线按种子拆开，例如一条跑 `-Seeds 1,2`、另一条跑 `-Seeds 3,4,5`。**同一条线的同一个种子不许在两条流水线里同时跑**（同一个 run-id 同时起两次，后起的那次 `mlagents-learn` 会报 `Previous data from this run ID was found`）。
+- 每条流水线的输出各写各的 `results\series-<名>.out`（`*>` 写出来的是 UTF-16，`Select-String` 照样能搜）。
+- 每个终端先设 `$env:CUDA_VISIBLE_DEVICES = '-1'`：配置里是 `device: cpu`，训练用不到显卡，设了就不会给显卡添负担。
+- 临时配置 `results\_tmp\<run-id>.yaml` 按 run-id 起名，几条流水线不会写到同一个文件，不用另外分目录。
+
+三条流水线，一条线一条（三个 PowerShell 窗口，都先 `conda activate mlagents`、`cd E:\project\ZHENNs_Ledger_Gym`）：
+
+```powershell
+# 窗口一：BTC 单币
+$env:CUDA_VISIBLE_DEVICES = '-1'
+.\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Seeds 1,2,3,4,5 -BasePort 5005 -Configs config\v3\dial.yaml *> results\series-dial.out
+
+# 窗口二：四币混训
+$env:CUDA_VISIBLE_DEVICES = '-1'
+.\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Seeds 1,2,3,4,5 -BasePort 5105 -Prefix mix -Configs config\v3\dial.yaml -EnvArgs "-gymTrainSymbols BTCUSDT,ETHUSDT,ADAUSDT,XRPUSDT" *> results\series-mix-dial.out
+
+# 窗口三：base 对照
+$env:CUDA_VISIBLE_DEVICES = '-1'
+.\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Seeds 1,2,3 -BasePort 5205 -Configs config\v3\dial-base.yaml *> results\series-dial-base.out
+```
+
+看机器跑满了没有、几条有没有互相干扰：
+
+```powershell
+# 每个训练包的命令行里有 --mlagents-port <端口>，三条流水线的端口各在自己的区间里
+Get-CimInstance Win32_Process -Filter "Name='Gym.exe'" | Select-Object ProcessId, CommandLine | Format-List
+# 训练器（python.exe）在哪几个端口上等训练包
+Get-NetTCPConnection -State Listen -LocalPort 5005,5105,5205 | Select-Object LocalPort, OwningProcess
+# CPU 一共用了多少（每 5 秒一次，取 6 次）；任务管理器的「性能」页也行
+Get-Counter '\Processor(_Total)\% Processor Time' -SampleInterval 5 -MaxSamples 6
+# 训练包一共占多少内存
+"{0:N0} MB" -f ((Get-Process Gym | Measure-Object WorkingSet64 -Sum).Sum / 1MB)
+```
+
+端口**不要去 Player 日志里找**：训练包只在连不上训练器时才把端口写进日志。每次训练的端口记在 `results\<run-id>\seed-used.txt` 的 `base-port: …` 那一行（没给 `-BasePort` 时是 `base-port: default …`）。
+
+### 14.5 评估第三轮的模型
+
+- 旋钮模式的模型，评估命令要加 `'-gymActionMode', 'dial'`；观测集照训练时的：`dial`、`mix-dial` 的模型加 `'-gymObs', 'long'`，`dial-base` 的模型用 `base`（不写 `-gymObs` 就是 `base`）。训练时改过带宽或决策根数的，评估也要带一样的 `-gymBand`、`-gymDecisionHours`。
+- 动作模式对不上时评估包退出码 1、什么都不写，日志里写着两边的形状，例如 `the model's actions are 1 continuous + [3] but the action mode dial with 3 levels needs 0 continuous + [3]`（冒烟 13）。
+- 三个验证段都评：`validation-bear`、`validation-recovery`、`validation`，费率 0.001。**测试段 `test` 整轮最后只考一次**，挑好终版之后；报告里写「验证段调参、测试段第三次」（`22A` 第二节第 11 条）。
+- 例子（`dial-s1-<日期>` 的模型，跌段）：
+
+```powershell
+$p = Start-Process -FilePath $unity -Wait -PassThru -ArgumentList @(
+  '-batchmode', '-nographics', '-projectPath', "`"$PWD\unity`"",
+  '-executeMethod', 'Gym.Editor.BuildScript.BuildWindowsEval',
+  '-gymModel', "`"$PWD\results\dial-s1-<日期>\TradingAgent.onnx`"", '-quit',
+  '-logFile', "`"$PWD\unity\Logs\build-eval.log`"")
+$p.ExitCode   # 0
+
+$e = Start-Process -FilePath unity\Builds\win-eval\GymEval.exe -Wait -PassThru -ArgumentList @(
+  '-batchmode', '-nographics', '-gymMode', 'eval', '-gymSegment', 'validation-bear',
+  '-gymActionMode', 'dial', '-gymObs', 'long',
+  '-gymFeeRate', '0.001', '-gymOut', "`"$PWD\evaluations`"",
+  '-logFile', "`"$PWD\unity\Logs\eval.log`"")
+$e.ExitCode   # 0
+```
+
+- 流水那一行的 `notes` 以 `; mode=dial; band=0.05; hours=24; changes=<换档次数>` 结尾。
+- 三段都评完，算分：
+
+```powershell
+python scripts\eval\score_round3.py evaluations\log.csv                          # 所有模型
+python scripts\eval\score_round3.py evaluations\log.csv --runs dial-,mix-dial-    # 只看第三轮的 run-id
+```
+
+两道门槛（跌段回撤 ≤ 0.4132、涨段收益 ≥ 0.3901，先四舍五入到 4 位小数再比）、三段卡玛平均、配置得分、「没学会」（三段都从没换过档）的算法见 [evaluation.md](evaluation.md)（英文）；终版在所有过了两道门槛的模型里挑得分最高的。
+
+## 15. 第三轮冒烟：Mac 上没真跑过的几件事
+
+和第 13 节一样：按顺序做，前面的产出后面要用；哪一件对不上，记下原文、停下来，告诉讨论会话。冒烟的评估一律写进 `evaluations\smoke\`，**不写正式流水**。`<日期>` 换成脚本打印的 run-id 里的日期（UTC）。做之前先照第 6 步重打训练包（这一版的训练包才认旋钮模式），再照冒烟 0 先 `-DryRun` 看一眼。
+
+### 冒烟 11：三个环境参数到了没有
+
+先跑旋钮模式的冒烟配置（它的名字本来就以 `smoke` 开头，不用再加 `-Smoke`）：
+
+```powershell
+.\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Seeds 1 -Configs config\v3\smoke-dial.yaml
+$run = 'smoke-dial-s1-<日期>'
+Select-String -Path results\$run\run_logs\Player-*.log -Pattern 'actions dial|chooses the action mode' | Select-Object -First 4
+python scripts\train\read_scalars.py results\$run | Select-String 'Trading/Decisions|Trading/DialChanges'
+```
+
+应该看到：
+
+- 每个智能体一行 `the trainer's action_mode chooses the action mode dial (the config and command line said orders)`。
+- 每个智能体初始化那一行：`…: index …, mode Training, segment train 2017-08-17..2021-12-31, observations long (41 numbers, history 2160), actions dial (levels 0.3, 0.5, 0.7, decision hours 24, band 0.05, episodes of 2160 candles), master seed … (trainer)`。
+- `Trading/Decisions` 和 `Trading/DialChanges` 两条都有（冒烟 12 看它们的数）。
+
+这一次只证明了 `action_mode` 这一路：`decision_hours`、`rebalance_band` 用的是 `gym-config.json` 的缺省值，环境参数那一路没走过。所以再用一份**临时配置**（放在 `results\_tmp\`，不进 Git）带上 `decision_hours: 24`、`rebalance_band: 0.03` 跑一次：
+
+```powershell
+New-Item -ItemType Directory -Force results\_tmp | Out-Null
+$text = [IO.File]::ReadAllText("$PWD\config\v3\smoke-dial.yaml")
+$text = $text.Replace('  action_mode: 1', "  action_mode: 1`n  decision_hours: 24`n  rebalance_band: 0.03")
+[IO.File]::WriteAllText("$PWD\results\_tmp\smoke-dial-band003.yaml", $text)
+Select-String -Path results\_tmp\smoke-dial-band003.yaml -Pattern 'action_mode|decision_hours|rebalance_band'   # 三行
+
+.\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Seeds 1 -Configs results\_tmp\smoke-dial-band003.yaml
+Select-String -Path results\smoke-dial-band003-s1-<日期>\run_logs\Player-*.log -Pattern 'actions dial' | Select-Object -First 1
+```
+
+应该看到：那一行写的是 `actions dial (levels 0.3, 0.5, 0.7, decision hours 24, band 0.03, episodes of 2160 candles)`，`band` 是 0.03 而不是 0.05。这就证明了三样都能从 yaml 送到训练包（`22A` 第二节第 6 条允许在 2～10 个点之间试带宽，到时候走的就是这条路）。
+
+### 冒烟 12：一步走 24 根，训练器收下了「0 个连续 + 1 个 3 档分支」
+
+还是冒烟 11 的第一次（`smoke-dial-s1-<日期>`）：
+
+```powershell
+python scripts\train\read_scalars.py results\$run | Select-String 'Trading/Decisions'
+Select-String -Path results\$run.log -Pattern 'Error|Exception|action spec|ActionSpec'
+Select-String -Path results\$run.log -Pattern 'Step: 15000'
+```
+
+应该看到：
+
+- `Trading/Decisions` 是 **`dialEpisodeLength ÷ decisionHours`**，现在是 2160 ÷ 24 = **90**（`gym-config.json` 改了，期望跟着变）。
+- 第二行什么都搜不到：训练器没有因为动作形状报错。
+- 有 `Step: 15000` 那一行，脚本最后是 `series finished: 1 ran, 0 skipped, 0 failed`。
+
+### 冒烟 13：评估包收旋钮模型、拒下单模型
+
+先拿冒烟 11 训出来的旋钮模型（`long` 档）打评估包：
+
+```powershell
+$p = Start-Process -FilePath $unity -Wait -PassThru -ArgumentList @(
+  '-batchmode', '-nographics', '-projectPath', "`"$PWD\unity`"",
+  '-executeMethod', 'Gym.Editor.BuildScript.BuildWindowsEval',
+  '-gymModel', "`"$PWD\results\smoke-dial-s1-<日期>\TradingAgent.onnx`"", '-quit',
+  '-logFile', "`"$PWD\unity\Logs\build-eval.log`"")
+$p.ExitCode   # 0
+Get-Content unity\Builds\win-eval\GymEval_Data\StreamingAssets\Gym\build-info.json
+
+$e = Start-Process -FilePath unity\Builds\win-eval\GymEval.exe -Wait -PassThru -ArgumentList @(
+  '-batchmode', '-nographics', '-gymMode', 'eval', '-gymSegment', 'validation-bear',
+  '-gymActionMode', 'dial', '-gymObs', 'long',
+  '-gymFeeRate', '0.001', '-gymOut', "`"$PWD\evaluations\smoke`"",
+  '-logFile', "`"$PWD\unity\Logs\eval-dial.log`"")
+$e.ExitCode   # 0
+Import-Csv evaluations\smoke\log.csv | Select-Object -Last 1 | Format-List kind, model_run_id, segment, notes
+```
+
+应该看到：`build-info.json` 里 `"continuous_actions": 0`、`"discrete_branches": [3]`、`"action_shape_recorded": true`、`"vector_observation_size": 41`；评估退出码 0，最后一行 `model_run_id` 是 `smoke-dial-s1-<日期>`、`notes` 以 `; mode=dial; band=0.05; hours=24; changes=<k>` 结尾。
+
+再拿第二轮的终版（下单模式，`base` 档，仓库里就有）打评估包，用旋钮模式去评它，**这会覆盖上面那个评估包**：
+
+```powershell
+$p = Start-Process -FilePath $unity -Wait -PassThru -ArgumentList @(
+  '-batchmode', '-nographics', '-projectPath', "`"$PWD\unity`"",
+  '-executeMethod', 'Gym.Editor.BuildScript.BuildWindowsEval',
+  '-gymModel', "`"$PWD\models\round2\ppo_v2-s3-20261020\TradingAgent.onnx`"", '-quit',
+  '-logFile', "`"$PWD\unity\Logs\build-eval.log`"")
+$p.ExitCode   # 0
+
+New-Item -ItemType Directory -Force evaluations\smoke\c25-orders-as-dial | Out-Null
+$e = Start-Process -FilePath unity\Builds\win-eval\GymEval.exe -Wait -PassThru -ArgumentList @(
+  '-batchmode', '-nographics', '-gymMode', 'eval', '-gymSegment', 'validation-bear', '-gymActionMode', 'dial',
+  '-gymFeeRate', '0.001', '-gymOut', "`"$PWD\evaluations\smoke\c25-orders-as-dial`"",
+  '-logFile', "`"$PWD\unity\Logs\eval-orders-as-dial.log`"")
+$e.ExitCode   # 应该是 1
+(Get-ChildItem evaluations\smoke\c25-orders-as-dial).Count   # 应该是 0
+Select-String -Path unity\Logs\eval-orders-as-dial.log -Pattern "the model's actions are"
+```
+
+应该看到：退出码 1，`c25-orders-as-dial` 里什么都没有，日志里有 `the model's actions are 1 continuous + [3] but the action mode dial with 3 levels needs 0 continuous + [3]`，两边的形状都在。
+
+### 冒烟 14：两条流水线同时各跑 10 万步
+
+两个 PowerShell 窗口，**同时**起（两条用不同的种子和 `-BasePort`；种子用 2 和 3，免得和冒烟 11 的 `smoke-dial-s1-<日期>` 撞名被跳过）：
+
+```powershell
+# 窗口一
+$env:CUDA_VISIBLE_DEVICES = '-1'
+$t0 = Get-Date
+.\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Seeds 2 -Smoke -SmokeSteps 100000 -BasePort 5005 -Configs config\v3\dial.yaml *> results\series-c25-p1.out
+"pipeline 1: {0:N0} steps/s" -f (100000 / ((Get-Date) - $t0).TotalSeconds)
+
+# 窗口二
+$env:CUDA_VISIBLE_DEVICES = '-1'
+$t0 = Get-Date
+.\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Seeds 3 -Smoke -SmokeSteps 100000 -BasePort 5105 -Configs config\v3\dial.yaml *> results\series-c25-p2.out
+"pipeline 2: {0:N0} steps/s" -f (100000 / ((Get-Date) - $t0).TotalSeconds)
+```
+
+两条都在跑时，在第三个窗口看端口（14.4 的命令）：
+
+```powershell
+Get-CimInstance Win32_Process -Filter "Name='Gym.exe'" | Select-Object ProcessId, CommandLine | Format-List
+Get-NetTCPConnection -State Listen -LocalPort 5005,5105 | Select-Object LocalPort, OwningProcess
+Get-Counter '\Processor(_Total)\% Processor Time' -SampleInterval 5 -MaxSamples 6
+```
+
+应该看到：
+
+- 两个 `Gym.exe`，命令行里一个有 `--mlagents-port 5005`、一个有 `--mlagents-port 5105`；两个端口都在监听。**不看 Player 日志**（它只在连不上时才写端口）。
+- 两个 `.out` 最后都是 `series finished: 1 ran, 0 skipped, 0 failed`，都没有 `UnityWorkerInUseException`、没有红底的 `!!! WARNING`。
+- `results\smoke-dial-s2-<日期>\seed-used.txt` 有 `base-port: 5005 (…)`，`smoke-dial-s3-<日期>` 的有 `base-port: 5105 (…)`。
+- 记下两个「每秒多少步」和 CPU 利用率，写进 PC 训练日志：这是定并行条数的依据。拿不准三条行不行，再加第三个窗口（种子 4、`-BasePort 5205`）同时跑一次，看每条的速度掉了多少、CPU 有没有到九成以上。
+
+### 冒烟 15：`score_round3.py` 在流水上跑得通
+
+```powershell
+python scripts\eval\score_round3.py evaluations\log.csv
+python scripts\eval\score_round3.py evaluations\smoke\log.csv
+python -m unittest discover -s scripts\eval
+```
+
+应该看到：前两条退出码 0。正式流水那次，表三里两个对手两道门槛都过：`constant_mix_50` 回撤 0.4132、收益 0.3901（正好等于门槛，因为门槛就是它的成绩），`dial_momentum_90d` 也过；冒烟流水那次，冒烟 13 的 `smoke-dial-s1-<日期>` 列在表一里、只有一段，标着 `missing segment`、不排名。单元测试最后一行是 `OK`。
+
+### 冒烟 16：在编辑器里观战旋钮模型
+
+观战用哪种模式，看编辑器启动时的 `-gymActionMode`、`-gymObs`，没有就看 `gym-config.json` 的 `actionMode`、`observationSet`（现在是 `orders`，`observationSet` 没写就是 `base`）。`gym-config.json` 进 Git、还会打进训练包和评估包，所以**优先用命令行**，别改这个文件。
+
+1. 关掉 Unity 编辑器，带参数重新打开它：
+
+   ```powershell
+   & $unity -projectPath "$PWD\unity" -gymActionMode dial -gymObs long
+   ```
+
+   （要是非改文件不可：把 `unity\Assets\StreamingAssets\Gym\gym-config.json` 的 `"actionMode": "orders"` 改成 `"dial"`，在它下面加一行 `"observationSet": "long",`，存盘后再开编辑器。）
+2. 菜单 **Gym > Watch a Model...**，选 `results\smoke-dial-s1-<日期>\TradingAgent.onnx`（或正式训出来的旋钮模型）。读数面板上原来「上一步」那一行变成「目标仓位　50%｜换档 3 次」这样（英文是 `Target position`、`50% | changes: 3`），面板行数不变；Console 里那个智能体的初始化行有 `actions dial (…)`。下单模式的模型在这里会被拒，报错里有两边的形状，提示去改 `actionMode`（或 `-gymActionMode`）。
+3. 看完关掉编辑器。改过文件的话 `git checkout -- unity/Assets/StreamingAssets/Gym/gym-config.json` 还原。`git status` 要干净（只有 `ProjectSettings.asset` 里 `SENTIS_ANALYTICS_ENABLED` 那一处的话照第 13 节冒烟 7 的办法还原），**再打包**：否则下一个训练包、评估包就带着改过的配置。
+
+旋钮模式下画面还有三处没改（已知，本轮不修）：「步数」那一行按小时数走，每一步跳 24；规则卖出时小人也做买入的动作；钱袋不飘字。看数以读数面板上的「目标仓位」那一行和流水为准。
+
+冒烟 11 到冒烟 16 都对上了，再按 14.3、14.4 跑正式的第三轮。

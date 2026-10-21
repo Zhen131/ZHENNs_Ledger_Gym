@@ -12,6 +12,8 @@ Long runs happen on a Windows PC: see [pc-training.md](pc-training.md) (English)
 scripts/train/run_series.sh --env unity/Builds/mac/Gym.app --seeds 1 --smoke config/ppo_base.yaml config/variants/fee-0.003.yaml
 ```
 
+`--base-port <n>` gives a series its own ports (environment k uses n + k), so that several series can run side by side, one terminal each and at least `--num-envs` apart; without it nothing is passed and `mlagents-learn` uses its default 5005. Split side-by-side series by seeds, not by `--prefix` (the prefix names a line of training, such as `mix`); the rules are in the header of the script and in [pc-training.md](pc-training.md) section 14.
+
 What each config changes, and how to check the configs after editing them: [config/README.md](../config/README.md). Round two's configs are in `config/v2/`: `ppo_v2.yaml` (the base, `normalize: true`), `long.yaml` and `long-ta.yaml` (`obs_set` 1 and 2), three `long-risk-*.yaml` (`risk_aversion`) and `smoke-long.yaml`. Round three's are in `config/v3/`: `dial.yaml` (`v2/long.yaml` with `action_mode` 1, the dial mode, the main line; the four-coin line trains the same file with `--prefix mix` and the coins in `--env-args`), `dial-base.yaml` (`obs_set` 0, the control group) and `smoke-dial.yaml`.
 
 Words for the player go in `--env-args`, as one quoted string; this is how a series trains on several coins:

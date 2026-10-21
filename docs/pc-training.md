@@ -163,6 +163,7 @@ Then the real series, for example the fee comparison with three seeds (add `-Dev
 | `-Smoke` / `-SmokeSteps` | shortened copies in `results\_tmp\` (15,000 steps) | off |
 | `-DryRun` | print the commands; write no files | off |
 | `-EnvArgs` | words for the training player, as one quoted string, for example `-EnvArgs "-gymTrainSymbols BTCUSDT,ETHUSDT"`; how and why in section 12 | none |
+| `-BasePort` | the first port of this series (environment k uses that port + k); one per series when several run side by side, see 14.4 | not passed (`mlagents-learn` uses 5005) |
 
 Run ids are `<config>-s<seed>-<yyyyMMdd>` (UTC date). A run whose `results\<run-id>` already exists is skipped, never overwritten. Each run leaves `results\<run-id>\` (with the model, `config-used.yaml`, `seed-used.txt`, `env-args.txt` and, when the training build has one, a copy of its `build-info.json`; see section 12) and `results\<run-id>.log`. `config\README.md` explains what each variant changes; `python scripts\train\check_configs.py` checks them.
 
@@ -201,6 +202,7 @@ $e.ExitCode   # 0 = success; otherwise read the end of unity\Logs\eval.log
 
 - Use the same `-gymFeeRate` the model was trained with. Use the test segment only for the final numbers.
 - **Round-two models** (trained from `config\v2\`) use the `long` or `long-ta` observation set: add `'-gymObs', 'long'` (or `'long-ta'`) to the evaluation command, and evaluate all three validation segments; see section 12.
+- **Round-three models** (trained from `config\v3\`) are dial-mode models: also add `'-gymActionMode', 'dial'`; see 14.5.
 - The evaluation player needs `-gymMode eval`, `-gymSegment` (an evaluation segment from `gym-config.json`: `validation-bear`, `validation-recovery`, `validation` or `test`) and `-gymOut`; without any one of them, or with a segment name that is not in the configuration, it exits with code 1 and writes nothing. There is no default segment, so the test segment is never evaluated by accident. A fee outside the valid range (for example `1.5`) also exits with code 1 within seconds, and `unity\Logs\eval.log` names the argument.
 - Commit right away, for example:
 
@@ -444,7 +446,9 @@ Select-String -Path unity\Logs\watch-model.log -Pattern 'RESULT:'
 Remove-Item Env:GYM_WATCH_MODEL, Env:GYM_WATCH_EVAL_LOG
 ```
 
-You should see an evaluation row with `kind` `agent`, `segment` `validation` and `notes` ending in `obs=base`; the tests exit with code 0, the `<test-run` line says `total="2" passed="2"` and `skipped="0"`, and the log has `RESULT: the watch row equals the evaluation row in every column but timestamp_utc and model_run_id, and the final equity is the same`. If `git status` afterwards shows only the `SENTIS_ANALYTICS_ENABLED` change in `unity\ProjectSettings\ProjectSettings.asset`, restore it with `git checkout -- unity/ProjectSettings/ProjectSettings.asset`.
+**Only a log written by an evaluation build from batch 24 on will do**: `GYM_WATCH_EVAL_LOG` must point to the `log.csv` such a build has just written (its `build-info.json` has `"action_shape_recorded": true`). Since batch 24 the agent rows' `notes` end with `; mode=orders`, and so does the watch's row; compared with a log from an older build (or the old `evaluations\log.csv`) they differ in `notes` only, which is expected, not an error (`24B` step 2). When doing this check again in round three, first rebuild smoke 6's evaluation build with this version, as in step 10.
+
+You should see an evaluation row with `kind` `agent`, `segment` `validation` and `notes` ending in `obs=base; mode=orders` (a build from before batch 24 writes `obs=base` at the end); the tests exit with code 0, the `<test-run` line says `total="2" passed="2"` and `skipped="0"`, and the log has `RESULT: the watch row equals the evaluation row in every column but timestamp_utc and model_run_id, and the final equity is the same`. If `git status` afterwards shows only the `SENTIS_ANALYTICS_ENABLED` change in `unity\ProjectSettings\ProjectSettings.asset`, restore it with `git checkout -- unity/ProjectSettings/ProjectSettings.asset`.
 
 ### Smoke 8: the evaluation player takes the new segment names and refuses an unknown one
 
@@ -509,3 +513,286 @@ Select-String -Path unity\Logs\eval-bad-risk.log -Pattern 'RiskAversion'
 You should see exit code 1, an empty `c16-bad-risk`, and `-gymRiskAversion -1 is out of range: …` in the log.
 
 When smoke 0 to smoke 10 all match, run round two for real as in the example of 12.2.
+
+## 14. Round three: the position dial
+
+Round three's model no longer places orders. It only turns a dial for the target position: 30 %, 50 % or 70 %, chosen once every 24 hourly candles (once a day), while a rule does the buying and selling (it trades back whenever the actual position is more than the band away from the target). The dial mode's environment, the opponents, the evaluation player's action-shape check and the scoring script were built and tested on the Mac, but **real runs of the training and evaluation players in the dial mode can only happen on this PC**, and `run_series.ps1 -BasePort` has not run on Windows yet either. So do the smoke checks of section 15 first, then the real runs.
+
+### 14.1 The new options
+
+| Option | For | Meaning | When left out |
+| --- | --- | --- | --- |
+| Environment parameter `action_mode` (in the yaml's `environment_parameters`) | training | 0 = the order mode (rounds one and two), 1 = the dial mode | `-gymActionMode`, then `actionMode` in `gym-config.json` (`orders`) |
+| Environment parameter `decision_hours` (likewise) | training | candles per decision in the dial mode. `check_configs.py` only accepts 24 (`22A` section two, item 5) | `-gymDecisionHours`, then `decisionHours` (24) |
+| Environment parameter `rebalance_band` (likewise) | training | the rebalancing band: the rule only trades when the position is more than this away from the target. `check_configs.py` only accepts 0.02 to 0.10 | `-gymBand`, then `rebalanceBand` (0.05) |
+| `-gymActionMode orders\|dial` | evaluation player, Watch (when starting the editor); the training player takes it too | the action mode. A model only works in the mode it was trained in. The Play scene does not support `dial` and stops with an error | `actionMode` in `gym-config.json` (`orders`) |
+| `-gymDecisionHours <n>` | evaluation player, Watch; the training player takes it too | candles per decision, a whole number ≥ 1 | `decisionHours` (24) |
+| `-gymBand <x>` | evaluation player, Watch; the training player takes it too | the rebalancing band, inside (0, 0.5) | `rebalanceBand` (0.05) |
+| `-BasePort <n>` (`run_series.ps1`) | the series script | the first port of this series: environment k uses that port + k. A whole number from 1024 to 65535 − `-NumEnvs`; anything else stops the script with an error | not passed, `mlagents-learn` uses its own 5005 |
+
+The levels (`dialLevels` 0.3, 0.5, 0.7) and the dial mode's episode length (`dialEpisodeLength` 2160 candles, that is 90 decisions) only come from `gym-config.json`, never from the command line. The rule is the same as for round two's observation set: **in training these three settings go in the yaml only**; do not put `-gymActionMode`, `-gymDecisionHours` or `-gymBand` in `-EnvArgs` (the environment parameter wins, and a disagreement gives no error).
+
+### 14.2 The three configs in `config\v3\`
+
+| File | Base (first line) | Changed from its base | What for |
+| --- | --- | --- | --- |
+| `dial.yaml` | `config\v2\long.yaml` | `action_mode: 1` | The main line, used by both lines of training: BTC only, and the four coins |
+| `dial-base.yaml` | `config\v3\dial.yaml` | `obs_set: 0` (`base`, 35 numbers) | The `base` control group, on the BTC-only line only |
+| `smoke-dial.yaml` | `config\v3\dial.yaml` (a smoke config, not compared) | `max_steps` 15000, `checkpoint_interval` 15000, `summary_freq` 1000 | The smoke checks of section 15. One step is one decision (24 candles), so the first episodes end at 16 agents × 90 decisions = 1,440 steps, and `Trading/…` appears from 2,000 steps on |
+
+None of the three sets `decision_hours` or `rebalance_band`, so `gym-config.json`'s 24 and 0.05 apply. **There is no `dial-mix.yaml`**: the four-coin line trains `dial.yaml` itself, with the coins in `-EnvArgs`, as in round two, so both lines use exactly the same settings (`22A` section two, item 9).
+
+`max_steps` is still 2 million. In the dial mode a step is a day, so 2 million steps go through the training segment about 1,250 times; how many steps to train is decided from the speed of smoke 14 (`22A` section three, item 2; the leaning is to start at 500k). **Ask the discussion session before changing the steps**: changing `max_steps` in `dial.yaml` makes it differ from its base `long.yaml` in two settings, and `check_configs.py` fails it.
+
+### 14.3 Starting the two lines and the control group
+
+| Line | Config | Seeds | `-Prefix` | `-EnvArgs` | Run id |
+| --- | --- | --- | --- | --- | --- |
+| BTC only (main line) | `config\v3\dial.yaml` | 1 to 5 | none | none | `dial-s<seed>-<date>` |
+| Four coins (main line) | `config\v3\dial.yaml` | 1 to 5 | `mix` | `"-gymTrainSymbols BTCUSDT,ETHUSDT,ADAUSDT,XRPUSDT"` | `mix-dial-s<seed>-<date>` |
+| `base` control group | `config\v3\dial-base.yaml` | 1 to 3 | none | none | `dial-base-s<seed>-<date>` |
+
+A series runs one training at a time; for several series side by side see 14.4. With one series at a time, the three commands are:
+
+```powershell
+.\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Seeds 1,2,3,4,5 -Configs config\v3\dial.yaml
+.\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Seeds 1,2,3,4,5 -Prefix mix -Configs config\v3\dial.yaml -EnvArgs "-gymTrainSymbols BTCUSDT,ETHUSDT,ADAUSDT,XRPUSDT"
+.\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Seeds 1,2,3 -Configs config\v3\dial-base.yaml
+```
+
+In round three **`-Prefix` only names a line** (`mix` for the four coins). The scoring script `score_round3.py` takes the run id without `-s<seed>-<date>` as the configuration: `dial`, `mix-dial` and `dial-base` are exactly three configurations. Any other prefix would make up configurations and split the seeds of one between them, so the configuration scores and the "seeds past both thresholds" would be wrong, without any error.
+
+### 14.4 Several series side by side
+
+Round two used only about a third of the CPU, so round three runs several series at the same time (`22A` section two, item 10). **Start with 3**; how many in the end is decided by the Windows dispatch session from the speed of smoke 14.
+
+Rules:
+
+- **One terminal and one `-BasePort` per series**, at least `-NumEnvs` apart, for example 5005, 5105, 5205. When two series use the same port, the later one stops at once with `UnityWorkerInUseException`; they never get mixed up silently.
+- **Split the series by seeds or by line, never by `-Prefix`.** With three series the simplest is one line each: BTC only, four coins, the `base` control group. With more series than lines, split a line by seeds, for example one series `-Seeds 1,2` and another `-Seeds 3,4,5`. **The same seed of the same line must not run in two series at once** (the same run id started twice: the later `mlagents-learn` stops with `Previous data from this run ID was found`).
+- Each series writes its own output to `results\series-<name>.out` (`*>` writes UTF-16; `Select-String` reads it all the same).
+- In each terminal first set `$env:CUDA_VISIBLE_DEVICES = '-1'`: the configs say `device: cpu`, the training never needs the graphics card, and then it takes nothing from it.
+- The temporary configs `results\_tmp\<run-id>.yaml` are named by run id, so two series never write the same file; no separate folders are needed.
+
+Three series, one line each (three PowerShell windows, each after `conda activate mlagents` and `cd E:\project\ZHENNs_Ledger_Gym`):
+
+```powershell
+# window one: BTC only
+$env:CUDA_VISIBLE_DEVICES = '-1'
+.\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Seeds 1,2,3,4,5 -BasePort 5005 -Configs config\v3\dial.yaml *> results\series-dial.out
+
+# window two: four coins
+$env:CUDA_VISIBLE_DEVICES = '-1'
+.\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Seeds 1,2,3,4,5 -BasePort 5105 -Prefix mix -Configs config\v3\dial.yaml -EnvArgs "-gymTrainSymbols BTCUSDT,ETHUSDT,ADAUSDT,XRPUSDT" *> results\series-mix-dial.out
+
+# window three: the base control group
+$env:CUDA_VISIBLE_DEVICES = '-1'
+.\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Seeds 1,2,3 -BasePort 5205 -Configs config\v3\dial-base.yaml *> results\series-dial-base.out
+```
+
+Whether the machine is busy, and whether the series keep out of each other's way:
+
+```powershell
+# every training player's command line has --mlagents-port <port>, each series inside its own range
+Get-CimInstance Win32_Process -Filter "Name='Gym.exe'" | Select-Object ProcessId, CommandLine | Format-List
+# the ports the trainers (python.exe) wait on
+Get-NetTCPConnection -State Listen -LocalPort 5005,5105,5205 | Select-Object LocalPort, OwningProcess
+# total CPU use, every 5 seconds, 6 times; the Performance tab of Task Manager works too
+Get-Counter '\Processor(_Total)\% Processor Time' -SampleInterval 5 -MaxSamples 6
+# memory of all training players together
+"{0:N0} MB" -f ((Get-Process Gym | Measure-Object WorkingSet64 -Sum).Sum / 1MB)
+```
+
+**Do not look for the port in the Player logs**: the player only writes it there when it cannot reach the trainer. Each run records its port in the `base-port: …` line of `results\<run-id>\seed-used.txt` (`base-port: default …` without `-BasePort`).
+
+### 14.5 Evaluating round-three models
+
+- A dial-mode model needs `'-gymActionMode', 'dial'` in the evaluation command, and its training's observation set: `'-gymObs', 'long'` for the `dial` and `mix-dial` models, `base` for the `dial-base` models (`base` is what you get without `-gymObs`). A model trained with another band or another number of candles per decision needs the same `-gymBand` or `-gymDecisionHours`.
+- With the wrong action mode the evaluation player exits with code 1 and writes nothing; the log gives both shapes, for example `the model's actions are 1 continuous + [3] but the action mode dial with 3 levels needs 0 continuous + [3]` (smoke 13).
+- Evaluate all three validation segments, `validation-bear`, `validation-recovery` and `validation`, at a fee of 0.001. **The test segment `test` is used once, at the end of the round**, after the final model is chosen; the report says "tuned on the validation segments, the test segment used for the third time" (`22A` section two, item 11).
+- An example (the model `dial-s1-<date>`, the bear segment):
+
+```powershell
+$p = Start-Process -FilePath $unity -Wait -PassThru -ArgumentList @(
+  '-batchmode', '-nographics', '-projectPath', "`"$PWD\unity`"",
+  '-executeMethod', 'Gym.Editor.BuildScript.BuildWindowsEval',
+  '-gymModel', "`"$PWD\results\dial-s1-<date>\TradingAgent.onnx`"", '-quit',
+  '-logFile', "`"$PWD\unity\Logs\build-eval.log`"")
+$p.ExitCode   # 0
+
+$e = Start-Process -FilePath unity\Builds\win-eval\GymEval.exe -Wait -PassThru -ArgumentList @(
+  '-batchmode', '-nographics', '-gymMode', 'eval', '-gymSegment', 'validation-bear',
+  '-gymActionMode', 'dial', '-gymObs', 'long',
+  '-gymFeeRate', '0.001', '-gymOut', "`"$PWD\evaluations`"",
+  '-logFile', "`"$PWD\unity\Logs\eval.log`"")
+$e.ExitCode   # 0
+```
+
+- The row's `notes` end with `; mode=dial; band=0.05; hours=24; changes=<dial changes>`.
+- With all three segments in the log, score:
+
+```powershell
+python scripts\eval\score_round3.py evaluations\log.csv                          # every model
+python scripts\eval\score_round3.py evaluations\log.csv --runs dial-,mix-dial-    # only round three's run ids
+```
+
+The two thresholds (bear-segment drawdown ≤ 0.4132, `validation` return ≥ 0.3901, both after rounding to four decimals), the mean three-segment Calmar score, the configuration scores and "did not learn" (never changed level on the three segments) are explained in [evaluation.md](evaluation.md); the final model is the highest-scoring one among all models past both thresholds.
+
+## 15. Round three smoke checks: what the Mac could not run
+
+As in section 13: in order, since later checks use what earlier ones made; when one does not match, write down what you saw, stop and tell the discussion session. Smoke evaluations always go to `evaluations\smoke\`, **never to the official log**. Replace `<date>` with the date in the run id the script prints (UTC). First rebuild the training player as in step 6 (only this version knows the dial mode), and look at a `-DryRun` first as in smoke 0.
+
+### Smoke 11: did the three environment parameters arrive?
+
+First the dial mode's smoke config (its name already starts with `smoke`, so no `-Smoke`):
+
+```powershell
+.\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Seeds 1 -Configs config\v3\smoke-dial.yaml
+$run = 'smoke-dial-s1-<date>'
+Select-String -Path results\$run\run_logs\Player-*.log -Pattern 'actions dial|chooses the action mode' | Select-Object -First 4
+python scripts\train\read_scalars.py results\$run | Select-String 'Trading/Decisions|Trading/DialChanges'
+```
+
+You should see:
+
+- for every agent, `the trainer's action_mode chooses the action mode dial (the config and command line said orders)`;
+- every agent's start line: `…: index …, mode Training, segment train 2017-08-17..2021-12-31, observations long (41 numbers, history 2160), actions dial (levels 0.3, 0.5, 0.7, decision hours 24, band 0.05, episodes of 2160 candles), master seed … (trainer)`;
+- both `Trading/Decisions` and `Trading/DialChanges` (smoke 12 reads their values).
+
+This run only proves the path of `action_mode`: `decision_hours` and `rebalance_band` were `gym-config.json`'s defaults, and their environment parameters never travelled. So run once more with a **temporary config** (in `results\_tmp\`, not in Git) that sets `decision_hours: 24` and `rebalance_band: 0.03`:
+
+```powershell
+New-Item -ItemType Directory -Force results\_tmp | Out-Null
+$text = [IO.File]::ReadAllText("$PWD\config\v3\smoke-dial.yaml")
+$text = $text.Replace('  action_mode: 1', "  action_mode: 1`n  decision_hours: 24`n  rebalance_band: 0.03")
+[IO.File]::WriteAllText("$PWD\results\_tmp\smoke-dial-band003.yaml", $text)
+Select-String -Path results\_tmp\smoke-dial-band003.yaml -Pattern 'action_mode|decision_hours|rebalance_band'   # three lines
+
+.\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Seeds 1 -Configs results\_tmp\smoke-dial-band003.yaml
+Select-String -Path results\smoke-dial-band003-s1-<date>\run_logs\Player-*.log -Pattern 'actions dial' | Select-Object -First 1
+```
+
+You should see `actions dial (levels 0.3, 0.5, 0.7, decision hours 24, band 0.03, episodes of 2160 candles)`: the band is 0.03, not 0.05. That proves all three travel from the yaml to the player (`22A` section two, item 6 lets the band be tried between 2 and 10 points; that is the path it will take).
+
+### Smoke 12: one step walks 24 candles, and the trainer took "0 continuous + one branch of 3"
+
+Still the first run of smoke 11 (`smoke-dial-s1-<date>`):
+
+```powershell
+python scripts\train\read_scalars.py results\$run | Select-String 'Trading/Decisions'
+Select-String -Path results\$run.log -Pattern 'Error|Exception|action spec|ActionSpec'
+Select-String -Path results\$run.log -Pattern 'Step: 15000'
+```
+
+You should see:
+
+- `Trading/Decisions` equal to **`dialEpisodeLength ÷ decisionHours`**, now 2160 ÷ 24 = **90** (if `gym-config.json` changes, so does this);
+- nothing found by the second line: the trainer gave no error about the action shape;
+- the `Step: 15000` line, and the script's last line `series finished: 1 ran, 0 skipped, 0 failed`.
+
+### Smoke 13: the evaluation player takes a dial model and refuses an order model
+
+First build the evaluation player with smoke 11's dial model (`long`):
+
+```powershell
+$p = Start-Process -FilePath $unity -Wait -PassThru -ArgumentList @(
+  '-batchmode', '-nographics', '-projectPath', "`"$PWD\unity`"",
+  '-executeMethod', 'Gym.Editor.BuildScript.BuildWindowsEval',
+  '-gymModel', "`"$PWD\results\smoke-dial-s1-<date>\TradingAgent.onnx`"", '-quit',
+  '-logFile', "`"$PWD\unity\Logs\build-eval.log`"")
+$p.ExitCode   # 0
+Get-Content unity\Builds\win-eval\GymEval_Data\StreamingAssets\Gym\build-info.json
+
+$e = Start-Process -FilePath unity\Builds\win-eval\GymEval.exe -Wait -PassThru -ArgumentList @(
+  '-batchmode', '-nographics', '-gymMode', 'eval', '-gymSegment', 'validation-bear',
+  '-gymActionMode', 'dial', '-gymObs', 'long',
+  '-gymFeeRate', '0.001', '-gymOut', "`"$PWD\evaluations\smoke`"",
+  '-logFile', "`"$PWD\unity\Logs\eval-dial.log`"")
+$e.ExitCode   # 0
+Import-Csv evaluations\smoke\log.csv | Select-Object -Last 1 | Format-List kind, model_run_id, segment, notes
+```
+
+You should see `"continuous_actions": 0`, `"discrete_branches": [3]`, `"action_shape_recorded": true` and `"vector_observation_size": 41` in `build-info.json`; the evaluation exits with code 0, and the last row has `model_run_id` `smoke-dial-s1-<date>` and `notes` ending in `; mode=dial; band=0.05; hours=24; changes=<k>`.
+
+Then build round two's final model (the order mode, `base`, kept in the repository) and evaluate it in the dial mode. **This overwrites the evaluation build above**:
+
+```powershell
+$p = Start-Process -FilePath $unity -Wait -PassThru -ArgumentList @(
+  '-batchmode', '-nographics', '-projectPath', "`"$PWD\unity`"",
+  '-executeMethod', 'Gym.Editor.BuildScript.BuildWindowsEval',
+  '-gymModel', "`"$PWD\models\round2\ppo_v2-s3-20261020\TradingAgent.onnx`"", '-quit',
+  '-logFile', "`"$PWD\unity\Logs\build-eval.log`"")
+$p.ExitCode   # 0
+
+New-Item -ItemType Directory -Force evaluations\smoke\c25-orders-as-dial | Out-Null
+$e = Start-Process -FilePath unity\Builds\win-eval\GymEval.exe -Wait -PassThru -ArgumentList @(
+  '-batchmode', '-nographics', '-gymMode', 'eval', '-gymSegment', 'validation-bear', '-gymActionMode', 'dial',
+  '-gymFeeRate', '0.001', '-gymOut', "`"$PWD\evaluations\smoke\c25-orders-as-dial`"",
+  '-logFile', "`"$PWD\unity\Logs\eval-orders-as-dial.log`"")
+$e.ExitCode   # should be 1
+(Get-ChildItem evaluations\smoke\c25-orders-as-dial).Count   # should be 0
+Select-String -Path unity\Logs\eval-orders-as-dial.log -Pattern "the model's actions are"
+```
+
+You should see exit code 1, an empty `c25-orders-as-dial`, and `the model's actions are 1 continuous + [3] but the action mode dial with 3 levels needs 0 continuous + [3]` in the log, with both shapes.
+
+### Smoke 14: two series side by side, 100k steps each
+
+Two PowerShell windows, started **at the same time**, with different seeds and `-BasePort` values (seeds 2 and 3, so that neither collides with smoke 11's `smoke-dial-s1-<date>` and gets skipped):
+
+```powershell
+# window one
+$env:CUDA_VISIBLE_DEVICES = '-1'
+$t0 = Get-Date
+.\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Seeds 2 -Smoke -SmokeSteps 100000 -BasePort 5005 -Configs config\v3\dial.yaml *> results\series-c25-p1.out
+"pipeline 1: {0:N0} steps/s" -f (100000 / ((Get-Date) - $t0).TotalSeconds)
+
+# window two
+$env:CUDA_VISIBLE_DEVICES = '-1'
+$t0 = Get-Date
+.\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Seeds 3 -Smoke -SmokeSteps 100000 -BasePort 5105 -Configs config\v3\dial.yaml *> results\series-c25-p2.out
+"pipeline 2: {0:N0} steps/s" -f (100000 / ((Get-Date) - $t0).TotalSeconds)
+```
+
+While both run, look at the ports from a third window (the commands of 14.4):
+
+```powershell
+Get-CimInstance Win32_Process -Filter "Name='Gym.exe'" | Select-Object ProcessId, CommandLine | Format-List
+Get-NetTCPConnection -State Listen -LocalPort 5005,5105 | Select-Object LocalPort, OwningProcess
+Get-Counter '\Processor(_Total)\% Processor Time' -SampleInterval 5 -MaxSamples 6
+```
+
+You should see:
+
+- two `Gym.exe`, one with `--mlagents-port 5005` on its command line and one with `--mlagents-port 5105`, and both ports listening. **Not the Player logs** (they only show a port when the connection fails);
+- both `.out` files ending in `series finished: 1 ran, 0 skipped, 0 failed`, neither with `UnityWorkerInUseException` nor a red `!!! WARNING`;
+- `base-port: 5005 (…)` in `results\smoke-dial-s2-<date>\seed-used.txt` and `base-port: 5105 (…)` in that of `smoke-dial-s3-<date>`;
+- note both steps-per-second figures and the CPU use in the PC training log: they decide how many series to run. If you are unsure about three, start a third window at the same time (seed 4, `-BasePort 5205`) and see how much each series slows down and whether the CPU passes 90 %.
+
+### Smoke 15: `score_round3.py` runs on the log
+
+```powershell
+python scripts\eval\score_round3.py evaluations\log.csv
+python scripts\eval\score_round3.py evaluations\smoke\log.csv
+python -m unittest discover -s scripts\eval
+```
+
+You should see exit code 0 for the first two. On the official log, table 3 has both opponents past both thresholds: `constant_mix_50` with drawdown 0.4132 and return 0.3901 (exactly the thresholds, because the thresholds are its results), and `dial_momentum_90d`; on the smoke log, smoke 13's `smoke-dial-s1-<date>` is in table 1 with one segment, marked `missing segment` and not ranked. The unit tests end with `OK`.
+
+### Smoke 16: watching a dial model in the editor
+
+The Watch scene's mode comes from `-gymActionMode` and `-gymObs` given when the editor starts, otherwise from `actionMode` and `observationSet` in `gym-config.json` (now `orders`, and `base` without `observationSet`). `gym-config.json` is in Git and goes into the training and evaluation builds, so **prefer the command line** and leave the file alone.
+
+1. Close the Unity editor and open it again with the switches:
+
+   ```powershell
+   & $unity -projectPath "$PWD\unity" -gymActionMode dial -gymObs long
+   ```
+
+   (If you must edit the file instead: in `unity\Assets\StreamingAssets\Gym\gym-config.json` change `"actionMode": "orders"` to `"dial"` and add a line `"observationSet": "long",` below it, save, then open the editor.)
+2. Menu **Gym > Watch a Model...**, choose `results\smoke-dial-s1-<date>\TradingAgent.onnx` (or a real dial model). The readout's "Last action" row now reads like `Target position   50% | changes: 3` (in Chinese 「目标仓位　50%｜换档 3 次」), with the same number of rows; in the Console the agent's start line has `actions dial (…)`. An order-mode model is refused here, the error gives both shapes and says to change `actionMode` (or `-gymActionMode`).
+3. Close the editor when done. If you edited the file, restore it with `git checkout -- unity/Assets/StreamingAssets/Gym/gym-config.json`. `git status` must be clean (only the `SENTIS_ANALYTICS_ENABLED` change in `ProjectSettings.asset` is restored as in smoke 7 of section 13), **before the next build**: otherwise the next training or evaluation build carries the edited config.
+
+Three things on the screen are not adapted to the dial mode (known, not fixed this round): the "step" row counts hours, so it jumps by 24 per step; the avatar makes the buying move even when the rule sells; and the wallet shows no floating amounts. Read the numbers from the "Target position" row and from the log.
+
+When smoke 11 to smoke 16 all match, run round three for real as in 14.3 and 14.4.
