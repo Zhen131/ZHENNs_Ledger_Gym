@@ -140,7 +140,7 @@ namespace Gym.Tests.PlayMode
             Academy.Instance.EnvironmentStep();
             Assert.AreEqual(24, agent.Env.StepCount, "one decision walked 24 candles");
             Assert.AreEqual(1, agent.Env.Decisions);
-            Assert.AreEqual(0, agent.Env.CurrentEquity > 0 ? 0 : 1);
+            Assert.Greater(agent.Env.CurrentEquity, 0);
             logs.AssertNoErrors();
         }
 
