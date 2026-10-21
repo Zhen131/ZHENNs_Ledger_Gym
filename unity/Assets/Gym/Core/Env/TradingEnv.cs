@@ -11,6 +11,10 @@ namespace Gym.Core.Env
     /// 在决策下标 t，Agent 看到的 candle 截止到第 t 根的 close；订单在第 t + 1 根的 open 成交；
     /// reward 比较第 t 根 close 时和第 t + 1 根 close 时的 equity。随机性只来自传给
     /// <see cref="ResetForTraining"/> 的 seed。
+    ///
+    /// 两种动作模式（<see cref="ActionMode"/>）：下单模式（默认，没给 <see cref="DialSettings"/>）每小时一个 <see cref="Step"/>；
+    /// 旋钮模式一次 <see cref="StepDial"/> 选一个目标档位，然后连走 <see cref="DialSettings.DecisionHours"/> 根，每根按
+    /// <see cref="Rebalancer"/> 定单子、交给同一个 <see cref="Step"/> 执行（记账、成交、得分、截断都不另写）。
     /// </summary>
     public sealed class TradingEnv
     {
@@ -21,11 +25,13 @@ namespace Gym.Core.Env
         readonly List<double> equityCurve = new List<double>();
         readonly List<TradeRecord> trades = new List<TradeRecord>();
 
+        /// <param name="episodeLength">每个训练 episode 的小时数（step 数）；为 0 时一直运行到分段结束。</param>
         /// <param name="observationSet">Agent 看到哪一档观测；它的历史长度决定最早能决策的下标。默认 base。</param>
+        /// <param name="dial">旋钮模式的档位、决策根数和带宽；为 null（默认）时是下单模式。</param>
         public TradingEnv(CandleSeries series, SymbolRules rules, int first, int last,
             double initialCash = DefaultInitialCash, int episodeLength = TrainingEpisodeLength,
             double randomInitialPositionShare = DefaultRandomInitialPositionShare,
-            ObservationSet observationSet = ObservationSet.Base)
+            ObservationSet observationSet = ObservationSet.Base, DialSettings dial = null)
         {
             Series = series ?? throw new ArgumentNullException(nameof(series));
             Rules = rules ?? throw new ArgumentNullException(nameof(rules));
@@ -46,19 +52,20 @@ namespace Gym.Core.Env
             InitialCash = initialCash;
             EpisodeLength = episodeLength;
             RandomInitialPositionShare = randomInitialPositionShare;
+            Dial = dial;
         }
 
         /// <summary>建在一个日期分段的 candle 上的环境。</summary>
         public static TradingEnv ForSegment(CandleSeries series, SymbolRules rules, SegmentSpec segment,
             double initialCash = DefaultInitialCash, int episodeLength = TrainingEpisodeLength,
             double randomInitialPositionShare = DefaultRandomInitialPositionShare,
-            ObservationSet observationSet = ObservationSet.Base)
+            ObservationSet observationSet = ObservationSet.Base, DialSettings dial = null)
         {
             int first = segment.FirstIndex(series);
             int last = segment.LastIndex(series);
             if (first < 0 || last < 0 || !segment.IsInside(series))
                 throw new ArgumentException($"Segment {segment} is outside the data.", nameof(segment));
-            return new TradingEnv(series, rules, first, last, initialCash, episodeLength, randomInitialPositionShare, observationSet);
+            return new TradingEnv(series, rules, first, last, initialCash, episodeLength, randomInitialPositionShare, observationSet, dial);
         }
 
         public CandleSeries Series { get; }
@@ -77,6 +84,11 @@ namespace Gym.Core.Env
         public int HistoryLength => ObservationSet.HistoryLength();
         /// <summary>最早能决策的下标：max(<see cref="First"/>, <see cref="HistoryLength"/>)。评估从这里开始，训练起点不早于它。</summary>
         public int FirstDecisionIndex => Math.Max(First, HistoryLength);
+
+        /// <summary>旋钮模式的档位、决策根数和带宽；下单模式下为 null。</summary>
+        public DialSettings Dial { get; }
+        /// <summary>有 <see cref="Dial"/> 时是旋钮模式，否则是下单模式。</summary>
+        public ActionMode ActionMode => Dial == null ? ActionMode.Orders : ActionMode.Dial;
 
         public Account Account { get; private set; }
         public CostModel Cost { get; private set; }
@@ -106,6 +118,18 @@ namespace Gym.Core.Env
         public double RiskPenaltySum { get; private set; }
         /// <summary>本局罚款大于 0 的步数（λ = 0 时为 0，亏损但 λ = 0 的步不算）。</summary>
         public int RiskPenaltySteps { get; private set; }
+
+        int dialDecisions;
+        int lastDecisionHours;
+
+        /// <summary>本局决策了几次：旋钮模式是 <see cref="StepDial"/> 的次数；下单模式每小时一次，等于 <see cref="StepCount"/>。</summary>
+        public int Decisions => Dial == null ? StepCount : dialDecisions;
+        /// <summary>最后一次决策走了几根：旋钮模式通常是决策根数，段尾或局尾不足时是剩下的根数；下单模式是 1（还没走时 0）。</summary>
+        public int LastDecisionHours => Dial == null ? (StepCount > 0 ? 1 : 0) : lastDecisionHours;
+        /// <summary>本局换档的次数：这一步的目标和上一步不同的次数，第一步不算。下单模式下为 0。</summary>
+        public int DialChanges { get; private set; }
+        /// <summary>旋钮模式下最近一次选的档位；还没决策时（和下单模式下）为 −1。</summary>
+        public int CurrentLevel { get; private set; } = -1;
 
         public double CurrentClose => Series.CloseAt(CurrentIndex);
         public double CurrentEquity => Account.Equity(Series.CloseAt(CurrentIndex));
@@ -142,6 +166,8 @@ namespace Gym.Core.Env
             double share = random.NextDouble();
             if (holdCoin)
             {
+                // 旋钮模式：用第三次抽到的数选一档，按那一档的比例带币（下单模式取数的次序和次数不变）
+                if (Dial != null) share = Dial.Levels[Math.Min((int)(share * Dial.Levels.Count), Dial.Levels.Count - 1)];
                 double price = Series.CloseAt(start);
                 units = (long)decimal.Floor((decimal)(share * InitialCash) / (decimal)price / Rules.StepSize);
                 if (units > 0)
@@ -202,6 +228,10 @@ namespace Gym.Core.Env
             RewardSum = 0;
             RiskPenaltySum = 0;
             RiskPenaltySteps = 0;
+            dialDecisions = 0;
+            lastDecisionHours = 0;
+            DialChanges = 0;
+            CurrentLevel = -1;
             trades.Clear();
             equityCurve.Clear();
             equityCurve.Add(CurrentEquity);
@@ -253,6 +283,45 @@ namespace Gym.Core.Env
             Done = reason != EndReason.None;
             EndReason = reason;
             return new StepResult(reward, clipped, Done, reason, traded, rejected);
+        }
+
+        /// <summary>
+        /// 旋钮模式的一步：选第 <paramref name="level"/> 档为目标，然后连走 <see cref="DialSettings.DecisionHours"/> 根
+        /// （局或段剩下的不足时走完剩下的就结束）。每根在它收盘时按 <see cref="Rebalancer"/> 定买、卖或不动，被 action mask
+        /// 挡住的改成不动，交给 <see cref="Step"/> 执行。得分是这些小时得分之和。
+        /// </summary>
+        public DialStepResult StepDial(int level)
+        {
+            Account account = RequireAccount();
+            if (Dial == null) throw new InvalidOperationException("StepDial needs an environment in dial mode.");
+            if (Done) throw new InvalidOperationException("The episode is over; call Reset.");
+            double target = ActionCodec.DialTarget(Dial.Levels, level);
+
+            bool changed = dialDecisions > 0 && level != CurrentLevel;
+            if (changed) DialChanges++;
+            dialDecisions++;
+            CurrentLevel = level;
+
+            double reward = 0;
+            int hours = 0, clipped = 0;
+            bool traded = false, rejected = false;
+            StepResult hour;
+            do
+            {
+                double close = Series.CloseAt(CurrentIndex);
+                (TradeAction action, double fraction) = Rebalancer.Order(target, account.Cash, account.Quantity * close, Dial.Band);
+                if ((action == TradeAction.Buy && !BuyEnabled) || (action == TradeAction.Sell && !SellEnabled))
+                    action = TradeAction.Hold;
+                hour = Step(action, action == TradeAction.Hold ? 0f : ActionCodec.FromFraction(fraction));
+                reward += hour.Reward;
+                hours++;
+                if (hour.RewardClipped) clipped++;
+                traded |= hour.Traded;
+                rejected |= hour.Rejected;
+            } while (!hour.Done && hours < Dial.DecisionHours);
+
+            lastDecisionHours = hours;
+            return new DialStepResult(level, target, changed, hours, reward, clipped, traded, rejected, hour.Done, hour.Reason);
         }
 
         /// <summary>
