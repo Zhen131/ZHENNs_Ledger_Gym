@@ -17,6 +17,10 @@ namespace Gym.Core.Evaluation
         public const string MomentumName = "momentum_90d";
         public const string SmaCrossName = "sma_cross";
         public const string VolTargetName = "vol_target";
+        /// <summary>第三轮的对手：旋钮永远拧在 50% 那档。</summary>
+        public const string ConstantMix50Name = "constant_mix_50";
+        /// <summary>第三轮的对手：过去 90 天涨了拧到 70%、否则拧到 30%，每天一次。</summary>
+        public const string DialMomentumName = "dial_momentum_90d";
 
         /// <summary>momentum_90d 比较的距离：90 天 = 2160 根小时线。</summary>
         public const int MomentumLookback = 2160;
@@ -32,6 +36,26 @@ namespace Gym.Core.Evaluation
         public const double MinVolatility = 1e-6;
         /// <summary>三条老规则的带宽：仓位离目标超过这么多（按总资产的比例）才调仓。调仓规则本身在 <see cref="Rebalancer"/>。</summary>
         public const double RebalanceBand = 0.10;
+
+        // ---- 两个对手的固定参数（22A 第二节第 4 条，固定）。它们是对手自己的，不读配置、不读环境参数；
+        //      模型的档位、带宽、决策根数在配置里，那边怎么改都不影响这里。
+
+        /// <summary>两个对手的调仓带宽：5 个点（22A 第二节第 4 条，固定）。</summary>
+        public const double OpponentBand = 0.05;
+        /// <summary>两个对手每次决策走几根小时 K 线：24，即每天一次（22A 第二节第 4 条，固定）。</summary>
+        public const int OpponentDecisionHours = 24;
+        /// <summary>两个对手的低档：币占总资产 30%（22A 第二节第 4 条，固定）。</summary>
+        public const double OpponentLowLevel = 0.3;
+        /// <summary>两个对手的中档：50%（22A 第二节第 4 条，固定）。</summary>
+        public const double OpponentMiddleLevel = 0.5;
+        /// <summary>两个对手的高档：70%（22A 第二节第 4 条，固定）。</summary>
+        public const double OpponentHighLevel = 0.7;
+        /// <summary>dial_momentum_90d 比较的距离：90 天 = 2160 根小时线（22A 第二节第 4 条，固定）。</summary>
+        public const int DialMomentumLookback = 2160;
+
+        /// <summary>两个对手的档位：0.3、0.5、0.7（下标 0、1、2）。</summary>
+        public static IReadOnlyList<double> OpponentLevels { get; } =
+            Array.AsReadOnly(new[] { OpponentLowLevel, OpponentMiddleLevel, OpponentHighLevel });
 
         /// <summary>第一个 step 以比例 1 买入，然后一直不动到结束。</summary>
         public static EpisodeMetrics RunBuyAndHold(TradingEnv env, CostModel cost)
@@ -159,6 +183,52 @@ namespace Gym.Core.Evaluation
                 env.Step(action, action == TradeAction.Hold ? 0f : ActionCodec.FromFraction(fraction));
             }
             return Metrics.From(env);
+        }
+
+        // ---- 两个对手。都在旋钮模式的机制上跑（每 24 根决策一次、调仓规则带宽 5 个点），费率由调用方给。
+
+        /// <summary>
+        /// constant_mix_50：每次决策都选 50% 那一档。在 <paramref name="env"/> 的币、K 线、分段、初始资金和观测集上，
+        /// 用对手自己的固定参数新建一个旋钮模式的环境来跑；<paramref name="env"/> 本身不动，它的动作模式、档位和带宽都不看。
+        /// </summary>
+        public static EpisodeMetrics RunConstantMix50(TradingEnv env, CostModel cost) => RunConstantMix50(env, cost, out _);
+
+        /// <summary>同上，另交出跑过的那个旋钮环境（成交、曲线、换档次数都在里面）。</summary>
+        public static EpisodeMetrics RunConstantMix50(TradingEnv env, CostModel cost, out TradingEnv dialEnv) =>
+            RunOpponent(env, cost, ConstantMix50Level, out dialEnv);
+
+        /// <summary>
+        /// dial_momentum_90d：决策下标 t，close[t] &gt; close[t − 2160] 时选 70% 那档，否则选 30% 那档；t − 2160 不在数据里时选 30%。
+        /// 环境的建法同 <see cref="RunConstantMix50(TradingEnv, CostModel)"/>。
+        /// </summary>
+        public static EpisodeMetrics RunDialMomentum(TradingEnv env, CostModel cost) => RunDialMomentum(env, cost, out _);
+
+        /// <summary>同上，另交出跑过的那个旋钮环境。</summary>
+        public static EpisodeMetrics RunDialMomentum(TradingEnv env, CostModel cost, out TradingEnv dialEnv) =>
+            RunOpponent(env, cost, DialMomentumLevel, out dialEnv);
+
+        /// <summary>constant_mix_50 在任何下标选的档：50% 那一档（下标 1）。</summary>
+        public static int ConstantMix50Level(CandleSeries series, int t) => 1;
+
+        /// <summary>dial_momentum_90d 在决策下标 t 选的档：涨了选 70%（下标 2），否则或没有 2160 根历史时选 30%（下标 0）。只读 t 及之前。</summary>
+        public static int DialMomentumLevel(CandleSeries series, int t)
+        {
+            if (t - DialMomentumLookback < 0) return 0;
+            return series.CloseAt(t) > series.CloseAt(t - DialMomentumLookback) ? 2 : 0;
+        }
+
+        /// <summary>
+        /// 两个对手共用：用对手的固定参数在 <paramref name="env"/> 的数据和分段上新建旋钮环境，评估方式开局（全现金、从段首），
+        /// 每次决策按 <paramref name="chooseLevel"/>（只给它决策下标 t）选档，走到分段结束。
+        /// </summary>
+        static EpisodeMetrics RunOpponent(TradingEnv env, CostModel cost, Func<CandleSeries, int, int> chooseLevel, out TradingEnv dialEnv)
+        {
+            if (env == null) throw new ArgumentNullException(nameof(env));
+            var dial = new DialSettings(OpponentLevels, OpponentDecisionHours, OpponentBand);
+            dialEnv = new TradingEnv(env.Series, env.Rules, env.First, env.Last, env.InitialCash, 0, 0, env.ObservationSet, dial);
+            dialEnv.ResetForEvaluation(0, cost);
+            while (!dialEnv.Done) dialEnv.StepDial(chooseLevel(dialEnv.Series, dialEnv.CurrentIndex));
+            return Metrics.From(dialEnv);
         }
 
         /// <summary>close[t − n + 1 … t] 的均值。</summary>
