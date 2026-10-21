@@ -30,7 +30,7 @@ namespace Gym.Core.Evaluation
         public const double TargetHourlyVolatility = 0.0045;
         /// <summary>波动率小于这个数时按这个数算，免得除以 0。</summary>
         public const double MinVolatility = 1e-6;
-        /// <summary>仓位离目标超过这么多（按总资产的比例）才调仓。</summary>
+        /// <summary>三条老规则的带宽：仓位离目标超过这么多（按总资产的比例）才调仓。调仓规则本身在 <see cref="Rebalancer"/>。</summary>
         public const double RebalanceBand = 0.10;
 
         /// <summary>第一个 step 以比例 1 买入，然后一直不动到结束。</summary>
@@ -132,21 +132,12 @@ namespace Gym.Core.Evaluation
         }
 
         /// <summary>
-        /// 三条规则共用的下单规则。p = 币值 ÷ 总资产。目标 − p &gt; 0.10 时买，比例（占现金）=
-        /// min(1, (目标 − p) × 总资产 ÷ 现金)；p − 目标 &gt; 0.10 时卖，比例（占持币）= min(1, (p − 目标) ÷ p)；
-        /// 其余不动（比例 0）。
+        /// 三条规则共用的下单规则：转调 <see cref="Rebalancer.Order"/>，带宽是 <see cref="RebalanceBand"/>（0.10）。
+        /// p = 币值 ÷ 总资产。目标 − p &gt; 0.10 时买，比例（占现金）= min(1, (目标 − p) × 总资产 ÷ 现金)；
+        /// p − 目标 &gt; 0.10 时卖，比例（占持币）= min(1, (p − 目标) ÷ p)；其余不动（比例 0）。
         /// </summary>
-        public static (TradeAction action, double fraction) RuleOrder(double target, double cash, double coinValue)
-        {
-            double equity = cash + coinValue;
-            if (!(equity > 0)) return (TradeAction.Hold, 0);
-            double p = coinValue / equity;
-            if (target - p > RebalanceBand)
-                return (TradeAction.Buy, cash > 0 ? Math.Min(1, (target - p) * equity / cash) : 1);
-            if (p - target > RebalanceBand)
-                return (TradeAction.Sell, Math.Min(1, (p - target) / p));
-            return (TradeAction.Hold, 0);
-        }
+        public static (TradeAction action, double fraction) RuleOrder(double target, double cash, double coinValue) =>
+            Rebalancer.Order(target, cash, coinValue, RebalanceBand);
 
         /// <summary>
         /// 按一条规则从分段开头走到结尾：每个 step 用目标仓位和 <see cref="RuleOrder"/> 定下单，
