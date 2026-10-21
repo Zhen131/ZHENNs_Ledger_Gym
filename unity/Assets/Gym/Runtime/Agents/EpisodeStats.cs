@@ -10,6 +10,10 @@ namespace Gym.Runtime.Agents
     {
         /// <summary>每只币占比曲线的前缀：Trading/SymbolShare/&lt;币名&gt;。</summary>
         public const string SymbolSharePrefix = "Trading/SymbolShare/";
+        /// <summary>TensorBoard 键：本局换档次数（下单模式下为 0）。</summary>
+        public const string DialChangesKey = "Trading/DialChanges";
+        /// <summary>TensorBoard 键：本局决策次数（下单模式下等于步数）。</summary>
+        public const string DecisionsKey = "Trading/Decisions";
 
         /// <summary>Final equity ÷ initial equity − 1.</summary>
         public readonly double Return;
@@ -29,9 +33,14 @@ namespace Gym.Runtime.Agents
         public readonly double RiskAversion;
         /// <summary>本局罚款累计：Σ λ × min(r, 0)²（λ = 0 时为 0）。</summary>
         public readonly double RiskPenalty;
+        /// <summary>本局换档次数：这一步的目标和上一步不同的次数，第一步不算；下单模式下为 0。</summary>
+        public readonly int DialChanges;
+        /// <summary>本局决策次数：旋钮模式是开口的次数，下单模式等于步数。</summary>
+        public readonly int Decisions;
 
         EpisodeStats(double ret, int trades, int rejected, double feesPaidPct, double exposure, double turnover,
-            int rewardClips, double feeRate, double fixedFee, int steps, double riskAversion, double riskPenalty)
+            int rewardClips, double feeRate, double fixedFee, int steps, double riskAversion, double riskPenalty,
+            int dialChanges, int decisions)
         {
             Return = ret;
             Trades = trades;
@@ -45,6 +54,8 @@ namespace Gym.Runtime.Agents
             Steps = steps;
             RiskAversion = riskAversion;
             RiskPenalty = riskPenalty;
+            DialChanges = dialChanges;
+            Decisions = decisions;
         }
 
         /// <summary>
@@ -77,7 +88,9 @@ namespace Gym.Runtime.Agents
                 env.Cost.FixedFee,
                 env.StepCount,
                 env.RiskAversion,
-                env.RiskPenaltySum);
+                env.RiskPenaltySum,
+                env.DialChanges,
+                env.Decisions);
         }
     }
 }

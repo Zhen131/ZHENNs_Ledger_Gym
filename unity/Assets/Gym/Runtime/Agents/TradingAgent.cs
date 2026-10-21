@@ -28,6 +28,14 @@ namespace Gym.Runtime.Agents
         public const string ObservationSetKey = "obs_set";
         /// <summary>训练器的环境参数：奖励的风险系数 λ（≥ 0、有限）。没设时用命令行 -gymRiskAversion，再没有用 Inspector 默认值。</summary>
         public const string RiskAversionKey = "risk_aversion";
+        /// <summary>训练器的环境参数：0 = 下单模式、1 = 旋钮模式。没设时用命令行 -gymActionMode 或配置里的 actionMode。</summary>
+        public const string ActionModeKey = "action_mode";
+        /// <summary>训练器的环境参数：旋钮模式每次决策走几根（正整数）。没设时用命令行 -gymDecisionHours 或配置里的 decisionHours。</summary>
+        public const string DecisionHoursKey = "decision_hours";
+        /// <summary>训练器的环境参数：旋钮模式的调仓带宽（(0, 0.5) 内）。没设时用命令行 -gymBand 或配置里的 rebalanceBand。</summary>
+        public const string RebalanceBandKey = "rebalance_band";
+        /// <summary>旋钮模式下 <see cref="Heuristic"/> 选的目标仓位（50% 那一档；和对手 constant_mix_50 一致）。</summary>
+        public const double HeuristicDialTarget = 0.5;
 
         [SerializeField] AgentStartMode startMode = AgentStartMode.Training;
         [Tooltip("Instance number; mixed with the clock to seed this agent's episode seeds.")]
@@ -45,6 +53,8 @@ namespace Gym.Runtime.Agents
         bool firstEpisodeLogged;
         /// <summary>训练玩家开工那一行已经为哪份设置写过（每份设置写一次，不是每个 Agent 一次）。</summary>
         static GymSettings trainingStartLoggedFor;
+        /// <summary><see cref="OnEnable"/> 已经选过动作模式、改过动作形状（只做一次）。</summary>
+        bool actionModeChosen;
 
         public AgentStartMode StartMode
         {
@@ -90,6 +100,15 @@ namespace Gym.Runtime.Agents
         /// </summary>
         public IReadOnlyList<string> TrainSymbolsOverride { get; set; }
 
+        /// <summary>
+        /// 测试和观战用：有值时这个 Agent 用这种动作模式，不看 trainer 的环境参数 action_mode、-gymActionMode 和配置。
+        /// 要在 Agent 启用之前设（动作形状在 <see cref="OnEnable"/> 里、ML-Agents 建执行器之前定）。训练和评估都不设它（为 null），走原来的路。
+        /// </summary>
+        public ActionMode? ActionModeOverride { get; set; }
+
+        /// <summary>这个 Agent 实际用的动作模式（<see cref="OnEnable"/> 里选定）。</summary>
+        public ActionMode ActionMode { get; private set; }
+
         /// <summary>这个 Agent 实际用的观测集（<see cref="Initialize"/> 之后才有意义）。</summary>
         public ObservationSet ObservationSet => Env != null ? Env.ObservationSet : ObservationSet.Base;
 
@@ -112,6 +131,8 @@ namespace Gym.Runtime.Agents
         public TradeAction LastAction { get; private set; }
         public float LastContinuous { get; private set; }
         public StepResult LastResult { get; private set; }
+        /// <summary>旋钮模式下最近一步的结果（选的档、走了几根、得分之和）；下单模式下为 default。</summary>
+        public DialStepResult LastDialResult { get; private set; }
 
         public EpisodeMetrics LastEpisodeMetrics { get; private set; }
 
@@ -124,13 +145,52 @@ namespace Gym.Runtime.Agents
         /// <summary>一个 episode 结束时触发，在下一个 episode 重置之前。</summary>
         public event Action<TradingAgent, EpisodeMetrics> EpisodeFinished;
 
+        /// <summary>
+        /// ML-Agents 的 <c>Agent.LazyInitialize</c>（在 base.OnEnable 里）先按 BehaviorParameters 的动作形状建执行器和策略、
+        /// 最后才调 <see cref="Initialize"/>，所以动作形状要在这里、调 base.OnEnable() 之前改：读配置，选动作模式
+        /// （<see cref="ActionModeOverride"/>，否则 trainer 的环境参数 action_mode，否则 -gymActionMode 或配置），
+        /// 旋钮模式下把本实例的 ActionSpec 改成 0 个连续数加一个「档位个数」档的分支。预制体里的「1 个连续 + 3 档」不动。
+        /// 此刻访问 Academy.Instance，和 LazyInitialize 一开头访问它是同一时刻。
+        /// </summary>
+        protected override void OnEnable()
+        {
+            if (!actionModeChosen) ChooseActionModeAndShape();
+            base.OnEnable();
+        }
+
+        void ChooseActionModeAndShape()
+        {
+            actionModeChosen = true;
+            Settings = GymConfigLoader.LoadForRuntime();
+            ActionMode = ChooseActionMode(Academy.Instance);
+            if (ActionMode == ActionMode.Dial && EffectiveMode == AgentStartMode.PlayFromConfig)
+                throw GymConfigLoader.FailAtRuntime(new[] { PlayDoesNotSupportDial });
+            if (ActionMode == ActionMode.Dial) UseActionShape(ActionMode, Settings.DialLevels.Count);
+        }
+
+        const string PlayDoesNotSupportDial =
+            "the play scene does not support the dial action mode yet; play it with actionMode orders (the config, " +
+            GymConfigLoader.ActionModeArg + " or the trainer's " + ActionModeKey + ")";
+
         public override void Initialize()
         {
-            Settings = GymConfigLoader.LoadForRuntime();
+            if (!actionModeChosen)
+            {
+                // 没经过 OnEnable 就初始化（有人直接调了 LazyInitialize）：执行器已按预制体建好，旋钮模式的形状来不及改
+                ChooseActionModeAndShape();
+                if (ActionMode == ActionMode.Dial)
+                    throw GymConfigLoader.FailAtRuntime(new[]
+                    {
+                        "the dial action mode was chosen after ML-Agents built the actuators; the agent must be initialised through OnEnable",
+                    });
+            }
             GymConfig c = Settings.Config;
             // 先连上 trainer，再建环境：seed 和环境参数 obs_set 都由 trainer 发来，obs_set 决定环境的历史长度。
             Academy academy = Academy.Instance;
             ObservationSet observationSet = ChooseObservationSet(academy);
+            CheckChoices(observationSet, ActionMode);
+            DialSettings dial = ActionMode == ActionMode.Dial ? ReadDialSettings(academy) : null;
+            int episodeLength = Settings.EpisodeLengthFor(ActionMode);
             AgentStartMode mode = EffectiveMode;
             SegmentSpec segment;
             IReadOnlyList<SymbolSettings> trainSymbols = null;
@@ -148,14 +208,14 @@ namespace Gym.Runtime.Agents
                 envs = new TradingEnv[trainSymbols.Count];
                 for (int i = 0; i < envs.Length; i++)
                     envs[i] = TradingEnv.ForSegment(trainSymbols[i].Series, trainSymbols[i].Rules, trainSymbols[i].Train,
-                        c.initialCash, c.episodeLength, c.randomInitialPositionShare, observationSet);
+                        c.initialCash, episodeLength, c.randomInitialPositionShare, observationSet, dial);
             }
             else
             {
                 envs = new[]
                 {
                     TradingEnv.ForSegment(Settings.Series, Settings.Rules, segment,
-                        c.initialCash, c.episodeLength, c.randomInitialPositionShare, observationSet),
+                        c.initialCash, episodeLength, c.randomInitialPositionShare, observationSet, dial),
                 };
             }
             Env = envs[0];
@@ -167,8 +227,12 @@ namespace Gym.Runtime.Agents
             (MasterSeed, MasterSeedSource) = MasterSeedChooser.Choose(fromTrainer, trainerSeed, DateTime.UtcNow.Ticks, agentIndex);
             seedSource = new System.Random(MasterSeed);
             Debug.Log($"[Gym] {name}: index {agentIndex}, mode {mode}, segment {segment}, observations {observationSet.Name()} " +
-                      $"({observationSet.Size()} numbers, history {observationSet.HistoryLength()}), " +
-                      $"master seed {MasterSeed} ({MasterSeedChooser.LogName(MasterSeedSource)})");
+                      $"({observationSet.Size()} numbers, history {observationSet.HistoryLength()}), actions {ActionMode.Name()}" +
+                      (dial != null
+                          ? $" (levels {GymConfigLoader.LevelsText(dial.Levels)}, decision hours {dial.DecisionHours}, " +
+                            $"band {dial.Band.ToString("R", System.Globalization.CultureInfo.InvariantCulture)}, episodes of {episodeLength} candles)"
+                          : "") +
+                      $", master seed {MasterSeed} ({MasterSeedChooser.LogName(MasterSeedSource)})");
             if (trainSymbols != null)
             {
                 Debug.Log($"[Gym] {name}: training symbols {TrainSymbolsText(trainSymbols)}" +
@@ -188,19 +252,33 @@ namespace Gym.Runtime.Agents
 
         public override void WriteDiscreteActionMask(IDiscreteActionMask actionMask)
         {
+            if (Env.ActionMode == ActionMode.Dial) return; // 旋钮模式：每一档永远可选
             actionMask.SetActionEnabled(0, (int)TradeAction.Buy, Env.BuyEnabled);
             actionMask.SetActionEnabled(0, (int)TradeAction.Sell, Env.SellEnabled);
         }
 
         public override void OnActionReceived(ActionBuffers actions)
         {
-            var action = (TradeAction)actions.DiscreteActions[0];
-            float continuous = actions.ContinuousActions[0];
-            StepResult result = Env.Step(action, continuous);
+            StepResult result;
+            if (Env.ActionMode == ActionMode.Dial)
+            {
+                // 旋钮模式：唯一的离散分支是档位；这一步走决策根数那么多小时，得分是它们之和
+                DialStepResult dialResult = Env.StepDial(actions.DiscreteActions[0]);
+                result = dialResult.AsStepResult();
+                LastDialResult = dialResult;
+                LastAction = TradeAction.Hold;
+                LastContinuous = 0f;
+            }
+            else
+            {
+                var action = (TradeAction)actions.DiscreteActions[0];
+                float continuous = actions.ContinuousActions[0];
+                result = Env.Step(action, continuous);
+                LastAction = action;
+                LastContinuous = continuous;
+            }
 
             HasStepped = true;
-            LastAction = action;
-            LastContinuous = continuous;
             LastResult = result;
             AddReward((float)result.Reward);
             Stepped?.Invoke(this);
@@ -217,6 +295,22 @@ namespace Gym.Runtime.Agents
 
         public override void Heuristic(in ActionBuffers actionsOut)
         {
+            if (Env != null && Env.ActionMode == ActionMode.Dial)
+            {
+                // 试玩不支持旋钮模式（OnEnable 已拦过一次，这里兜底）；别的情况选 50% 那一档，档位里没有 0.5 时报错
+                if (EffectiveMode == AgentStartMode.PlayFromConfig)
+                    throw GymConfigLoader.FailAtRuntime(new[] { PlayDoesNotSupportDial });
+                int level = ActionCodec.DialLevelOf(Env.Dial.Levels, HeuristicDialTarget);
+                if (level < 0)
+                    throw GymConfigLoader.FailAtRuntime(new[]
+                    {
+                        $"the heuristic picks the {HeuristicDialTarget.ToString(System.Globalization.CultureInfo.InvariantCulture)} level, " +
+                        $"but the dial levels are {GymConfigLoader.LevelsText(Env.Dial.Levels)}",
+                    });
+                ActionSegment<int> levels = actionsOut.DiscreteActions;
+                levels[0] = level;
+                return;
+            }
             if (ActionSource != null)
             {
                 ActionSource.FillActions(actionsOut);
@@ -259,6 +353,7 @@ namespace Gym.Runtime.Agents
             LastAction = TradeAction.Hold;
             LastContinuous = 0f;
             LastResult = default;
+            LastDialResult = default;
             EpisodeStarted?.Invoke(this);
         }
 
@@ -297,8 +392,7 @@ namespace Gym.Runtime.Agents
         /// <summary>
         /// 这个 Agent 用哪一档观测：<see cref="ObservationSetOverride"/>，否则 trainer 的环境参数 obs_set（和费用用同一个
         /// <see cref="ReadParameter"/> 读），否则 <see cref="GymSettings.ObservationSet"/>（-gymObs 或配置）。
-        /// obs_set 不是 0、1、2 时报错；选中的档和配置、命令行定的不同时，按它的历史长度把分段长度和 playStart
-        /// 重查一遍，不过就报错（player 以退出码 1 退出）。
+        /// obs_set 不是 0、1、2 时报错；选中的档和配置、命令行定的不同时，由 <see cref="CheckChoices"/> 重查分段。
         /// </summary>
         ObservationSet ChooseObservationSet(Academy academy)
         {
@@ -323,16 +417,76 @@ namespace Gym.Runtime.Agents
                                   $"(the config and command line said {Settings.ObservationSet.Name()})");
                 }
             }
-            if (chosen != Settings.ObservationSet)
-            {
-                var problems = GymConfigLoader.ProblemsWithObservationSet(Settings, chosen);
-                if (problems.Count > 0)
-                {
-                    problems.Insert(0, $"with the observation set {chosen.Name()} (history {chosen.HistoryLength()} candles) the config does not work:");
-                    throw GymConfigLoader.FailAtRuntime(problems);
-                }
-            }
             return chosen;
+        }
+
+        /// <summary>
+        /// 这个 Agent 用哪种动作模式：<see cref="ActionModeOverride"/>，否则 trainer 的环境参数 action_mode（和费用用同一个
+        /// <see cref="ReadParameter"/> 读），否则 <see cref="GymSettings.ActionMode"/>（-gymActionMode 或配置）。
+        /// action_mode 不是 0、1 时报错（player 以退出码 1 退出）。
+        /// </summary>
+        ActionMode ChooseActionMode(Academy academy)
+        {
+            if (ActionModeOverride.HasValue) return ActionModeOverride.Value;
+            ActionMode chosen = Settings.ActionMode;
+            double value = ReadParameter(academy.EnvironmentParameters, ActionModeKey, double.NaN);
+            if (double.IsNaN(value)) return chosen;
+            if (!ActionModes.TryFromParameter(value, out chosen))
+                throw GymConfigLoader.FailAtRuntime(new[]
+                {
+                    $"environment parameter {ActionModeKey} = {value.ToString(System.Globalization.CultureInfo.InvariantCulture)} " +
+                    $"is not an action mode; use {ActionModes.ParameterValuesText}",
+                });
+            if (chosen != Settings.ActionMode)
+                Debug.Log($"[Gym] {name}: the trainer's {ActionModeKey} chooses the action mode {chosen.Name()} " +
+                          $"(the config and command line said {Settings.ActionMode.Name()})");
+            return chosen;
+        }
+
+        /// <summary>
+        /// 选中的观测集或动作模式和配置、命令行定的不同时，按选中的那一档的历史长度和那种模式每局的长度，把分段长度和
+        /// playStart 重查一遍，不过就报错（player 以退出码 1 退出）。
+        /// </summary>
+        void CheckChoices(ObservationSet set, ActionMode actionMode)
+        {
+            if (set == Settings.ObservationSet && actionMode == Settings.ActionMode) return;
+            var problems = GymConfigLoader.ProblemsWith(Settings, set, actionMode);
+            if (problems.Count == 0) return;
+            string what = $"the observation set {set.Name()} (history {set.HistoryLength()} candles)";
+            if (actionMode != Settings.ActionMode)
+                what += $" and the action mode {actionMode.Name()} (episodes of {Settings.EpisodeLengthFor(actionMode)} candles)";
+            problems.Insert(0, $"with {what} the config does not work:");
+            throw GymConfigLoader.FailAtRuntime(problems);
+        }
+
+        /// <summary>
+        /// 旋钮模式的档位（配置里的 dialLevels）、决策根数和带宽：trainer 设了环境参数 decision_hours、rebalance_band 就用它们
+        /// （和费用用同一个 <see cref="ReadParameter"/> 读），否则用 <see cref="GymSettings.DecisionHours"/>、
+        /// <see cref="GymSettings.RebalanceBand"/>（命令行或配置）。决策根数不是正整数、带宽不在 (0, 0.5) 内时报错。
+        /// </summary>
+        DialSettings ReadDialSettings(Academy academy)
+        {
+            EnvironmentParameters parameters = academy.EnvironmentParameters;
+            double hours = ReadParameter(parameters, DecisionHoursKey, Settings.DecisionHours);
+            double band = ReadParameter(parameters, RebalanceBandKey, Settings.RebalanceBand);
+            var errors = new List<string>();
+            if (!(hours >= 1 && hours <= int.MaxValue && hours == Math.Floor(hours)))
+                errors.Add($"{DecisionHoursKey} = {hours.ToString(System.Globalization.CultureInfo.InvariantCulture)} is not a number of candles; " +
+                           $"use a whole number >= 1 (the trainer's environment parameter, {GymConfigLoader.DecisionHoursArg} or the config's decisionHours)");
+            if (!GymConfigLoader.IsBand(band))
+                errors.Add($"{RebalanceBandKey} = {band.ToString(System.Globalization.CultureInfo.InvariantCulture)} is not a rebalance band; " +
+                           $"use a value inside (0, 0.5) (the trainer's environment parameter, {GymConfigLoader.BandArg} or the config's rebalanceBand)");
+            if (errors.Count > 0) throw GymConfigLoader.FailAtRuntime(errors);
+            return new DialSettings(Settings.DialLevels, (int)hours, band);
+        }
+
+        /// <summary>把本实例 BehaviorParameters 的动作形状改成这种模式的（旋钮：0 个连续数、一个 <paramref name="levelCount"/> 档分支）。</summary>
+        void UseActionShape(ActionMode actionMode, int levelCount)
+        {
+            var behavior = GetComponent<BehaviorParameters>();
+            if (behavior == null) return;
+            behavior.BrainParameters.ActionSpec = new ActionSpec(ActionCodec.ContinuousSizeFor(actionMode),
+                ActionCodec.BranchSizesFor(actionMode, levelCount));
         }
 
         /// <summary>
@@ -430,6 +584,8 @@ namespace Gym.Runtime.Agents
             recorder.Add("Trading/FixedFee", (float)stats.FixedFee, StatAggregationMethod.Average);
             recorder.Add("Trading/RiskAversion", (float)stats.RiskAversion, StatAggregationMethod.Average);
             recorder.Add("Trading/RiskPenalty", (float)stats.RiskPenalty, StatAggregationMethod.Average);
+            recorder.Add(EpisodeStats.DialChangesKey, stats.DialChanges, StatAggregationMethod.Average);
+            recorder.Add(EpisodeStats.DecisionsKey, stats.Decisions, StatAggregationMethod.Average);
             // 每只币各记一条：本局是这只记 1、不是记 0，按平均聚合就是各币的占比
             foreach ((string key, float value) in EpisodeStats.SymbolShares(SymbolNames(), Env.Rules.Symbol))
                 recorder.Add(key, value, StatAggregationMethod.Average);
