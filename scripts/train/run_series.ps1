@@ -38,6 +38,21 @@ The training build carries build-info.json in its StreamingAssets\Gym\ folder, n
 the executable: Gym_Data\StreamingAssets\Gym\ next to Gym.exe on Windows,
 Gym.app\Contents\Resources\Data\StreamingAssets\Gym\ on macOS. If it is there, every run
 copies it to results\<run-id>\build-info.json.
+-BasePort (optional) is passed on as mlagents-learn --base-port: the player of environment
+k listens on that port + k. Without it nothing is passed and mlagents-learn uses its own
+default (5005). A port must be a whole number from 1024 to 65535 - -NumEnvs. The port
+is written to results\<run-id>\seed-used.txt ("base-port: default" without the option).
+
+Parallel series: one terminal and one -BasePort per series, at least -NumEnvs apart
+(for example 5005, 5105, 5205; two players on one port stop the later run with
+UnityWorkerInUseException). Split the series by seeds, never by -Prefix: one series runs
+-Seeds 1,2, another -Seeds 3,4,5; the same config and seed must not run in two series
+at once. -Prefix only names a line of training (mix for the four-coin line); a prefix
+per series would turn one config into several in the scorer (scripts\eval\score_round3.py).
+Each series writes its own output: ... *> results\series-<name>.out (UTF-16). Set
+$env:CUDA_VISIBLE_DEVICES = '-1' in each terminal: a device cpu training never needs the
+graphics card, and then it takes nothing from it. The temporary configs in results\_tmp\
+are named by run id, so parallel series never share one.
 
 Option names map one to one onto run_series.sh:
   -Env <path>          --env <path>
@@ -48,6 +63,7 @@ Option names map one to one onto run_series.sh:
   -Smoke               --smoke
   -SmokeSteps 15000    --smoke-steps 15000
   -DryRun              --dry-run
+  -BasePort 5105       --base-port 5105
   -EnvArgs "<words>"   --env-args "<words>"
   -Configs a,b         a b   (positional in the .sh)
 
@@ -55,6 +71,7 @@ Option names map one to one onto run_series.sh:
 conda activate mlagents
 .\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Configs config\ppo_base.yaml,config\variants\fee-0.yaml
 .\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Seeds 1 -Configs config\v2\long.yaml -EnvArgs "-gymTrainSymbols BTCUSDT,ETHUSDT"
+.\scripts\train\run_series.ps1 -Env unity\Builds\win\Gym.exe -Seeds 3,4,5 -BasePort 5105 -Configs config\v3\dial.yaml
 #>
 [CmdletBinding()]
 param(
@@ -67,7 +84,9 @@ param(
     [switch]$Smoke,
     [int]$SmokeSteps = 15000,
     [switch]$DryRun,
-    [string]$EnvArgs = ''
+    [string]$EnvArgs = '',
+    # A string, not [int]: [int] would round 5005.5 to 5006 and refuse "abc" before Fail could explain it.
+    [string]$BasePort = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -108,6 +127,13 @@ $negative = @($Seeds | Where-Object { $_ -lt 0 })
 if ($negative.Count -gt 0) { Fail "seeds must be whole numbers >= 0 (got $($negative -join ', '))" }
 if ($Prefix -notmatch '^[A-Za-z0-9._-]*$') { Fail "-Prefix may only use letters, digits, '.', '_' and '-'" }
 if ($Device -cnotin @('cpu', 'cuda')) { Fail "-Device must be cpu or cuda (got '$Device')" }
+$basePortGiven = $PSBoundParameters.ContainsKey('BasePort')
+if ($basePortGiven) {
+    $maxPort = 65535 - $NumEnvs
+    if ($BasePort -notmatch '^[0-9]{1,5}$' -or [int]$BasePort -lt 1024 -or [int]$BasePort -gt $maxPort) {
+        Fail "-BasePort must be a whole number from 1024 to $maxPort (65535 - -NumEnvs; got '$BasePort')"
+    }
+}
 
 $learn = if ($env:MLAGENTS_LEARN) { $env:MLAGENTS_LEARN } else { 'mlagents-learn' }
 if (-not $DryRun -and -not (Get-Command $learn -ErrorAction SilentlyContinue)) {
@@ -134,7 +160,8 @@ $date = (Get-Date).ToUniversalTime().ToString('yyyyMMdd', [Globalization.Culture
 
 $ran = 0; $skipped = 0; $failed = 0; $clocked = 0
 $smokeNote = if ($Smoke) { ", smoke $SmokeSteps steps" } else { '' }
-Write-Host "series: $($absConfigs.Count) config(s) x seeds [$($Seeds -join ' ')], -NumEnvs $NumEnvs, device $Device, env $EnvPath$smokeNote"
+$portNote = if ($basePortGiven) { ", base port $BasePort" } else { '' }
+Write-Host "series: $($absConfigs.Count) config(s) x seeds [$($Seeds -join ' ')], -NumEnvs $NumEnvs, device $Device, env $EnvPath$smokeNote$portNote"
 if ($envWords.Count -eq 0) {
     Write-Host 'env args: none (env-args.txt will be empty)'
 } else {
@@ -179,7 +206,9 @@ foreach ($cfg in $absConfigs) {
 
         Write-Host "run   $runId"
         $learnSeed = [long]$seed * 1000
-        $arguments = @($used, '--env', $EnvPath, '--run-id', $runId, '--seed', "$learnSeed", '--num-envs', "$NumEnvs", '--no-graphics')
+        $arguments = @($used, '--env', $EnvPath, '--run-id', $runId, '--seed', "$learnSeed", '--num-envs', "$NumEnvs")
+        if ($basePortGiven) { $arguments += @('--base-port', $BasePort) }
+        $arguments += @('--no-graphics')
         # --env-args must be last: mlagents-learn hands every word after it (other options too) to the player as given.
         if ($envWords.Count -gt 0) { $arguments += @('--env-args') + $envWords }
         if ($DryRun) {
@@ -209,6 +238,11 @@ foreach ($cfg in $absConfigs) {
             [IO.File]::WriteAllText((Join-Path $repo "results\$runId\env-args.txt"), $envNote)
             if ($buildInfo) { Copy-Item -LiteralPath $buildInfo -Destination "results\$runId\build-info.json" }
             $seedNote = "seed (run id): $seed`n--seed passed to mlagents-learn: $learnSeed`n--num-envs: $NumEnvs (environment k gets $learnSeed + k)`n"
+            if ($basePortGiven) {
+                $seedNote += "base-port: $BasePort (passed as --base-port; environment k uses port $BasePort + k)`n"
+            } else {
+                $seedNote += "base-port: default (not passed; mlagents-learn uses its default)`n"
+            }
             [IO.File]::WriteAllText((Join-Path $repo "results\$runId\seed-used.txt"), $seedNote)
             if (Test-ClockSeeded (Join-Path $repo "results\$runId")) {
                 [IO.File]::AppendAllText((Join-Path $repo "results\$runId\seed-used.txt"), "WARNING: some agents seeded from the clock`n")

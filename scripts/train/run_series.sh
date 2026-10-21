@@ -6,7 +6,7 @@
 #
 #   scripts/train/run_series.sh --env unity/Builds/mac/Gym.app [--seeds "1 2 3 4 5"] [--num-envs 1]
 #       [--prefix NAME] [--device cpu|cuda] [--smoke] [--smoke-steps 15000] [--dry-run]
-#       [--env-args "-gymTrainSymbols BTCUSDT,ETHUSDT"] CONFIG.yaml [CONFIG.yaml ...]
+#       [--base-port 5105] [--env-args "-gymTrainSymbols BTCUSDT,ETHUSDT"] CONFIG.yaml [CONFIG.yaml ...]
 #
 # Run ids:   [smoke-][NAME-]<config file name>-s<seed>-<yyyyMMdd, UTC>
 # Results:   results/<run-id>/                (ML-Agents output, plus config-used.yaml,
@@ -42,6 +42,21 @@
 # the executable: Gym.app/Contents/Resources/Data/StreamingAssets/Gym/ on macOS,
 # Gym_Data/StreamingAssets/Gym/ next to Gym.exe or Gym.x86_64. If it is there, every run
 # copies it to results/<run-id>/build-info.json.
+# --base-port (optional) is passed on as mlagents-learn --base-port: the player of environment
+# k listens on that port + k. Without it nothing is passed and mlagents-learn uses its own
+# default (5005). A port must be a whole number from 1024 to 65535 - --num-envs. The port
+# is written to results/<run-id>/seed-used.txt ("base-port: default" without the option).
+#
+# Parallel series: one terminal and one --base-port per series, at least --num-envs apart
+# (for example 5005, 5105, 5205; two players on one port stop the later run with
+# UnityWorkerInUseException). Split the series by seeds, never by --prefix: one series runs
+# --seeds "1 2", another --seeds "3 4 5"; the same config and seed must not run in two series
+# at once. --prefix only names a line of training (mix for the four-coin line); a prefix
+# per series would turn one config into several in the scorer (scripts/eval/score_round3.py).
+# Each series writes its own output: ... > results/series-<name>.out 2>&1. Set
+# CUDA_VISIBLE_DEVICES=-1 in each terminal: a device cpu training never needs the graphics
+# card, and then it takes nothing from it. The temporary configs in results/_tmp/ are named
+# by run id, so parallel series never share one.
 
 set -u
 
@@ -56,6 +71,8 @@ SMOKE_STEPS=15000
 DEVICE=cpu
 DRY_RUN=0
 ENV_ARGS=""
+BASE_PORT=""
+BASE_PORT_SET=0
 CONFIGS=()
 
 while [ $# -gt 0 ]; do
@@ -69,6 +86,10 @@ while [ $# -gt 0 ]; do
         --device) DEVICE="${2:-}"; shift 2 ;;
         --dry-run) DRY_RUN=1; shift ;;
         --env-args) ENV_ARGS="${2:-}"; shift 2 ;;
+        # 没给值时报错退出（别的带值选项放在最后又没给值时，shift 2 失败，循环停不下来）
+        --base-port)
+            [ $# -ge 2 ] || { echo "error: --base-port needs a value" >&2; usage >&2; exit 2; }
+            BASE_PORT="$2"; BASE_PORT_SET=1; shift 2 ;;
         -h|--help) usage; exit 0 ;;
         --*) echo "error: unknown option $1" >&2; usage >&2; exit 2 ;;
         *) CONFIGS+=("$1"); shift ;;
@@ -120,6 +141,11 @@ for seed in $SEEDS; do is_int "$seed" || fail "seeds must be whole numbers (got 
 [ -n "$SEEDS" ] || fail "--seeds is empty"
 case "$PREFIX" in *[!A-Za-z0-9._-]*) fail "--prefix may only use letters, digits, '.', '_' and '-'" ;; esac
 case "$DEVICE" in cpu|cuda) ;; *) fail "--device must be cpu or cuda (got '$DEVICE')" ;; esac
+if [ "$BASE_PORT_SET" -eq 1 ]; then
+    max_port=$((65535 - NUM_ENVS))
+    { is_int "$BASE_PORT" && [ "${#BASE_PORT}" -le 5 ] && [ "$BASE_PORT" -ge 1024 ] && [ "$BASE_PORT" -le "$max_port" ]; } ||
+        fail "--base-port must be a whole number from 1024 to $max_port (65535 - --num-envs; got '$BASE_PORT')"
+fi
 
 LEARN="${MLAGENTS_LEARN:-mlagents-learn}"
 if [ "$DRY_RUN" -eq 0 ] && ! command -v "$LEARN" >/dev/null 2>&1; then
@@ -146,7 +172,7 @@ cd "$REPO" || exit 2
 DATE="$(LC_ALL=C date -u +%Y%m%d)"
 
 ran=0; skipped=0; failed=0; clocked=0
-echo "series: ${#ABS_CONFIGS[@]} config(s) x seeds [$SEEDS], --num-envs $NUM_ENVS, device $DEVICE, env $ENV_PATH$( [ "$SMOKE" -eq 1 ] && echo ", smoke $SMOKE_STEPS steps")"
+echo "series: ${#ABS_CONFIGS[@]} config(s) x seeds [$SEEDS], --num-envs $NUM_ENVS, device $DEVICE, env $ENV_PATH$( [ "$SMOKE" -eq 1 ] && echo ", smoke $SMOKE_STEPS steps")$( [ "$BASE_PORT_SET" -eq 1 ] && echo ", base port $BASE_PORT")"
 if [ ${#ENV_WORDS[@]} -eq 0 ]; then
     echo "env args: none (env-args.txt will be empty)"
 else
@@ -183,7 +209,9 @@ for cfg in "${ABS_CONFIGS[@]}"; do
 
         echo "run   $run_id"
         learn_seed=$((seed * 1000))
-        cmd=("$LEARN" "$used" --env "$ENV_PATH" --run-id "$run_id" --seed "$learn_seed" --num-envs "$NUM_ENVS" --no-graphics)
+        cmd=("$LEARN" "$used" --env "$ENV_PATH" --run-id "$run_id" --seed "$learn_seed" --num-envs "$NUM_ENVS")
+        [ "$BASE_PORT_SET" -eq 0 ] || cmd+=(--base-port "$BASE_PORT")
+        cmd+=(--no-graphics)
         # --env-args 必须放在最后：mlagents-learn 把它后面的所有词（包括别的选项）都原样交给 Unity。
         [ ${#ENV_WORDS[@]} -eq 0 ] || cmd+=(--env-args "${ENV_WORDS[@]}")
         if [ "$DRY_RUN" -eq 1 ]; then
@@ -206,6 +234,11 @@ for cfg in "${ABS_CONFIGS[@]}"; do
                 echo "seed (run id): $seed"
                 echo "--seed passed to mlagents-learn: $learn_seed"
                 echo "--num-envs: $NUM_ENVS (environment k gets $learn_seed + k)"
+                if [ "$BASE_PORT_SET" -eq 1 ]; then
+                    echo "base-port: $BASE_PORT (passed as --base-port; environment k uses port $BASE_PORT + k)"
+                else
+                    echo "base-port: default (not passed; mlagents-learn uses its default)"
+                fi
             } > "results/$run_id/seed-used.txt"
             if clock_seeded "results/$run_id"; then
                 echo "WARNING: some agents seeded from the clock" >> "results/$run_id/seed-used.txt"
