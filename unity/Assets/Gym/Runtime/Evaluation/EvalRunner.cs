@@ -140,9 +140,15 @@ namespace Gym.Runtime.Evaluation
             return problem == null ? null : $"{problem} (from {BuildInfoFile}, model run {info.run_id}). Nothing was written.";
         }
 
-        /// <summary>评估流水 agent 行的 notes 列：推理设置、走了几步、观测集。</summary>
-        public static string AgentNotes(bool deterministicInference, string inferenceDevice, int steps, ObservationSet set) =>
-            $"deterministic={deterministicInference}; device={inferenceDevice}; steps={steps}; obs={set.Name()}";
+        /// <summary>
+        /// 评估流水 agent 行的 notes 列：推理设置、走了几步、观测集，末尾是动作模式那一段（<see cref="ActionRecord.Notes(ActionMode, DialSettings, int)"/>）：
+        /// 下单模式 <c>; mode=orders</c>，旋钮模式 <c>; mode=dial; band=&lt;x&gt;; hours=&lt;n&gt;; changes=&lt;k&gt;</c>。
+        /// 调用处都把跑过的环境的模式、旋钮设置和换档次数传进来；不传时按下单模式写。
+        /// </summary>
+        public static string AgentNotes(bool deterministicInference, string inferenceDevice, int steps, ObservationSet set,
+            ActionMode mode = ActionMode.Orders, DialSettings dial = null, int dialChanges = 0) =>
+            $"deterministic={deterministicInference}; device={inferenceDevice}; steps={steps}; obs={set.Name()}; " +
+            ActionRecord.Notes(mode, dial, dialChanges);
 
         /// <summary>拼成 "a"、"a and b"、"a, b and c" 这样。</summary>
         static string JoinWithAnd(List<string> items) =>
@@ -271,7 +277,8 @@ namespace Gym.Runtime.Evaluation
                 ModelSha256 = info?.model_sha256 ?? "",
                 Symbol = env.Rules.Symbol, // 环境的币；评估只有当前币一个环境，读环境是防将来混用
                 Seeds = 1,
-                Notes = AgentNotes(behavior.DeterministicInference, behavior.InferenceDevice.ToString(), metrics.Steps, env.ObservationSet),
+                Notes = AgentNotes(behavior.DeterministicInference, behavior.InferenceDevice.ToString(), metrics.Steps, env.ObservationSet,
+                    env.ActionMode, env.Dial, env.DialChanges),
             };
             record.SetSegment(segment);
             record.SetCost(env.Cost);
@@ -285,13 +292,14 @@ namespace Gym.Runtime.Evaluation
 
         /// <summary>
         /// 一次 Agent 评估的明细 JSON。symbol 和 data_file 是当前币（-gymSymbol）的，数据文件按配置里的写法记录，模型只记文件名（靠 SHA-256 识别），
-        /// 这样提交进仓库的文件里不带任何机器的文件夹或用户名。observation_set 和 history_length 是环境实际用的那一档。
+        /// 这样提交进仓库的文件里不带任何机器的文件夹或用户名。observation_set 和 history_length 是环境实际用的那一档；
+        /// 动作模式的七个键见 <see cref="ActionRecord.AddDetails"/>。
         /// </summary>
         public static JsonObject Details(EvaluationRecord record, EvalBuildInfo info, GymSettings settings, TradingEnv env,
             EpisodeMetrics metrics, string behaviorType, bool deterministicInference, string inferenceDevice)
         {
             SegmentSpec segment = settings.EvalSegment;
-            return new JsonObject
+            var details = new JsonObject
             {
                 { "timestamp_utc", record.TimestampUtc },
                 { "kind", record.Kind },
@@ -309,20 +317,22 @@ namespace Gym.Runtime.Evaluation
                 { "data_file", RecordPaths.PathForRecords(settings.DataFile) }, // 当前币的数据文件
                 { "observation_set", env.ObservationSet.Name() },
                 { "history_length", env.HistoryLength },
-                { "segment", new JsonObject
-                    {
-                        { "name", segment.Name },
-                        { "start_date", segment.StartDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture) },
-                        { "end_date", segment.EndDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture) },
-                        { "first_candle_utc", env.Series.OpenTimeUtc(env.StartIndex) },
-                        { "last_candle_utc", env.Series.OpenTimeUtc(env.CurrentIndex) },
-                        { "steps", env.StepCount },
-                    }
-                },
-                { "cost", new JsonObject { { "fee_rate", env.Cost.FeeRate }, { "fixed_fee", env.Cost.FixedFee }, { "slippage", env.Cost.Slippage } } },
-                { "initial_cash", settings.Config.initialCash },
-                { "metrics", EvaluationLog.MetricsJson(metrics) },
             };
+            // action_mode、decision_hours、rebalance_band、dial_levels、dial_changes、decisions、last_decision_hours（24 批）
+            ActionRecord.AddDetails(details, env);
+            details.Add("segment", new JsonObject
+            {
+                { "name", segment.Name },
+                { "start_date", segment.StartDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture) },
+                { "end_date", segment.EndDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture) },
+                { "first_candle_utc", env.Series.OpenTimeUtc(env.StartIndex) },
+                { "last_candle_utc", env.Series.OpenTimeUtc(env.CurrentIndex) },
+                { "steps", env.StepCount },
+            });
+            details.Add("cost", new JsonObject { { "fee_rate", env.Cost.FeeRate }, { "fixed_fee", env.Cost.FixedFee }, { "slippage", env.Cost.Slippage } });
+            details.Add("initial_cash", settings.Config.initialCash);
+            details.Add("metrics", EvaluationLog.MetricsJson(metrics));
+            return details;
         }
 
         public static EvalBuildInfo ReadBuildInfo()

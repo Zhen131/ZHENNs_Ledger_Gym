@@ -132,13 +132,13 @@ namespace Gym.Tests.Runtime.Evaluation
         }
 
         [Test]
-        public void AgentNotes_EndWithTheObservationSet()
+        public void AgentNotes_HaveTheObservationSet_ThenTheActionMode()
         {
-            Assert.AreEqual("deterministic=True; device=Burst; steps=8759; obs=base",
+            Assert.AreEqual("deterministic=True; device=Burst; steps=8759; obs=base; mode=orders",
                 EvalRunner.AgentNotes(true, "Burst", 8759, ObservationSet.Base));
-            Assert.AreEqual("deterministic=True; device=Burst; steps=8759; obs=long",
+            Assert.AreEqual("deterministic=True; device=Burst; steps=8759; obs=long; mode=orders",
                 EvalRunner.AgentNotes(true, "Burst", 8759, ObservationSet.Long));
-            Assert.AreEqual("deterministic=False; device=CPU; steps=10; obs=long-ta",
+            Assert.AreEqual("deterministic=False; device=CPU; steps=10; obs=long-ta; mode=orders",
                 EvalRunner.AgentNotes(false, "CPU", 10, ObservationSet.LongTa));
             StringAssert.DoesNotContain(",", EvalRunner.AgentNotes(true, "Burst", 1, ObservationSet.LongTa), "notes stay one CSV cell");
         }

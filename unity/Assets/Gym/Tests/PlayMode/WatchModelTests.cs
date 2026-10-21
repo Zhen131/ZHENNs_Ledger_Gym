@@ -153,7 +153,8 @@ namespace Gym.Tests.PlayMode
                 ModelSha256 = modelSha,
                 Symbol = s.Rules.Symbol,
                 Seeds = 1,
-                Notes = EvalRunner.AgentNotes(behavior.DeterministicInference, behavior.InferenceDevice.ToString(), metrics.Steps, agent.Env.ObservationSet),
+                Notes = EvalRunner.AgentNotes(behavior.DeterministicInference, behavior.InferenceDevice.ToString(), metrics.Steps, agent.Env.ObservationSet,
+                    agent.Env.ActionMode, agent.Env.Dial, agent.Env.DialChanges),
             };
             record.SetSegment(s.Validation);
             record.SetCost(agent.Env.Cost);
@@ -254,6 +255,8 @@ namespace Gym.Tests.PlayMode
             Assert.AreEqual(a.Skip(1), b.Skip(1), "the two rows differ beyond the time");
             Assert.AreEqual(first.FinalEquity, second.FinalEquity);
 
+            // 24 批起 agent 行的 notes 末尾多了动作模式那一段（mode=orders 等），所以 GYM_WATCH_EVAL_LOG 只认 24 批之后的评估包写的流水；
+            // 拿之前的流水来比，只会在 notes 这一列不同，这是预期，不是观战走偏了。
             string evalLog = Environment.GetEnvironmentVariable(EvalLogVariable);
             if (!string.IsNullOrEmpty(evalLog))
             {
