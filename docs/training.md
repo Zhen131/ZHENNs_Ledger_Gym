@@ -2,7 +2,7 @@
 
 One smoke training run is step 3 of the README's [quick start](../README.md#quick-start-mac). This page covers a series of runs on the Mac, the two optional environment parameters `obs_set` and `risk_aversion`, training on several coins at once, and what the `Trading/*` curves mean.
 
-Long runs happen on a Windows PC: see [pc-training.md](pc-training.md) (English) or [pc-training.zh.md](pc-training.zh.md) (Chinese). In short: same Unity and Python versions, `BuildWindowsTraining`, 100k-step speed tests on the CPU (`config/smoke-100k.yaml`) and on the graphics card (`config/smoke-100k-cuda.yaml`), then the comparison series with `scripts/train/run_series.ps1` on whichever was faster (`-Device cpu|cuda`). Round two (configs in `config/v2/`, the coins given with `-EnvArgs`) has its own sections there, with the smoke checks the Mac cannot run.
+Long runs happen on a Windows PC: see [pc-training.md](pc-training.md) (English) or [pc-training.zh.md](pc-training.zh.md) (Chinese). In short: same Unity and Python versions, `BuildWindowsTraining`, 100k-step speed tests on the CPU (`config/smoke-100k.yaml`) and on the graphics card (`config/smoke-100k-cuda.yaml`), then the comparison series with `scripts/train/run_series.ps1` on whichever was faster (`-Device cpu|cuda`). Round two (configs in `config/v2/`, the coins given with `-EnvArgs`) and round three (configs in `config/v3/`, several series side by side with `-BasePort`) have their own sections there, with the smoke checks the Mac cannot run.
 
 ## A series on the Mac
 
@@ -12,7 +12,7 @@ Long runs happen on a Windows PC: see [pc-training.md](pc-training.md) (English)
 scripts/train/run_series.sh --env unity/Builds/mac/Gym.app --seeds 1 --smoke config/ppo_base.yaml config/variants/fee-0.003.yaml
 ```
 
-What each config changes, and how to check the configs after editing them: [config/README.md](../config/README.md). Round two's configs are in `config/v2/`: `ppo_v2.yaml` (the base, `normalize: true`), `long.yaml` and `long-ta.yaml` (`obs_set` 1 and 2), three `long-risk-*.yaml` (`risk_aversion`) and `smoke-long.yaml`.
+What each config changes, and how to check the configs after editing them: [config/README.md](../config/README.md). Round two's configs are in `config/v2/`: `ppo_v2.yaml` (the base, `normalize: true`), `long.yaml` and `long-ta.yaml` (`obs_set` 1 and 2), three `long-risk-*.yaml` (`risk_aversion`) and `smoke-long.yaml`. Round three's are in `config/v3/`: `dial.yaml` (`v2/long.yaml` with `action_mode` 1, the dial mode, the main line; the four-coin line trains the same file with `--prefix mix` and the coins in `--env-args`), `dial-base.yaml` (`obs_set` 0, the control group) and `smoke-dial.yaml`.
 
 Words for the player go in `--env-args`, as one quoted string; this is how a series trains on several coins:
 

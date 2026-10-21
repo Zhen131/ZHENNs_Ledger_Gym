@@ -58,7 +58,7 @@ python scripts/eval/summarize.py evaluations/smoke/log.csv
 | `unity/Assets/StreamingAssets/Gym/` | `gym-config.json`、`symbols.json` 和数据（BTCUSDT、ETHUSDT、ADAUSDT、DOGEUSDT、XRPUSDT 各一份 `data/<币名>-1h.csv`，各自旁边一份清单，加上 `DATA-LICENSE.md`）；放头像图的 `avatar/`；每个包里都带一份 |
 | `unity/Packages/` | `manifest.json` 和 `packages-lock.json`：Unity 包和它们的版本 |
 | `unity/ProjectSettings/` | Unity 的工程设置，编辑器版本记在 `ProjectVersion.txt` 里 |
-| `config/` | 训练配置（`ppo_base.yaml`、几份冒烟配置）、对比组（`variants/`）和第二轮的配置（`v2/`）；见 [config/README.md](config/README.md) |
+| `config/` | 训练配置（`ppo_base.yaml`、几份冒烟配置）、对比组（`variants/`）、第二轮的配置（`v2/`）和第三轮旋钮模式的配置（`v3/`）；见 [config/README.md](config/README.md) |
 | `scripts/data/` | 从 Binance Vision 下载数据的脚本（`fetch_binance_klines.py`），和算几只币收益率相关性的脚本（`correlation.py`） |
 | `scripts/train/` | 成批训练脚本（`run_series.sh`、`run_series.ps1`）、配置检查（`check_configs.py`）、读 TensorBoard 曲线（`read_scalars.py`） |
 | `scripts/eval/` | 汇总评估流水的 `summarize.py`；第三轮的尺子 `score_round3.py`（BTC 跌段、涨段两道门槛，再按三个验证段「收益 ÷ 回撤」的平均排名），和它的测试 `test_score_round3.py` |

@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
-"""Check the comparison configs in config/variants/ and config/v2/ against their base.
+"""Check the comparison configs in config/variants/, config/v2/ and config/v3/ against their base.
 
 Usage, from the repository root, inside the mlagents environment:
 
     python scripts/train/check_configs.py
 
-Every *.yaml in config/variants/ and config/v2/ is a variant, unless its file
+Every *.yaml in config/variants/, config/v2/ and config/v3/ is a variant, unless its file
 name starts with "smoke": then it is a smoke config, wherever it is, like
 config/smoke*.yaml. A variant's base is config/ppo_base.yaml, unless its first
 line declares another one, for example
 "# base: config/v2/ppo_v2.yaml — Differs from ppo_v2.yaml only in ..."
 (a path from the repository root). Round two's configs in config/v2/ build on
 each other that way: ppo_v2 on ppo_base, long and long-ta on ppo_v2, the
-long-risk-* files on long.
+long-risk-* files on long; round three's config/v3/dial on long, dial-base on
+dial.
 
 Rules (exit code 1 if any fails):
 - every variant differs from its base in exactly one setting, except the two
@@ -242,7 +243,7 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--base", default="config/ppo_base.yaml",
                         help="the base of every variant whose first line declares no other")
-    parser.add_argument("--variants", nargs="+", default=["config/variants", "config/v2"],
+    parser.add_argument("--variants", nargs="+", default=["config/variants", "config/v2", "config/v3"],
                         help="folders whose *.yaml are variants (files named smoke* in them are smoke configs)")
     parser.add_argument("--smoke", default="config/smoke*.yaml", help="glob of the smoke configs")
     args = parser.parse_args(argv)

@@ -58,7 +58,7 @@ To give the avatar a face, put `avatar.png` (or `avatar.jpg`, `avatar.jpeg`) int
 | `unity/Assets/StreamingAssets/Gym/` | `gym-config.json`, `symbols.json` and the data (`data/<SYMBOL>-1h.csv` for BTCUSDT, ETHUSDT, ADAUSDT, DOGEUSDT and XRPUSDT, a manifest next to each, and `DATA-LICENSE.md`); `avatar/`, where an avatar picture goes; shipped inside every build |
 | `unity/Packages/` | `manifest.json` and `packages-lock.json`: the Unity packages and their versions |
 | `unity/ProjectSettings/` | Unity's project settings, including the editor version (`ProjectVersion.txt`) |
-| `config/` | Training configs (`ppo_base.yaml`, the smoke configs), the comparison variants (`variants/`) and round two's configs (`v2/`); see [config/README.md](config/README.md) |
+| `config/` | Training configs (`ppo_base.yaml`, the smoke configs), the comparison variants (`variants/`), round two's configs (`v2/`) and round three's dial-mode configs (`v3/`); see [config/README.md](config/README.md) |
 | `scripts/data/` | The Binance Vision fetcher (`fetch_binance_klines.py`) and the correlation of returns between coins (`correlation.py`) |
 | `scripts/train/` | Series runners (`run_series.sh`, `run_series.ps1`), the config checker (`check_configs.py`) and the TensorBoard scalar reader (`read_scalars.py`) |
 | `scripts/eval/` | `summarize.py` for evaluation logs; `score_round3.py`, round three's ruler (two thresholds on BTC's falling and rising validation segments, then the mean over the three validation segments of return ÷ drawdown), with its tests `test_score_round3.py` |
