@@ -19,5 +19,10 @@
     { "name": "validation-bear",     "start": "2022-01-01", "end": "2022-12-31" },
     { "name": "validation-recovery", "start": "2023-01-01", "end": "2024-08-31" }
   ],
-  "playStart": "2021-01-01"
+  "playStart": "2021-01-01",
+  "actionMode": "orders",
+  "decisionHours": 24,
+  "rebalanceBand": 0.05,
+  "dialLevels": [0.3, 0.5, 0.7],
+  "dialEpisodeLength": 2160
 }

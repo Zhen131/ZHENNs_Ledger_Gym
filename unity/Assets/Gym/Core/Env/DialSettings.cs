@@ -31,6 +31,15 @@ namespace Gym.Core.Env
         /// <summary>按宽范围查一遍，返回每一条问题（英文）；没有问题时返回空表。配置载入器也用它。</summary>
         public static List<string> Problems(IReadOnlyList<double> levels, int decisionHours, double band)
         {
+            List<string> problems = LevelProblems(levels);
+            if (decisionHours < 1) problems.Add($"decision hours must be a whole number >= 1 (got {decisionHours})");
+            if (!(band > 0 && band < 0.5)) problems.Add($"rebalance band must be inside (0, 0.5) (got {Text(band)})");
+            return problems;
+        }
+
+        /// <summary>只查档位：至少两个、都在 (0, 1) 内、严格递增。返回每一条问题（英文）。</summary>
+        public static List<string> LevelProblems(IReadOnlyList<double> levels)
+        {
             var problems = new List<string>();
             if (levels == null || levels.Count < 2)
                 problems.Add($"dial levels need at least two values (got {(levels == null ? 0 : levels.Count)})");
@@ -45,8 +54,6 @@ namespace Gym.Core.Env
                         problems.Add($"dial levels must be strictly increasing (level {i} = {Text(v)} after {Text(levels[i - 1])})");
                 }
             }
-            if (decisionHours < 1) problems.Add($"decision hours must be a whole number >= 1 (got {decisionHours})");
-            if (!(band > 0 && band < 0.5)) problems.Add($"rebalance band must be inside (0, 0.5) (got {Text(band)})");
             return problems;
         }
 

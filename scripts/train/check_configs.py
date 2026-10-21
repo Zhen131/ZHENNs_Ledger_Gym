@@ -35,7 +35,14 @@ Rules (exit code 1 if any fails):
 - the optional environment parameter risk_aversion (the reward's risk
   coefficient) is a plain number in [0, 100]. The player accepts any finite
   value >= 0; above 100 the penalty dwarfs the return, so it is almost
-  certainly a typo.
+  certainly a typo;
+- the optional environment parameter action_mode is 0 (orders, rounds one and
+  two) or 1 (dial, round three); any other value stops the training player;
+- the optional environment parameters of the dial mode are held to round
+  three's decision document (22A, section two), which is narrower than what the
+  player accepts: decision_hours only 24 (item 5, one decision a day; the
+  player takes any whole number >= 1), rebalance_band a plain number in
+  [0.02, 0.10] (item 6; the player takes anything inside (0, 0.5)).
 
 If the mlagents package is importable, each file is also parsed with ML-Agents'
 own RunOptions, which catches misspelt or misplaced settings.
@@ -59,10 +66,14 @@ SMOKE_PREFIX = "smoke"
 EXPECTED_MULTIPLE = {"sac-base.yaml", "teacher-style.yaml"}
 ENV_PARAMS = ("fee_rate", "fixed_fee", "slippage")
 # 可选的环境参数：观测集。TradingAgent 只认 0、1、2，别的值让训练玩家报错退出。
-OPTIONAL_ENV_PARAMS = {"obs_set": (0, 1, 2)}
+# 动作模式：0 = 下单、1 = 旋钮；别的值让训练玩家报错退出。
+# 旋钮模式每次决策走几根：22A 第二节第 5 条定死 24（每天一次）；训练玩家收任何正整数，这里按 00A 收紧。
+OPTIONAL_ENV_PARAMS = {"obs_set": (0, 1, 2), "action_mode": (0, 1), "decision_hours": (24,)}
 # 可选的环境参数：奖励的风险系数。TradingAgent 接受任何有限的非负数；这里有意更严，超过 100 几乎一定是写错。
 OPTIONAL_ENV_RANGES = {
     "risk_aversion": (lambda value: 0 <= value <= 100, "in [0, 100]"),
+    # 旋钮模式的调仓带宽：22A 第二节第 6 条允许在 2～10 个点之间试；训练玩家收 (0, 0.5)，这里按 00A 收紧。
+    "rebalance_band": (lambda value: 0.02 <= value <= 0.10, "in [0.02, 0.10]"),
 }
 # 除了 PC 上的显卡测速配置，每份配置都用 CPU 训练；那份测速配置就是为了比较两者而存在的。
 # 成批训练脚本的 --device 只改它们在 results/_tmp/ 里的副本，从不改这些文件。

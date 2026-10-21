@@ -28,6 +28,15 @@ namespace Gym.Runtime.Configuration
         public const string RiskAversionArg = "-gymRiskAversion";
         /// <summary>训练用的币，逗号分隔，例如 -gymTrainSymbols BTCUSDT,ETHUSDT。盖过配置里的 trainSymbols。</summary>
         public const string TrainSymbolsArg = "-gymTrainSymbols";
+        /// <summary>动作模式：orders 或 dial。盖过配置里的 actionMode。</summary>
+        public const string ActionModeArg = "-gymActionMode";
+        /// <summary>旋钮模式每次决策走几根（正整数）。盖过配置里的 decisionHours。</summary>
+        public const string DecisionHoursArg = "-gymDecisionHours";
+        /// <summary>旋钮模式的调仓带宽，(0, 0.5) 内。盖过配置里的 rebalanceBand。</summary>
+        public const string BandArg = "-gymBand";
+        /// <summary>旋钮模式每局小时数的合法范围 [720, 2160]（22A 第二节第 5 条）。</summary>
+        public const int MinDialEpisodeLength = 720;
+        public const int MaxDialEpisodeLength = 2160;
         /// <summary>配置里训练用的币那个字段的名字（写进错误信息）。</summary>
         public const string TrainSymbolsField = "trainSymbols";
 
@@ -62,7 +71,10 @@ namespace Gym.Runtime.Configuration
                     GymSettings settings = Load(configPath, DefaultSymbolsPath, args);
                     foreach (string note in settings.Notes) Debug.Log("[Gym] " + note);
                     foreach (string warning in settings.Warnings) Debug.LogWarning("[Gym] " + warning);
-                    Debug.Log($"[Gym] config {settings.ConfigPath}, symbol {settings.Rules.Symbol}, data {settings.DataPath} ({settings.Series.Count} candles), mode {settings.Mode}, observations {settings.ObservationSet.Name()}");
+                    Debug.Log($"[Gym] config {settings.ConfigPath}, symbol {settings.Rules.Symbol}, data {settings.DataPath} ({settings.Series.Count} candles), mode {settings.Mode}, observations {settings.ObservationSet.Name()}, actions {settings.ActionMode.Name()}" +
+                              (settings.ActionMode == ActionMode.Dial
+                                  ? $" (decision hours {settings.DecisionHours}, band {Text(settings.RebalanceBand)}, levels {LevelsText(settings.DialLevels)}, episodes of {settings.DialEpisodeLength} candles)"
+                                  : ""));
                     runtimeSettings = settings;
                     runtimeKey = key;
                     return settings;
@@ -111,6 +123,7 @@ namespace Gym.Runtime.Configuration
             settings.SlippageArg = ReadCostArg(args, SlippageArg, errors, v => new CostModel(0, 0, v));
             settings.RiskAversionArg = ReadRiskAversionArg(args, errors);
             settings.ObservationSet = ReadObservationSet(args, config, errors);
+            ReadDial(args, config, settings, errors);
             CheckNumbers(config, errors);
             var extraNames = new List<string>();
             bool datesOk = ReadDates(config, settings, errors, extraNames);
@@ -146,10 +159,84 @@ namespace Gym.Runtime.Configuration
         public static List<string> ProblemsWithObservationSet(GymSettings settings, ObservationSet set)
         {
             if (settings == null) throw new ArgumentNullException(nameof(settings));
+            return ProblemsWith(settings, set, settings.ActionMode);
+        }
+
+        /// <summary>
+        /// 换成 <paramref name="set"/> 这一档观测、<paramref name="mode"/> 这种动作模式时，每只币的训练段（按这种模式每局的长度
+        /// 和这一档的历史长度）够不够长、playStart 够不够靠后：过返回空表，不过返回每一条错误。不改 <paramref name="settings"/>。
+        /// 训练器的环境参数 obs_set 或 action_mode 和命令行、配置选的不同时，Agent 用它重查一遍。
+        /// </summary>
+        public static List<string> ProblemsWith(GymSettings settings, ObservationSet set, ActionMode mode)
+        {
+            if (settings == null) throw new ArgumentNullException(nameof(settings));
             var errors = new List<string>();
-            CheckSplits(settings, Math.Max(settings.Config.episodeLength, 0), set, errors, new List<string>());
+            CheckSplits(settings, settings.EpisodeLengthFor(mode), set, errors, new List<string>());
             CheckPlayStart(settings.Config, settings, set, errors);
             return errors;
+        }
+
+        /// <summary>
+        /// 动作模式（-gymActionMode，没给时是配置里的 actionMode，空或没有时是 orders）、决策根数（-gymDecisionHours 或
+        /// decisionHours）、带宽（-gymBand 或 rebalanceBand）、档位（dialLevels）、旋钮模式每局长度（dialEpisodeLength）。
+        /// 配置里的值不管有没有被命令行盖过都要对；不对时各记一条错误，不静默回落。下单模式下也查（训练器的 action_mode 能换成旋钮）。
+        /// </summary>
+        static void ReadDial(string[] args, GymConfig config, GymSettings settings, List<string> errors)
+        {
+            var mode = ActionMode.Orders;
+            if (!string.IsNullOrEmpty(config.actionMode) && !ActionModes.TryParse(config.actionMode, out mode))
+                errors.Add($"actionMode '{config.actionMode}' is not an action mode; use {ActionModes.NamesText}");
+            string wanted = CommandLineArgs.ValueOf(args, ActionModeArg);
+            if (wanted != null)
+            {
+                if (ActionModes.TryParse(wanted, out ActionMode fromArgs)) mode = fromArgs;
+                else errors.Add($"{ActionModeArg} {wanted} is not an action mode; use {ActionModes.NamesText}");
+            }
+            settings.ActionMode = mode;
+
+            if (config.decisionHours < 1)
+                errors.Add($"decisionHours must be a whole number >= 1 (got {config.decisionHours})");
+            settings.DecisionHours = config.decisionHours;
+            string hoursText = CommandLineArgs.ValueOf(args, DecisionHoursArg);
+            if (hoursText != null)
+            {
+                if (int.TryParse(hoursText, NumberStyles.Integer, CultureInfo.InvariantCulture, out int hours) && hours >= 1)
+                    settings.DecisionHours = hours;
+                else
+                    errors.Add($"{DecisionHoursArg} {hoursText} is out of range: must be a whole number >= 1");
+            }
+
+            if (!IsBand(config.rebalanceBand))
+                errors.Add($"rebalanceBand must be inside (0, 0.5) (got {Text(config.rebalanceBand)})");
+            settings.RebalanceBand = config.rebalanceBand;
+            double? band = ReadNumberArg(args, BandArg, errors);
+            if (band != null)
+            {
+                if (IsBand(band.Value)) settings.RebalanceBand = band.Value;
+                else errors.Add($"{BandArg} {CommandLineArgs.ValueOf(args, BandArg)} is out of range: must be inside (0, 0.5)");
+            }
+
+            double[] levels = config.dialLevels ?? Array.Empty<double>();
+            foreach (string problem in DialSettings.LevelProblems(levels))
+                errors.Add($"dialLevels: {problem}");
+            settings.DialLevels = Array.AsReadOnly((double[])levels.Clone());
+
+            if (config.dialEpisodeLength < MinDialEpisodeLength || config.dialEpisodeLength > MaxDialEpisodeLength)
+                errors.Add($"dialEpisodeLength must be in [{MinDialEpisodeLength}, {MaxDialEpisodeLength}] (got {config.dialEpisodeLength})");
+            settings.DialEpisodeLength = config.dialEpisodeLength;
+        }
+
+        /// <summary>带宽的宽范围：(0, 0.5)，和 <see cref="DialSettings"/> 一样。</summary>
+        public static bool IsBand(double value) => value > 0 && value < 0.5;
+
+        static string Text(double value) => value.ToString("R", CultureInfo.InvariantCulture);
+
+        /// <summary>日志里的档位，例如 "0.3, 0.5, 0.7"。</summary>
+        public static string LevelsText(IReadOnlyList<double> levels)
+        {
+            var parts = new List<string>();
+            foreach (double level in levels) parts.Add(Text(level));
+            return string.Join(", ", parts);
         }
 
         /// <summary>
@@ -491,7 +578,7 @@ namespace Gym.Runtime.Configuration
                 if (symbol.Series == null) continue; // 读不了数据，上面已经记了错误
                 ClipTraining(symbol, configured, notes);
             }
-            CheckSplits(settings, Math.Max(config.episodeLength, 0), settings.ObservationSet, errors, warnings);
+            CheckSplits(settings, settings.EpisodeLengthFor(settings.ActionMode), settings.ObservationSet, errors, warnings);
             settings.Train = settings.Current.Train;
         }
 

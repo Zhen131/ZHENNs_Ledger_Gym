@@ -34,6 +34,23 @@ namespace Gym.Runtime.Configuration
         /// <see cref="GymConfigLoader.ProblemsWithObservationSet"/>），不改这里。
         /// </summary>
         public ObservationSet ObservationSet;
+        /// <summary>
+        /// 命令行 -gymActionMode 选的动作模式，没给时是配置里的 actionMode，再没有是 orders。分段长度已按它的每局长度查过。
+        /// 训练时训练器的环境参数 action_mode 还能换一种，由 Agent 另查一遍（见 <see cref="GymConfigLoader.ProblemsWith"/>），不改这里。
+        /// </summary>
+        public ActionMode ActionMode;
+        /// <summary>旋钮模式每次决策走几根：-gymDecisionHours，没给时是配置里的 decisionHours。训练器的 decision_hours 还能盖过它。</summary>
+        public int DecisionHours;
+        /// <summary>旋钮模式的调仓带宽：-gymBand，没给时是配置里的 rebalanceBand。训练器的 rebalance_band 还能盖过它。</summary>
+        public double RebalanceBand;
+        /// <summary>旋钮模式的档位（配置里的 dialLevels，已查过）。</summary>
+        public IReadOnlyList<double> DialLevels = Array.Empty<double>();
+        /// <summary>旋钮模式每局的小时数（配置里的 dialEpisodeLength，已查过）。</summary>
+        public int DialEpisodeLength;
+
+        /// <summary>这种动作模式每局的小时数：旋钮模式是 <see cref="DialEpisodeLength"/>，下单模式是配置里的 episodeLength。</summary>
+        public int EpisodeLengthFor(ActionMode mode) =>
+            mode == ActionMode.Dial ? DialEpisodeLength : Math.Max(Config.episodeLength, 0);
         /// <summary>-gymSegment 为评估选的分段（任何一个评估段的名字；默认 test）。</summary>
         public SegmentSpec EvalSegment;
         /// <summary>来自 -gymFeeRate / -gymFixedFee / -gymSlippage 的成本；没给时为 null。</summary>

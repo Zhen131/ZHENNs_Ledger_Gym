@@ -1,4 +1,5 @@
 using System;
+using Gym.Core.Env;
 
 namespace Gym.Runtime.Configuration
 {
@@ -39,5 +40,18 @@ namespace Gym.Runtime.Configuration
         /// 空或没有时是 base。命令行 -gymObs 盖过它，训练器的环境参数 obs_set 又盖过 -gymObs。
         /// </summary>
         public string observationSet;
+        /// <summary>
+        /// 动作模式：orders（下单模式，第一、二轮）或 dial（旋钮模式，第三轮）。空或没有时是 orders。
+        /// 命令行 -gymActionMode 盖过它，训练器的环境参数 action_mode 又盖过 -gymActionMode。
+        /// </summary>
+        public string actionMode = ActionModes.OrdersName;
+        /// <summary>旋钮模式每次决策走几根小时 K 线（正整数）。命令行 -gymDecisionHours、环境参数 decision_hours 盖过它。</summary>
+        public int decisionHours = 24;
+        /// <summary>旋钮模式的调仓带宽，(0, 0.5) 内。命令行 -gymBand、环境参数 rebalance_band 盖过它。</summary>
+        public double rebalanceBand = 0.05;
+        /// <summary>旋钮模式的档位（币占总资产的比例），严格递增、都在 (0, 1) 内、至少两个。</summary>
+        public double[] dialLevels = { 0.3, 0.5, 0.7 };
+        /// <summary>旋钮模式每局的小时数，[720, 2160] 内；下单模式仍用 episodeLength。</summary>
+        public int dialEpisodeLength = 2160;
     }
 }
