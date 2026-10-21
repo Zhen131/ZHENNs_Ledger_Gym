@@ -21,6 +21,9 @@ namespace Gym.Editor
     ///         -gymSegment validation -gymFeeRates 0,0.001,0.003 -gymRandomSeeds 100 -gymOut "$PWD/evaluations"
     ///         [-gymSymbol ETHUSDT] [-gymObs long] [-gymPolicies buyhold,cash,random,momentum,sma,voltarget] -quit
     ///
+    /// 第三轮的两个对手只有点名才跑：-gymPolicies constmix,dialmom（constant_mix_50、dial_momentum_90d，参数固定在 Baselines 里；
+    /// 流水的 notes 写 mode=dial; band=0.05; hours=24; changes=&lt;k&gt;，明细里有和 agent 同名的动作键）。
+    ///
     /// -gymSymbol 选 gym-config.json 的 symbols 里的一只币（不给时是主币），记录里的 symbol、data_file 跟着它。
     /// -gymObs 选观测集（对照组不看观测，只有起点跟着它的历史长度走：评估从 max(段首, 历史长度) 开始）。
     /// -gymSegment 必须给（gym-config.json 里的一个评估段）：没给时抛异常、什么都不写，免得误考测试段
@@ -41,8 +44,17 @@ namespace Gym.Editor
         public const string MomentumPolicy = "momentum";
         public const string SmaCrossPolicy = "sma";
         public const string VolTargetPolicy = "voltarget";
+        /// <summary>第三轮的对手 constant_mix_50（只有点名才跑）。</summary>
+        public const string ConstantMixPolicy = "constmix";
+        /// <summary>第三轮的对手 dial_momentum_90d（只有点名才跑）。</summary>
+        public const string DialMomentumPolicy = "dialmom";
+        /// <summary>不给 -gymPolicies 时跑的六个（第一、二轮的对照组）。两个对手不在里面，要用 -gymPolicies 点名。</summary>
         public static readonly string[] PolicyNames =
             { BuyAndHoldPolicy, CashPolicy, RandomPolicy, MomentumPolicy, SmaCrossPolicy, VolTargetPolicy };
+        /// <summary>第三轮的两个对手的名字：-gymPolicies constmix,dialmom。</summary>
+        public static readonly string[] OpponentPolicyNames = { ConstantMixPolicy, DialMomentumPolicy };
+        /// <summary>-gymPolicies 认的全部名字：默认六个加两个对手。</summary>
+        public static readonly string[] KnownPolicyNames = PolicyNames.Concat(OpponentPolicyNames).ToArray();
 
         static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
@@ -108,6 +120,18 @@ namespace Gym.Editor
                     RunRulePolicy(outDir, settings, env, market, cost, Baselines.SmaCrossName, Baselines.RunSmaCross(env, cost));
                 if (policies.Contains(VolTargetPolicy))
                     RunRulePolicy(outDir, settings, env, market, cost, Baselines.VolTargetName, Baselines.RunVolTarget(env, cost));
+
+                if (policies.Contains(ConstantMixPolicy))
+                {
+                    EpisodeMetrics mix = Baselines.RunConstantMix50(env, cost, out TradingEnv mixEnv);
+                    RunOpponent(outDir, settings, env, market, cost, Baselines.ConstantMix50Name, mix, mixEnv, null);
+                }
+                if (policies.Contains(DialMomentumPolicy))
+                {
+                    EpisodeMetrics mom = Baselines.RunDialMomentum(env, cost, out TradingEnv momEnv);
+                    RunOpponent(outDir, settings, env, market, cost, Baselines.DialMomentumName, mom, momEnv,
+                        d => d.Add("lookback", Baselines.DialMomentumLookback));
+                }
             }
 
             string logPath = Path.Combine(outDir, EvaluationLog.FileName);
@@ -149,6 +173,23 @@ namespace Gym.Editor
             Debug.Log($"[Gym] fee {cost.FeeRate}: {policy} {metrics.TotalReturn:P2} ({metrics.Trades} trades)");
         }
 
+        /// <summary>
+        /// 两个对手之一：和规则一样只跑一次，写一行和一份明细。notes 是 <c>mode=dial; band=0.05; hours=24; changes=&lt;k&gt;</c>
+        /// （<see cref="ActionRecord.Notes(TradingEnv)"/>，读对手跑过的那个旋钮环境），明细加和 agent 同名的七个动作键，
+        /// <paramref name="extra"/> 再加对手自己的参数（dial_momentum_90d 的 lookback）。
+        /// </summary>
+        static void RunOpponent(string outDir, GymSettings settings, TradingEnv env, JsonObject market, CostModel cost,
+            string policy, EpisodeMetrics metrics, TradingEnv dialEnv, Action<JsonObject> extra)
+        {
+            WriteSingleRun(outDir, settings, env, cost, market, policy, metrics, ActionRecord.Notes(dialEnv), details =>
+            {
+                ActionRecord.AddDetails(details, dialEnv);
+                extra?.Invoke(details);
+            });
+            Debug.Log($"[Gym] fee {cost.FeeRate}: {policy} {metrics.TotalReturn:P2} ({metrics.Trades} trades, " +
+                      $"{dialEnv.DialChanges} level changes, {dialEnv.Decisions} decisions)");
+        }
+
         /// <summary>seed 0 … n−1 上的随机 policy：评估流水里一行记中位数，明细文件里记每个 seed。</summary>
         static void RunRandomPolicy(string outDir, GymSettings settings, TradingEnv env, JsonObject market, CostModel cost, int seeds)
         {
@@ -163,13 +204,17 @@ namespace Gym.Editor
             Debug.Log($"[Gym] fee {cost.FeeRate}: random median {median.TotalReturn:P2} (p5 {p5:P2}, p95 {p95:P2})");
         }
 
-        /// <summary>只运行一次的 policy（买入持有、一直拿现金、三条规则）：写评估流水的一行，和一份带指标的明细文件。</summary>
+        /// <summary>
+        /// 只运行一次的 policy（买入持有、一直拿现金、三条规则、两个对手）：写评估流水的一行，和一份带指标的明细文件。
+        /// 老的五个 notes 为空、明细不加键；两个对手给 notes 和 <paramref name="addDetails"/>（加在 seeds 之后、metrics 之前）。
+        /// </summary>
         static void WriteSingleRun(string outDir, GymSettings settings, TradingEnv env, CostModel cost, JsonObject market,
-            string policy, EpisodeMetrics metrics)
+            string policy, EpisodeMetrics metrics, string notes = "", Action<JsonObject> addDetails = null)
         {
             DateTime now = DateTime.UtcNow;
-            EvaluationRecord record = BaselineRecord(now, settings, env, cost, policy, metrics, 1, "");
+            EvaluationRecord record = BaselineRecord(now, settings, env, cost, policy, metrics, 1, notes ?? "");
             JsonObject details = DetailsHead(now, record, settings, env, cost, market);
+            addDetails?.Invoke(details);
             details.Add("metrics", EvaluationLog.MetricsJson(metrics));
             Save(outDir, now, record, details);
         }
@@ -258,7 +303,10 @@ namespace Gym.Editor
             EvaluationLog.WriteRunDetails(outDir, now, record.Policy, record.Segment, details);
         }
 
-        /// <summary>-gymPolicies：buyhold、cash、random、momentum、sma、voltarget 里用逗号分隔的一部分；没给时六个都要。</summary>
+        /// <summary>
+        /// -gymPolicies：buyhold、cash、random、momentum、sma、voltarget、constmix、dialmom 里用逗号分隔的一部分；
+        /// 没给时是前六个（两个对手只有点名才跑）。
+        /// </summary>
         public static HashSet<string> ParsePolicies(string text)
         {
             if (string.IsNullOrWhiteSpace(text)) return new HashSet<string>(PolicyNames);
@@ -266,8 +314,8 @@ namespace Gym.Editor
             foreach (string part in text.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
             {
                 string name = part.Trim().ToLowerInvariant();
-                if (!PolicyNames.Contains(name))
-                    throw new ArgumentException($"{PoliciesArg}: unknown policy '{part.Trim()}'; use {string.Join(", ", PolicyNames)}");
+                if (!KnownPolicyNames.Contains(name))
+                    throw new ArgumentException($"{PoliciesArg}: unknown policy '{part.Trim()}'; use {string.Join(", ", KnownPolicyNames)}");
                 chosen.Add(name);
             }
             if (chosen.Count == 0) throw new ArgumentException($"{PoliciesArg} names no policy");

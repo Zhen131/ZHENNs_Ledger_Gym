@@ -22,7 +22,11 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-POLICY_ORDER = {"buy_and_hold": 0, "cash": 1, "random": 2, "momentum_90d": 3, "sma_cross": 4, "vol_target": 5, "agent": 6}
+# 表里的先后：第一、二轮的六个对照组，第三轮的两个对手（排在三条老规则之后），最后是 agent。没列名的排在最后。
+POLICY_ORDER = {
+    "buy_and_hold": 0, "cash": 1, "random": 2, "momentum_90d": 3, "sma_cross": 4, "vol_target": 5,
+    "constant_mix_50": 6, "dial_momentum_90d": 7, "agent": 8,
+}
 
 
 def policy_label(row: dict) -> str:
