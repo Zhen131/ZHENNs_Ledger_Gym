@@ -1,0 +1,46 @@
+{
+  "timestamp_utc": "2026-10-21T00:00:21.891Z",
+  "kind": "agent",
+  "policy": "agent",
+  "generated_by": "Gym.Runtime.Evaluation.EvalRunner",
+  "model_run_id": "mix-ppo_v2-s3-20261020",
+  "model_sha256": "2fa05a6752a93f3103abad868da6c80bc480549788737a60c6158fe68a2e4873",
+  "model_file": "TradingAgent.onnx",
+  "build_built_at_utc": "2026-10-21T00:00:02Z",
+  "unity_version": "6000.0.84f1",
+  "behavior_type": "InferenceOnly",
+  "deterministic_inference": true,
+  "inference_device": "Burst",
+  "symbol": "BTCUSDT",
+  "data_file": "data/BTCUSDT-1h.csv",
+  "observation_set": "base",
+  "history_length": 32,
+  "segment": {
+    "name": "validation-recovery",
+    "start_date": "2023-01-01",
+    "end_date": "2024-08-31",
+    "first_candle_utc": "2023-01-01T00:00:00.000Z",
+    "last_candle_utc": "2024-08-31T23:00:00.000Z",
+    "steps": 14615
+  },
+  "cost": {
+    "fee_rate": 0.001,
+    "fixed_fee": 0,
+    "slippage": 0
+  },
+  "initial_cash": 10000,
+  "metrics": {
+    "total_return": 0.511539961618084,
+    "max_drawdown": 0.36008993996000938,
+    "sharpe": 0.66606661395729438,
+    "trades": 4147,
+    "rejected": 6813,
+    "turnover": 412.67541752147918,
+    "fees_paid": 5901.3979848191993,
+    "fees_pct": 59.013979848191987,
+    "exposure": 0.99828942866917547,
+    "steps": 14615,
+    "initial_equity": 10000,
+    "final_equity": 15115.399616180839
+  }
+}
